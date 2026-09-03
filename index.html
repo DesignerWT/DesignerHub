@@ -1225,14 +1225,14 @@ body.vb-dragging, body.vb-dragging *{cursor:grabbing!important}
     // alone entirely — never override an already-provided storage bridge. This block only ever
     // activates as the DEFAULT for a plain browser tab that has nothing else providing it.
     if (typeof window.storage === 'undefined') {
-      // ---- PASTE YOUR OWN FIREBASE PROJECT'S CONFIG HERE (step 3-4 above) ----
+      // ---- GD Worldtech's live Firebase project (gdworking-447dc) ----
       const FIREBASE_CONFIG = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_PROJECT.firebaseapp.com",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_PROJECT.appspot.com",
-        messagingSenderId: "YOUR_SENDER_ID",
-        appId: "YOUR_APP_ID",
+        apiKey: "AIzaSyApiLQ0GVpzGZRMDXK1ej_NnW47sg24ZVk",
+        authDomain: "gdworking-447dc.firebaseapp.com",
+        projectId: "gdworking-447dc",
+        storageBucket: "gdworking-447dc.firebasestorage.app",
+        messagingSenderId: "59825125818",
+        appId: "1:59825125818:web:359944a52323d977fc0583",
       };
       const FIRESTORE_COLLECTION = 'worldtech_storage';
 
@@ -1245,6 +1245,14 @@ body.vb-dragging, body.vb-dragging *{cursor:grabbing!important}
         }
       } catch (e) { console.error('Firebase init failed', e); }
 
+      // __fbReady only proves the config looks filled-in and the SDK object constructed — it does
+      // NOT prove reads/writes actually succeed (Firestore Rules not published yet, wrong project,
+      // network/ad-blocker blocking Google domains, etc. all fail silently otherwise). Track BOTH:
+      // "never configured" and "configured but every call is failing" need the same loud warning,
+      // since either way nothing is actually being saved.
+      window.__storageOffline = !__fbReady;
+      let __sawStorageSuccess = false;
+
       // Small in-memory cache so the many window.storage.get() calls loadData() fires at boot
       // don't all round-trip to Firestore individually after the first read of a given key within
       // this page view. set() always writes straight through (never served from cache).
@@ -1253,33 +1261,45 @@ body.vb-dragging, body.vb-dragging *{cursor:grabbing!important}
         get: async (key) => {
           if (!__fbReady) { window.__storageOffline = true; return null; }
           try {
-            if (key in __fbCache) return __fbCache[key];
+            if (key in __fbCache) { __sawStorageSuccess = true; return __fbCache[key]; }
             const snap = await window.__fbDb.collection(FIRESTORE_COLLECTION).doc(key).get();
             const result = snap.exists ? { value: snap.data().value } : null;
             __fbCache[key] = result;
+            __sawStorageSuccess = true;
+            window.__storageOffline = false;
             return result;
-          } catch (e) { console.error('storage.get failed for', key, e); return null; }
+          } catch (e) { console.error('storage.get failed for', key, '— check Firestore Rules / project config:', e); window.__storageOffline = true; return null; }
         },
         set: async (key, value) => {
           if (!__fbReady) { window.__storageOffline = true; return false; }
           try {
             __fbCache[key] = { value };
             await window.__fbDb.collection(FIRESTORE_COLLECTION).doc(key).set({ value, updated_at: new Date().toISOString() });
+            __sawStorageSuccess = true;
+            window.__storageOffline = false;
             return true;
-          } catch (e) { console.error('storage.set failed for', key, e); return false; }
+          } catch (e) { console.error('storage.set failed for', key, '— check Firestore Rules / project config:', e); window.__storageOffline = true; return false; }
         },
       };
 
-      // Loud, impossible-to-miss warning if someone deploys this file before step 3-4 above is
-      // done — better than silently losing every edit on the next refresh.
-      if (!__fbReady) {
-        window.addEventListener('DOMContentLoaded', () => {
-          const banner = document.createElement('div');
-          banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#dc2626;color:#fff;padding:9px 16px;font:600 13px system-ui,sans-serif;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.25)';
-          banner.textContent = '⚠️ ยังไม่ได้เชื่อมต่อ Central Storage (FIREBASE_CONFIG) — ข้อมูลทุกอย่างที่แก้ไขตอนนี้จะหายเมื่อ Refresh หน้า ดูวิธีตั้งค่าในคอมเมนต์ต้นไฟล์';
-          document.body.prepend(banner);
-        });
-      }
+      // Loud, impossible-to-miss warning whenever storage isn't actually working — whether that's
+      // because FIREBASE_CONFIG was never filled in, or because it IS filled in but every read/write
+      // is failing (most commonly: Firestore Rules were never published, still the "test mode"
+      // 30-day default, or denying everything). Checked a couple seconds after boot, once loadData()
+      // has had a chance to make its first real round-trip, rather than only at the instant this
+      // script runs (which is before any Firestore call has even been attempted).
+      window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+          if (window.__storageOffline && !__sawStorageSuccess) {
+            const banner = document.createElement('div');
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#dc2626;color:#fff;padding:9px 16px;font:600 13px system-ui,sans-serif;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+            banner.textContent = __fbReady
+              ? '⚠️ เชื่อมต่อ Firebase ไม่สำเร็จ (ตรวจ Firestore Rules / Project ให้ตรง) — ข้อมูลทุกอย่างที่แก้ไขตอนนี้จะหายเมื่อ Refresh หน้า'
+              : '⚠️ ยังไม่ได้เชื่อมต่อ Central Storage (FIREBASE_CONFIG) — ข้อมูลทุกอย่างที่แก้ไขตอนนี้จะหายเมื่อ Refresh หน้า ดูวิธีตั้งค่าในคอมเมนต์ต้นไฟล์';
+            document.body.prepend(banner);
+          }
+        }, 2500);
+      });
     }
   </script>
 
