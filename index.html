@@ -1371,6 +1371,26 @@ body.vb-dragging, body.vb-dragging *{cursor:grabbing!important}
 .deliver-input{width:100%;box-sizing:border-box;padding:10px 12px;font-size:13px;border:1px solid var(--line);border-radius:9px}
 .deliver-submit-btn{width:100%;padding:10px 14px;font-size:13px}
 .deliver-current{margin-top:10px}
+/* Final Work Folder (Krissha, request): "งานเสร็จแล้ว -> ผู้ใช้ไม่ควรต้องค้นหาว่าไฟล์อยู่ไหน" — a permanent,
+   never-collapsed Quick Access card pinned as the very first thing in the panel for a Completed task, so
+   the one piece of information everyone opening a finished job actually needs (where's the file) is
+   reachable in one click from the top of the page, instead of buried in the Brief Links accordion. */
+.fwf-wrap{margin-bottom:0}
+.fwf-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94A3B8;margin-bottom:8px}
+.fwf-card{display:flex;align-items:flex-start;gap:12px;width:100%;box-sizing:border-box;min-height:96px;max-height:104px;
+  padding:14px 16px;border-radius:12px;border:1px solid #D5D2FF;background:#F4F3FF;text-align:left;font:inherit;color:inherit;
+  text-decoration:none;transition:border-color .15s,background .15s}
+a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
+.fwf-card.fwf-empty{border-style:dashed;align-items:center}
+.fwf-icon{width:36px;height:36px;border-radius:10px;background:#E5E2FF;display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0}
+.fwf-body{min-width:0;flex:1}
+.fwf-title{font-size:14px;font-weight:600;line-height:20px;color:#252838}
+.fwf-desc{font-size:12px;font-weight:400;line-height:18px;color:#8A94A6;margin-top:2px}
+.fwf-cta{font-size:13px;font-weight:600;color:#635BFF;margin-top:8px}
+.fwf-addform{display:flex;gap:8px;margin-top:8px;width:100%}
+.fwf-addinput{flex:1;min-width:0;padding:8px 10px;font-size:12.5px;border:1px solid var(--line);border-radius:8px}
+.fwf-addbtn{white-space:nowrap;padding:8px 12px;font-size:12.5px}
 /* Bug (reported): on a narrower browser window the Canvas column was invisibly clipped off the right edge
    of the screen with no way to scroll to it — Task Info/Artworks looked "incomplete" and the page felt
    broken. Root cause: .taskws-canvas-col has no explicit width (only min-width:380px), so once
@@ -4104,7 +4124,7 @@ function renderPOBriefsList(kind){
           <td>${fmtDateTime(lastUpdateOf(t))}</td>
           <td class="hint">${t.assigned_user_name || 'Pending Assignment'}</td>
           <td style="white-space:nowrap">
-            ${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Open Work Folder" onclick="event.stopPropagation()">📁 Open Work Folder ↗</a>` : ''}
+            ${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 Final Work Folder ↗</a>` : ''}
             ${canDeleteBrief(t) ? `<button type="button" class="btn btn-sm btn-ghost" data-deletebrief="${t.task_id}" title="Delete Brief" style="color:#DC2626">🗑</button>` : ''}
           </td>
         </tr>`;
@@ -8746,16 +8766,71 @@ function renderBriefLinksCard(t, aw){
   }
   if(t.kv_asset_link) items.push({label:'KV / Mood & Tone Link', url:t.kv_asset_link});
   if(t.aw_link) items.push({label:'AW Link (ไฟล์งานที่ส่งตรวจ)', url:t.aw_link});
-  // Completed Work File (Krissha, request): shown here too, not only in the Historical Record — this is
-  // the SAME Task Workspace page for a normal Task Detail and a backdated task's Historical Task Detail,
-  // so one addition covers both required locations at once.
-  if(t.completedWorkFolderUrl) items.push({label:'Completed Work File', url:t.completedWorkFolderUrl, workFolder:true});
+  // Completed Work File (Krissha, request — revised): the finished-file link now lives in its own
+  // always-open "Final Work Folder" Quick Access card at the very top of the panel (see
+  // renderFinalWorkFolderCard), not buried in this Brief Links accordion — this card goes back to only
+  // Brief / Reference / Supporting Links, per her explicit follow-up.
   if(!items.length) return '<div class="hint">ไม่มีลิงก์แนบ</div>';
   return items.map(l=>`
     <a href="${l.url}" target="_blank" rel="noopener" class="drivebtn" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:8px;width:100%;box-sizing:border-box">
-      <span>${l.workFolder?'📁':'🔗'} ${l.workFolder?'Open Work Folder ↗':l.label}${l.shared?' · <span class="hint" style="font-weight:400">Shared</span>':''}</span>
-      <span class="hint" style="font-weight:400">${l.workFolder?'ไฟล์งานที่เสร็จแล้ว':detectLinkSource(l.url)}</span>
+      <span>🔗 ${l.label}${l.shared?' · <span class="hint" style="font-weight:400">Shared</span>':''}</span>
+      <span class="hint" style="font-weight:400">${detectLinkSource(l.url)}</span>
     </a>`).join('');
+}
+/* Final Work Folder (Krissha, request): a permanent, non-collapsible Quick Access card — never buried in
+   an accordion — for the one thing everyone opening a Completed task actually wants first: where's the
+   real finished file. Only appears for a Completed (delivered) task; the whole card is a plain <a> so
+   "click anywhere on the card" and "click the Open Folder text" are the same action, no JS needed. With
+   no link yet, an editor (same eligibility as Edit Brief) gets an inline "+ Add Folder Link" input right
+   in the card; anyone else just sees that no file has been attached yet. */
+// canEditBriefTask() deliberately excludes review_status==='delivered' (you can't re-edit a Brief once it
+// ships) — but attaching the finished-file folder is specifically an action taken ON a Completed task, so
+// it needs its own permission check, not a reuse of one designed to exclude that exact state. Same identity
+// rule as everywhere else in this app: Lead Designer/admin can act on any task, a plain Designer only on
+// one they were assigned or created.
+function canEditWorkFolder(t){
+  if(!STATE.auth.loggedIn || !t || STATE.auth.role!=='designer') return false;
+  if(hasAdminAccess()) return true;
+  const email = STATE.auth.user?.email || STATE.auth.identity;
+  return t.assigned_user_name===STATE.auth.identity || (!!t.created_by_email && t.created_by_email===email);
+}
+function renderFinalWorkFolderCard(t){
+  if(t.review_status!=='delivered') return '';
+  const url = t.completedWorkFolderUrl||'';
+  const canEdit = canEditWorkFolder(t);
+  const label = t.is_backdated ? 'Completed Work Folder' : 'Final Work Folder';
+  let body;
+  if(url){
+    body = `<a class="fwf-card" href="${escAttr(url)}" target="_blank" rel="noopener">
+      <div class="fwf-icon">📁</div>
+      <div class="fwf-body">
+        <div class="fwf-title">${label}</div>
+        <div class="fwf-desc">ไฟล์งานที่เสร็จแล้ว</div>
+        <div class="fwf-cta">Open Folder ↗</div>
+      </div>
+    </a>`;
+  } else if(canEdit){
+    body = `<div class="fwf-card fwf-empty">
+      <div class="fwf-icon">📁</div>
+      <div class="fwf-body">
+        <div class="fwf-title">${label}</div>
+        <div class="fwf-desc">ยังไม่ได้แนบโฟลเดอร์งาน</div>
+        <div class="fwf-addform">
+          <input type="url" id="fwfInput_${t.task_id}" class="fwf-addinput" placeholder="Paste Google Drive folder link">
+          <button type="button" class="btn btn-primary fwf-addbtn" data-fwfsubmit="${t.task_id}">+ Add Folder Link</button>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    body = `<div class="fwf-card fwf-empty">
+      <div class="fwf-icon">📁</div>
+      <div class="fwf-body">
+        <div class="fwf-title">${label}</div>
+        <div class="fwf-desc">ยังไม่มีไฟล์งาน</div>
+      </div>
+    </div>`;
+  }
+  return `<div class="fwf-wrap"><div class="fwf-label">FINAL WORK</div>${body}</div>`;
 }
 /* "ช่องดรอปงานใหญ่ๆแยกออกมา ให้ดูเป็นมาตรฐานสากล" (Krissha, request): submitting the deliverable is the one
    action every Designer visits this page for while a task is in_progress/revision — it used to be a single
@@ -8856,6 +8931,7 @@ function renderTaskWorkspacePage(t){
     </div>
     <div class="taskws-body">
       <div class="taskws-panel-col">
+        ${renderFinalWorkFolderCard(t)}
         <!-- Feedback: this page felt unfriendly/incomplete-at-a-glance for a Project Owner because the one
              thing they open it for — "where is my job right now" — used to sit BELOW Task Info + Artworks,
              so it required scrolling past a wall of field labels first. Status now leads the panel, with a
@@ -10805,6 +10881,20 @@ function bindEvents(){
     input?.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doSubmit(); } });
   });
 
+  // Final Work Folder "+ Add Folder Link" inline form (renderFinalWorkFolderCard) — same paste-a-link ->
+  // click/Enter pattern as the deliver card above.
+  document.querySelectorAll('[data-fwfsubmit]').forEach(btn=>{
+    const id = btn.dataset.fwfsubmit;
+    const input = document.getElementById('fwfInput_'+id);
+    const doSubmit = ()=>{
+      const link = input?.value.trim();
+      if(!link){ toast('กรุณาวางลิงก์ก่อน'); return; }
+      submitWorkFolderLink(id, link);
+    };
+    btn.addEventListener('click', doSubmit);
+    input?.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); doSubmit(); } });
+  });
+
   // DEV SPEC — My Work Kanban §6 Drag & Drop Permission. Native HTML5 drag-and-drop (no library): dragstart
   // stashes the task id on the DataTransfer itself (survives the drag independent of any render() that might
   // happen in between — nothing does here, but it's the correct way to carry state across a drag regardless),
@@ -12230,6 +12320,20 @@ function importBackup(e){
   reader.readAsText(file);
 }
 
+// Final Work Folder — "+ Add Folder Link" (Krissha, request): lets an editor attach the finished-file
+// folder straight from the Task Detail panel, not only from the Backdated Task form, so a normal task
+// completed through the regular workflow can get one too.
+async function submitWorkFolderLink(taskId, link){
+  const t = STATE.tasks.find(x=>x.task_id===taskId);
+  if(!t) return;
+  if(!isValidHttpUrl(link)){ toast('Work Folder Link ไม่ถูกต้อง กรุณาวางลิงก์ URL ที่ถูกต้อง'); return; }
+  t.completedWorkFolderUrl = link;
+  t.review_history = t.review_history || [];
+  t.review_history.push({timestamp:new Date().toISOString(), action:'WORK_FOLDER_ATTACHED', comment:`Final Work Folder: ${link}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+  await saveTasks();
+  toast('📁 แนบ Final Work Folder แล้ว');
+  render();
+}
 async function submitDeliveryLink(taskId, link){
   const t = STATE.tasks.find(x=>x.task_id===taskId);
   if(!t) return;
