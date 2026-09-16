@@ -13028,14 +13028,15 @@ async function loadGdriveBrowserFolder(folderId){
 }
 // Thumbnails go through gdriveFetchThumbnailViaProxy (real, small Drive thumbnails — see that function's
 // comment for why: fetching full-size files here was both slow and, for Krissha's biggest product PNGs
-// (13-14MB), outright failing). Thumbnails are tiny, so a higher concurrency than the full-download path
-// is safe and meaningfully faster for folders with many images — but ONLY once we know the deployed Apps
-// Script actually supports ?action=thumb. An older deployment answers UNKNOWN_ACTION for every single
-// image, which used to mean every tile wasted a doomed thumb attempt before falling back to a full-size
-// fetch — and piling 6-at-a-time full-size fallback fetches on top of each other (worse than the old
-// CONCURRENCY=3 full-file-only path) is what actually broke most of the grid for Krissha. So: probe once
-// per session (GDRIVE_THUMB_SUPPORTED, declared above near GDRIVE_DEFAULT_FOLDER_ID) instead of once per
-// file, and use the lower, previously-safe concurrency whenever thumbnails aren't available yet.
+// (13-14MB), outright failing) — but ONLY once we know the deployed Apps Script actually supports
+// ?action=thumb. An older deployment answers UNKNOWN_ACTION for every single image, which used to mean
+// every tile wasted a doomed thumb attempt before falling back to a full-size fetch. So: probe once per
+// session (GDRIVE_THUMB_SUPPORTED, declared above near GDRIVE_DEFAULT_FOLDER_ID) instead of once per file.
+// Concurrency: the Apps Script side now uses DriveApp.File.getThumbnail() (one in-process call) instead
+// of two separate UrlFetchApp round trips to the Drive REST API — that was the actual reason thumbnails
+// stayed slow even after switching away from full-size files. With that fixed, a moderate concurrency is
+// safe again; keep it below the old full-file CONCURRENCY (still real network+base64 work per tile, just
+// less of it than before).
 async function loadGdriveBrowserThumbnails(b){
   const batch = b.images.slice();
   if(!batch.length) return;
@@ -13048,7 +13049,7 @@ async function loadGdriveBrowserThumbnails(b){
     }
     if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
   }
-  const CONCURRENCY = GDRIVE_THUMB_SUPPORTED ? 6 : 3;
+  const CONCURRENCY = GDRIVE_THUMB_SUPPORTED ? 4 : 3;
   let idx = 0;
   async function worker(){
     while(idx < batch.length){
@@ -13134,7 +13135,7 @@ function renderGdriveBrowser(){
       </div>
       <div class="gdrive-browse-foot">
         <button type="button" class="ft-btn ft-btn-secondary" id="gdriveBrowseCancel" style="flex:1">ยกเลิก</button>
-        <button type="button" class="ft-btn ft-btn-primary" id="gdriveBrowseImport" style="flex:1" ${selCount && !b.importing?'':'disabled'}>${b.importing?'กำลังนำเข้า...':`นำเข้าที่เลือก (${selCount})`}</button>
+        <button type="button" class="ft-btn ft-btn-primary" id="gdriveBrowseImport" style="flex:1" ${selCount && !b.importing?'':'disabled'}>${b.importing?`กำลังนำเข้า ${b.importDone||0}/${b.importTotal||selCount}...`:`นำเข้าที่เลือก (${selCount})`}</button>
       </div>
     </div>
   </div>`;
@@ -13194,8 +13195,18 @@ function bindGdriveBrowser(){
     st.driveUrl = `https://drive.google.com/drive/folders/${curFolderId}`;
     st.driveReference = files.length===1 ? files[0].name : `${files.length} รูปที่เลือกจาก Drive`;
     b.importing = true;
+    b.importDone = 0;
+    b.importTotal = files.length;
     refreshGdriveBrowserPortal();
-    await gdriveImportPickedFiles(mode, files, null);
+    // Krissha, bug report: "กดนำเข้า นานมาก...” — the import button used to just say a static "กำลังนำเข้า..."
+    // the whole time with zero progress feedback (the old setBtnLabel-based counter was dead code — this
+    // call always passed btn:null), so a genuinely-in-progress import LOOKED frozen. Passing a real
+    // progress callback here instead fixes that: the button now counts up live as each file finishes.
+    await gdriveImportPickedFiles(mode, files, (done, total)=>{
+      if(STATE.gdriveBrowser !== b) return;
+      b.importDone = done; b.importTotal = total;
+      refreshGdriveBrowserPortal();
+    });
     closeGdriveBrowser();
     render();
   });
@@ -13206,18 +13217,16 @@ function bindGdriveBrowser(){
 // Krissha, bug report: "ตอนนำเข้าก็ช้า" — this used to download one file at a time in a plain loop, so a
 // batch of 8 files meant 8 full-size round trips through the proxy back to back. Full quality is still
 // needed here (unlike the grid, which now uses small thumbnails), so this downloads several files in
-// parallel instead of serially — same CONCURRENCY as thumbnails is too aggressive for full-size payloads,
-// so this uses a smaller number.
-async function gdriveImportPickedFiles(mode, files, btn){
-  const setBtnLabel = (t)=>{ if(btn) btn.textContent = t; };
-  if(btn) btn.disabled = true;
+// parallel instead of serially. onProgress(done, total), when given, is called after each file finishes
+// (success or failure) so the caller can show live progress instead of a static "importing..." label.
+async function gdriveImportPickedFiles(mode, files, onProgress){
   try{
     if(!gdriveProxyUrl()) throw new Error('NO_PROXY_URL');
     const assets = [];
     let done = 0;
-    const CONCURRENCY = 3;
+    const CONCURRENCY = 4;
     let idx = 0;
-    setBtnLabel(`กำลังโหลดรูป 0/${files.length}...`);
+    if(onProgress) onProgress(0, files.length);
     async function worker(){
       while(idx < files.length){
         const f = files[idx++];
@@ -13226,7 +13235,7 @@ async function gdriveImportPickedFiles(mode, files, btn){
           assets.push({id:'ft_drive_'+f.id, name:f.name, previewUrl:objUrl, source:'Google Drive', selected:true});
         }catch(e){ /* skip failed file */ }
         done++;
-        setBtnLabel(`กำลังโหลดรูป ${done}/${files.length}...`);
+        if(onProgress) onProgress(done, files.length);
       }
     }
     const workers = []; for(let i=0;i<CONCURRENCY;i++) workers.push(worker());
@@ -13240,8 +13249,6 @@ async function gdriveImportPickedFiles(mode, files, btn){
     if(msg==='NO_PROXY_URL') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
     else toast('เชื่อมต่อ Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
     return false;
-  } finally {
-    if(btn){ btn.disabled = false; }
   }
 }
 
