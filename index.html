@@ -2369,9 +2369,19 @@ async function loadData(){
   // Frame Tool — Google Drive Import (Krissha, request): Admin-set Apps Script Proxy URL that lets
   // "โหลดจาก Drive" actually list/download real files without hitting Drive's CORS wall (see
   // renderAdminPanel()'s "Google Drive Integration" card + gdriveFetchImageViaProxy()). Shared across
-  // every user, same storage pattern as BRIEF_TEMPLATES above — never per-browser.
-  try{ const r = await window.storage.get('wt_gdrive_config', true); STATE.gdriveConfig = r ? JSON.parse(r.value) : {proxyUrl:''}; }
-  catch(e){ STATE.gdriveConfig = {proxyUrl:''}; }
+  // every user, same storage pattern as BRIEF_TEMPLATES above — never per-browser. shortcuts (added
+  // later, Krissha request: "เพิ่มให้สามารถเพิ่มลิงค์โฟล์เดอร์รูปได้ใหม่เอง") is an Admin-editable list of
+  // named folder shortcuts so "เลือกจาก Drive" can jump straight into a known folder (1 Year Waranty, 3
+  // Years Waranty, etc.) instead of navigating down from "Automation Img" every single time — falls back
+  // to GDRIVE_DEFAULT_SHORTCUTS (declared near GDRIVE_DEFAULT_FOLDER_ID below) for anyone who saved
+  // Drive settings before this existed.
+  try{
+    const r = await window.storage.get('wt_gdrive_config', true);
+    STATE.gdriveConfig = r ? JSON.parse(r.value) : {};
+  }catch(e){ STATE.gdriveConfig = {}; }
+  if(!STATE.gdriveConfig || typeof STATE.gdriveConfig !== 'object') STATE.gdriveConfig = {};
+  if(STATE.gdriveConfig.proxyUrl == null) STATE.gdriveConfig.proxyUrl = '';
+  if(!Array.isArray(STATE.gdriveConfig.shortcuts)) STATE.gdriveConfig.shortcuts = GDRIVE_DEFAULT_SHORTCUTS.slice();
   // Designer/Lead Designer Login: remember which of the 3 accounts was last used ON THIS BROWSER (never
   // the password) so the login screen can jump straight to the Password step for it. Only honored if that
   // account is still an active Designer/Lead — an inactive/removed account falls back to the picker.
@@ -10688,6 +10698,11 @@ function renderAdminPanel(){
         <label>Drive Proxy URL (Apps Script Web App)</label>
         <input type="text" id="gdriveProxyUrl" value="${escAttr(STATE.gdriveConfig?.proxyUrl||'')}" placeholder="https://script.google.com/macros/s/xxxxxxxxxxxxx/exec">
       </div>
+      <div class="field" style="margin-top:10px">
+        <label>ทางลัดโฟลเดอร์ (Drive Shortcuts)</label>
+        <p class="hint" style="margin:2px 0 6px">แสดงเป็นปุ่มลัดในหน้า "เลือกจาก Drive" ของ Frame Tool — บรรทัดละ 1 รายการ รูปแบบ <code>ชื่อที่จะแสดง | ลิงก์โฟลเดอร์ Drive หรือ Folder ID</code> (คัดลอกลิงก์จากแถบที่อยู่ตอนเปิดโฟลเดอร์ใน Drive ได้เลย ระบบดึง ID ออกมาเอง)</p>
+        <textarea id="gdriveShortcuts" rows="7" style="width:100%;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border,#ccc);border-radius:6px" placeholder="1 Year Waranty | https://drive.google.com/drive/folders/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">${escAttr(gdriveShortcuts().map(s=>`${s.name} | ${s.folderId}`).join('\n'))}</textarea>
+      </div>
       <button type="submit" class="btn btn-primary" style="width:100%;margin-top:10px">บันทึก Google Drive Settings</button>
     </form>
   </div>
@@ -11557,7 +11572,17 @@ function bindEvents(){
   document.getElementById('gdriveConfigForm')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const proxyUrl = document.getElementById('gdriveProxyUrl')?.value.trim() || '';
-    STATE.gdriveConfig = {...(STATE.gdriveConfig||{}), proxyUrl};
+    // Krissha, request: "เพิ่มให้สามารถเพิ่มลิงค์โฟล์เดอร์รูปได้ใหม่เอง" — one shortcut per line, "name |
+    // folder link or ID". gdriveExtractFolderId() pulls the ID out whether she pastes a full Drive URL
+    // (…/folders/XXXX, or open?id=XXXX) or just the bare ID.
+    const shortcutsRaw = document.getElementById('gdriveShortcuts')?.value || '';
+    const shortcuts = shortcutsRaw.split('\n').map(line=>line.trim()).filter(Boolean).map(line=>{
+      const parts = line.split('|');
+      const folderId = gdriveExtractFolderId((parts[1]||'').trim());
+      const name = (parts[0]||'').trim() || folderId;
+      return {name, folderId};
+    }).filter(s=>s.folderId);
+    STATE.gdriveConfig = {...(STATE.gdriveConfig||{}), proxyUrl, shortcuts};
     await saveKey('wt_gdrive_config', STATE.gdriveConfig);
     toast('✅ บันทึก Google Drive Settings แล้ว');
   });
@@ -12840,6 +12865,18 @@ let FT_IMG_CACHE = {};
 // 6 Month Waranty / ALL SKUs in SHOP / All Waranty / No Waranty without navigating down from My Drive each
 // time. She can still navigate elsewhere in the browser if she ever needs a different folder.
 const GDRIVE_DEFAULT_FOLDER_ID = '1wDODqsNR7bMWSKj1W8RZMmQOr4JGujWu';
+// Pre-filled Admin-editable shortcuts (Krissha, request: "เพิ่มให้สามารถเพิ่มลิงค์โฟล์เดอร์รูปได้ใหม่เอง")
+// — seeded with the 6 folders actually found under "Automation Img" so there's something useful here on
+// first load; Admin can rename/replace/add more in Admin Panel > Google Drive Integration at any time
+// (see renderAdminPanel()'s gdriveShortcuts textarea + its submit handler for the editable side of this).
+const GDRIVE_DEFAULT_SHORTCUTS = [
+  {name:'1 Year Waranty', folderId:'13s0yeDZ_EVqAYbLUc1V_c6gDgDOCOqda'},
+  {name:'3 Years Waranty', folderId:'1TJYVeH51eHeaDyUmN0fT02dXeQhKjvVq'},
+  {name:'6 Month Waranty', folderId:'12ureuFisaX4aoUm04-UnX19Ykza3T2F6'},
+  {name:'No Waranty', folderId:'19-r6bVqMt5jZIHRIs_l5COFVCAObeVr7'},
+  {name:'All Waranty', folderId:'1Itv-Z8z2YNH-b47FKo1-u4Uui9wHVkaZ'},
+  {name:'ALL SKUs in SHOP', folderId:'1CljWMtT8i1Q-HmMn4hC0lt2d00WagXfm'},
+];
 // null = not checked yet this session, true/false = cached once loadGdriveBrowserThumbnails() finds out
 // whether the deployed Apps Script proxy answers ?action=thumb (a redeploy after this app update) or not
 // (still the older deployment). Checked once per session instead of once per file — see
@@ -12848,13 +12885,37 @@ let GDRIVE_THUMB_SUPPORTED = null;
 function gdriveProxyUrl(){
   return (STATE.gdriveConfig && STATE.gdriveConfig.proxyUrl) || '';
 }
+function gdriveShortcuts(){
+  return (STATE.gdriveConfig && STATE.gdriveConfig.shortcuts) || [];
+}
+// Admin Panel's "ทางลัดโฟลเดอร์" textarea lets Krissha paste a full Drive URL for each shortcut instead
+// of hunting for the bare folder ID herself — this pulls the ID out of either shape, or just returns the
+// input unchanged if it's already a bare ID.
+function gdriveExtractFolderId(raw){
+  const s = String(raw||'').trim();
+  let m = s.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if(m) return m[1];
+  m = s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if(m) return m[1];
+  return s;
+}
+// Plain fetch() has no timeout — if the Apps Script proxy is slow to wake up (cold start), overloaded,
+// or just never answers, an un-timed-out fetch can hang the whole Drive browser forever with every tile
+// stuck on the loading spinner (this actually happened to Krissha once the thumbnail-support probe below
+// got stuck). Every Drive proxy call goes through this instead of bare fetch() so a stuck request always
+// eventually fails instead of hanging indefinitely.
+function gdriveFetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), ms);
+  return fetch(url, {signal: controller.signal}).finally(()=>clearTimeout(timer));
+}
 // Fetches one file's bytes through the Apps Script proxy (?action=file&id=...), which returns
 // {ok:true, mimeType, base64}. Decoded client-side into a Blob → object URL, same shape the rest of
 // the Frame Tool import pipeline already expects from gdriveFetchImageAsObjectUrl() before it.
 async function gdriveFetchImageViaProxy(fileId){
   const proxyUrl = gdriveProxyUrl();
   if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
-  const res = await fetch(`${proxyUrl}?action=file&id=${encodeURIComponent(fileId)}`);
+  const res = await gdriveFetchWithTimeout(`${proxyUrl}?action=file&id=${encodeURIComponent(fileId)}`, 30000);
   if(!res.ok) throw new Error('DOWNLOAD_FAILED');
   const data = await res.json();
   if(!data || !data.ok) throw new Error((data && data.error) || 'DOWNLOAD_FAILED');
@@ -12874,7 +12935,7 @@ async function gdriveFetchImageViaProxy(fileId){
 async function gdriveFetchThumbnailViaProxy(fileId){
   const proxyUrl = gdriveProxyUrl();
   if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
-  const res = await fetch(`${proxyUrl}?action=thumb&id=${encodeURIComponent(fileId)}`);
+  const res = await gdriveFetchWithTimeout(`${proxyUrl}?action=thumb&id=${encodeURIComponent(fileId)}`, 15000);
   if(!res.ok) throw new Error('THUMB_FAILED');
   const data = await res.json();
   if(!data || !data.ok) throw new Error((data && data.error) || 'THUMB_FAILED');
@@ -12897,14 +12958,20 @@ async function gdriveFetchThumbnailViaProxy(fileId){
    Apps Script proxy set up above (gdriveProxyUrl()/gdriveFetchImageViaProxy()) — no OAuth, no Picker
    API Key, nothing Google-specific loaded client-side at all anymore. */
 function ftDriveState(){ return STATE.gdriveBrowser; }
+// Krissha, request: "เพิ่มให้สามารถเพิ่มลิงค์โฟล์เดอร์รูปได้ใหม่เอง" — opening this used to jump straight into
+// "Automation Img" and make her click into a warranty subfolder every single time. Now it opens on a
+// "shortcuts" home screen (b.view:'shortcuts') listing the Admin-editable folders from gdriveShortcuts()
+// — one click into the exact folder she wants. "เรียกดูโฟลเดอร์อื่น" still falls back to the old manual
+// Automation Img navigation for anything not saved as a shortcut.
 function openGdriveBrowser(mode){
   closeGdriveBrowser();
   STATE.gdriveBrowser = {
     mode,
-    path: [{id: GDRIVE_DEFAULT_FOLDER_ID, name: 'Automation Img'}],
+    view: 'shortcuts', // 'shortcuts' (pick a saved folder) | 'folder' (browsing one folder's contents)
+    path: [],
     folders: [], images: [],
     selected: {}, // id -> {id, name}
-    loading: true,
+    loading: false,
     error: null,
     importing: false,
   };
@@ -12913,7 +12980,12 @@ function openGdriveBrowser(mode){
   wrap.innerHTML = renderGdriveBrowser();
   document.body.appendChild(wrap);
   bindGdriveBrowser();
-  loadGdriveBrowserFolder(GDRIVE_DEFAULT_FOLDER_ID);
+}
+function gdriveOpenFolder(folderId, name){
+  const b = STATE.gdriveBrowser; if(!b) return;
+  b.view = 'folder';
+  b.path = [{id: folderId, name}];
+  loadGdriveBrowserFolder(folderId);
 }
 function closeGdriveBrowser(){
   if(STATE.gdriveBrowser){
@@ -12935,7 +13007,7 @@ async function loadGdriveBrowserFolder(folderId){
   try{
     const proxyUrl = gdriveProxyUrl();
     if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
-    const res = await fetch(`${proxyUrl}?action=list&folderId=${encodeURIComponent(folderId)}`);
+    const res = await gdriveFetchWithTimeout(`${proxyUrl}?action=list&folderId=${encodeURIComponent(folderId)}`, 20000);
     if(!res.ok) throw new Error('LIST_FAILED');
     const data = await res.json();
     if(!data || !data.ok) throw new Error((data && data.error) || 'LIST_FAILED');
@@ -12998,6 +13070,27 @@ async function loadGdriveBrowserThumbnails(b){
 }
 function renderGdriveBrowser(){
   const b = STATE.gdriveBrowser; if(!b) return '';
+  if(b.view === 'shortcuts'){
+    const shortcuts = gdriveShortcuts();
+    return `<div class="gdrive-browse-bg" id="gdriveBrowseBg">
+      <div class="gdrive-browse-modal">
+        <div class="gdrive-browse-head">
+          <div class="gdrive-browse-title">เลือกรูปจาก Google Drive</div>
+          <button type="button" class="gdrive-browse-close" id="gdriveBrowseClose">✕</button>
+        </div>
+        <div class="gdrive-browse-body">
+          ${shortcuts.length===0 ? `<div class="gdrive-browse-empty">ยังไม่มีทางลัดโฟลเดอร์ — เพิ่มได้ที่ Admin Panel &gt; Google Drive Integration</div>` : `
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${shortcuts.map((s,i)=>`<button type="button" class="ft-btn ft-btn-secondary" data-gdshortcut="${i}" style="width:100%;text-align:left;justify-content:flex-start;gap:8px">📁&nbsp; ${escapeFtHtml(s.name)}</button>`).join('')}
+          </div>`}
+          <button type="button" class="ft-btn ft-btn-secondary" id="gdriveBrowseOther" style="width:100%;margin-top:14px">เรียกดูโฟลเดอร์อื่น (Automation Img)</button>
+        </div>
+        <div class="gdrive-browse-foot">
+          <button type="button" class="ft-btn ft-btn-secondary" id="gdriveBrowseCancel" style="flex:1">ยกเลิก</button>
+        </div>
+      </div>
+    </div>`;
+  }
   const selCount = Object.keys(b.selected).length;
   const imgsHere = b.images;
   const selectedHere = imgsHere.filter(im=>b.selected[im.id]).length;
@@ -13013,10 +13106,12 @@ function renderGdriveBrowser(){
         <button type="button" class="gdrive-browse-close" id="gdriveBrowseClose">✕</button>
       </div>
       <div class="gdrive-crumbs">
-        ${b.path.map((p,i)=>`${i>0?'<span class="gdrive-crumb-sep">/</span>':''}<span class="gdrive-crumb" data-gdcrumb="${i}">${escapeFtHtml(p.name)}</span>`).join('')}
+        <span class="gdrive-crumb" data-gdhome="1">ทางลัด</span>
+        ${b.path.map((p,i)=>`<span class="gdrive-crumb-sep">/</span><span class="gdrive-crumb" data-gdcrumb="${i}">${escapeFtHtml(p.name)}</span>`).join('')}
       </div>
       <div class="gdrive-browse-toolbar">
         <label class="ft-checkline"><input type="checkbox" id="gdriveSelectAllHere" ${imgsHere.length?'':'disabled'} ${allHereSelected?'checked':''}> เลือกทั้งหมดในโฟลเดอร์นี้ (${selectedHere}/${imgsHere.length})</label>
+        <button type="button" class="ft-btn ft-btn-secondary" id="gdriveBrowseRefresh" style="margin-left:8px" ${b.loading?'disabled':''}>รีเฟรช</button>
         <div class="ft-hint">เลือกแล้วทั้งหมด ${selCount} รูป</div>
       </div>
       <div class="gdrive-browse-body">
@@ -13050,6 +13145,18 @@ function bindGdriveBrowser(){
   document.getElementById('gdriveBrowseCancel')?.addEventListener('click', ()=>closeGdriveBrowser());
   document.getElementById('gdriveBrowseBg')?.addEventListener('click', (e)=>{ if(e.target.id==='gdriveBrowseBg') closeGdriveBrowser(); });
   document.getElementById('gdriveBrowseRetry')?.addEventListener('click', ()=>{ loadGdriveBrowserFolder(b.path[b.path.length-1].id); });
+  document.getElementById('gdriveBrowseRefresh')?.addEventListener('click', ()=>{ loadGdriveBrowserFolder(b.path[b.path.length-1].id); });
+  document.getElementById('gdriveBrowseOther')?.addEventListener('click', ()=>{ gdriveOpenFolder(GDRIVE_DEFAULT_FOLDER_ID, 'Automation Img'); });
+  document.querySelectorAll('[data-gdshortcut]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const s = gdriveShortcuts()[Number(el.getAttribute('data-gdshortcut'))];
+      if(s) gdriveOpenFolder(s.folderId, s.name);
+    });
+  });
+  document.querySelector('[data-gdhome]')?.addEventListener('click', ()=>{
+    b.view = 'shortcuts';
+    refreshGdriveBrowserPortal();
+  });
   document.querySelectorAll('[data-gdfolder]').forEach(el=>{
     el.addEventListener('click', ()=>{
       b.path.push({id: el.getAttribute('data-gdfolder'), name: el.getAttribute('data-gdfoldername')});
@@ -13083,7 +13190,8 @@ function bindGdriveBrowser(){
     if(!files.length || b.importing) return;
     const mode = b.mode;
     const st = ftStateFor(mode);
-    st.driveUrl = `https://drive.google.com/drive/folders/${GDRIVE_DEFAULT_FOLDER_ID}`;
+    const curFolderId = (b.path.length ? b.path[b.path.length-1].id : GDRIVE_DEFAULT_FOLDER_ID);
+    st.driveUrl = `https://drive.google.com/drive/folders/${curFolderId}`;
     st.driveReference = files.length===1 ? files[0].name : `${files.length} รูปที่เลือกจาก Drive`;
     b.importing = true;
     refreshGdriveBrowserPortal();
