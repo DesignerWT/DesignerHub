@@ -1585,6 +1585,15 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
   -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <!-- Frame Tool — Google Drive Import (Krissha, request): Google Identity Services' OAuth token
+       client, used to let a Designer sign in with their own Google account (one that already has
+       the company Drive folder shared with them) so "โหลดจาก Drive" in White Background mode can
+       list/download real images instead of the old 2-fake-file demo. See gdriveGetAccessToken()/
+       renderAdminPanel()'s "Google Drive Integration" card for the Admin-side Client ID setup this
+       depends on — it does nothing until Admin fills that in. Loaded with defer, same as the app's
+       own inline script would be were this not a single-file page, so it's ready before any Drive
+       button click could run. -->
+  <script src="https://accounts.google.com/gsi/client" defer></script>
   <script>
     // If something already defined window.storage before this script ran (an automated test
     // harness's own stub via Playwright's addInitScript, or any other embedding host), leave it
@@ -2308,6 +2317,19 @@ async function loadData(){
     };
     await saveTemplates();
   }
+  // Frame Tool — White Background preset image (Krissha, request: "Admin จะอัพรูป WHB เอง แต่คนอื่นแก้
+  // ไม่ได้"): unlike the rest of STATE.frameTool (deliberately ephemeral/session-only, see its own header
+  // comment), this ONE image is Admin-managed shared data — it must survive refresh and be the same for
+  // every user, so it's loaded/saved through storage.get/saveKey exactly like designAssets/brandColors
+  // above, not kept inside the ephemeral frameTool state tree.
+  try{ const r = await window.storage.get('wt_ft_whitebg', true); STATE.ftWhiteBgAsset = r ? JSON.parse(r.value) : null; }
+  catch(e){ STATE.ftWhiteBgAsset = null; }
+  // Frame Tool — Google Drive Import (Krissha, request): Admin-set OAuth Client ID that lets
+  // "โหลดจาก Drive" actually list/download real files (see renderAdminPanel()'s "Google Drive
+  // Integration" card + gdriveGetAccessToken()). Shared across every user, same storage pattern as
+  // BRIEF_TEMPLATES above — never per-browser.
+  try{ const r = await window.storage.get('wt_gdrive_config', true); STATE.gdriveConfig = r ? JSON.parse(r.value) : {clientId:''}; }
+  catch(e){ STATE.gdriveConfig = {clientId:''}; }
   // Designer/Lead Designer Login: remember which of the 3 accounts was last used ON THIS BROWSER (never
   // the password) so the login screen can jump straight to the Password step for it. Only honored if that
   // account is still an active Designer/Lead — an inactive/removed account falls back to the picker.
@@ -10530,6 +10552,27 @@ function renderAdminPanel(){
     </form>
   </div>
 
+  <div class="card" style="margin-bottom:16px;max-width:640px">
+    <div style="font-weight:700;margin-bottom:4px">Google Drive Integration</div>
+    <p class="hint" style="margin-bottom:10px">เชื่อมต่อปุ่ม "โหลดจาก Drive" ใน Frame Tool (White Background) ให้ดึงรูปจากโฟลเดอร์ Google Drive จริง — ตั้งค่าครั้งเดียว ใช้ได้กับทุกคนในระบบ</p>
+    <div class="hint" style="margin-bottom:10px;line-height:1.7">
+      วิธีตั้งค่า:<br>
+      1. เปิด <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console → APIs & Services → Credentials</a> (ใช้โปรเจกต์เดียวกับ Firebase ก็ได้ — gdworking-447dc)<br>
+      2. เปิดใช้งาน <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank">Google Drive API</a> ในโปรเจกต์นั้น<br>
+      3. สร้าง Credentials → OAuth Client ID → ประเภท "Web application"<br>
+      4. ใส่โดเมนที่ใช้เปิดระบบนี้จริงลงใน "Authorized JavaScript origins" (เช่น https://your-domain.com) — <strong>ต้องเปิดผ่านโดเมนจริง ไม่ใช่เปิดไฟล์ตรงๆ (file://) เพราะ Google จะปฏิเสธ</strong><br>
+      5. คัดลอก Client ID มาวางด้านล่าง แล้วกดบันทึก<br>
+      6. แต่ละคนที่จะใช้ "โหลดจาก Drive" ต้อง Login ด้วย Google Account ของตัวเอง (จะมีป๊อปอัปให้ Sign in ครั้งแรก) และบัญชีนั้นต้องถูกแชร์สิทธิ์เข้าถึงโฟลเดอร์ Drive ที่จะโหลดด้วย
+    </div>
+    <form id="gdriveConfigForm">
+      <div class="field">
+        <label>OAuth Client ID</label>
+        <input type="text" id="gdriveClientId" value="${escAttr(STATE.gdriveConfig?.clientId||'')}" placeholder="xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%">บันทึก Google Drive Client ID</button>
+    </form>
+  </div>
+
   <div class="grid grid-3">
     <div class="card">
       <div style="font-weight:700;margin-bottom:6px">Export Backup</div>
@@ -10558,13 +10601,22 @@ function renderAdminPanel(){
 // the actual delete (adminPurgeTasks) always acts on the exact task_id list the admin confirms.
 function renderAdminDataCleanupCard(){
   if(!hasAdminAccess()) return '';
-  const candidates = STATE.tasks.filter(isAdminCleanupCandidate);
+  // Search box (Krissha, request): the auto "test"-name-matched list misses a task that's test data
+  // in intent but never had the word "test" typed into its name/id/category (e.g. a real-looking demo
+  // card like "Main Banner"). Typing anything here searches ALL tasks by name/id/category instead of
+  // only the auto-matched ones — deletion itself still only ever acts on the exact task_id list the
+  // admin ticks and confirms below, never by name-matching alone.
+  const q = (STATE.adminCleanupSearch||'').trim().toLowerCase();
+  const candidates = q
+    ? STATE.tasks.filter(t=>`${t.task_name||''} ${t.task_id||''} ${t.task_category||''}`.toLowerCase().includes(q))
+    : STATE.tasks.filter(isAdminCleanupCandidate);
   const selected = STATE.adminCleanupSelected || [];
   return `
   <div class="card" style="margin-top:16px;max-width:720px;border-color:var(--danger,#c0392b)">
     <div style="font-weight:700;margin-bottom:4px">Data Cleanup — ล้างข้อมูลทดสอบ</div>
     <p class="hint" style="margin-bottom:10px">ลบ Task ที่เลือกอย่างถาวร พร้อมข้อมูลที่ผูกกับ Task นั้นทั้งหมด (Brief, Stage, Assignment, Review/Proof, Revision, Deliverables, Backdated, Activity, Notification, Artwork Link, Final Folder, Point/Performance) โดยอ้างอิงจาก task_id เท่านั้น — ไม่กระทบ User, Role, Permission, CI Reference, Standard Banner, PDP Pattern และ System Setting</p>
-    ${candidates.length===0 ? '<div class="hint">ไม่พบ Task ที่ดูเหมือนข้อมูลทดสอบ (ค้นหาจากคำว่า "test" ในชื่องาน/รหัสงาน/หมวดงาน)</div>' : `
+    <input type="text" id="adminCleanupSearch" placeholder="ค้นหา Task ด้วยชื่องาน / รหัสงาน / หมวดงาน เช่น Main Banner หรือ TSK-2026-K9C8X" value="${escAttr(STATE.adminCleanupSearch||'')}" style="width:100%;margin-bottom:10px;padding:8px 10px;border:1px solid var(--border-color,#e0e0e0);border-radius:6px;font-size:13px">
+    ${candidates.length===0 ? `<div class="hint">${q?'ไม่พบ Task ที่ตรงกับคำค้นหา':'ไม่พบ Task ที่ดูเหมือนข้อมูลทดสอบ (ค้นหาจากคำว่า "test" ในชื่องาน/รหัสงาน/หมวดงาน) — ลองพิมพ์ค้นหาด้านบนเพื่อหา Task อื่นด้วยชื่อหรือรหัสงาน'}</div>` : `
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;max-height:260px;overflow-y:auto">
       ${candidates.map(t=>`
         <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border-color,#e0e0e0);border-radius:6px;cursor:pointer">
@@ -11351,6 +11403,13 @@ function bindEvents(){
 
   document.getElementById('exportBtn')?.addEventListener('click', exportBackup);
   document.getElementById('importFile')?.addEventListener('change', importBackup);
+  document.getElementById('adminCleanupSearch')?.addEventListener('input', e=>{
+    STATE.adminCleanupSearch = e.target.value;
+    render();
+    document.getElementById('adminCleanupSearch')?.focus();
+    const v = document.getElementById('adminCleanupSearch');
+    if(v) v.setSelectionRange(v.value.length, v.value.length);
+  });
   document.querySelectorAll('[data-cleanup-task]').forEach(cb=>cb.addEventListener('change', e=>{
     const id = e.target.getAttribute('data-cleanup-task');
     const sel = new Set(STATE.adminCleanupSelected||[]);
@@ -11374,6 +11433,14 @@ function bindEvents(){
     BRIEF_TEMPLATES = updated;
     await saveTemplates();
     toast('✅ บันทึก Template Links แล้ว');
+  });
+  document.getElementById('gdriveConfigForm')?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const clientId = document.getElementById('gdriveClientId')?.value.trim() || '';
+    STATE.gdriveConfig = {clientId};
+    await saveKey('wt_gdrive_config', STATE.gdriveConfig);
+    GDRIVE_ACCESS_TOKEN = null; GDRIVE_TOKEN_EXPIRES_AT = 0; // Client ID changed — old token (if any) is for a different app config
+    toast('✅ บันทึก Google Drive Client ID แล้ว');
   });
 
   // calendar nav + pick — only for 'view' mode calendars (Team Dashboard / Workspace); the Brief form's
@@ -12630,6 +12697,71 @@ async function handleAction(act, id){
 
 let FT_IMG_CACHE = {};
 
+/* ---------- Google Drive Import (Krissha, request) ----------
+   "โหลดจาก Drive" used to be a 2-fake-file demo (see git history) that never actually talked to
+   Google Drive. This wires it to the real Drive API v3, gated behind an Admin-set OAuth Client ID
+   (renderAdminPanel()'s "Google Drive Integration" card) — each Designer signs in with their own
+   Google account via Google Identity Services' token client (loaded in <head>), so access is scoped
+   to whatever that person's account can already see in Drive; nothing here grants broader access
+   than the signed-in user already has. Token is cached in-memory only (never persisted — a fresh
+   page load always re-prompts, same as any other client-side-only OAuth flow with no backend to
+   store a refresh token safely). */
+let GDRIVE_ACCESS_TOKEN = null;
+let GDRIVE_TOKEN_EXPIRES_AT = 0;
+function gdriveExtractFolderId(url){
+  const s = String(url||'').trim();
+  let m = s.match(/\/folders\/([a-zA-Z0-9_-]{10,})/);
+  if(m) return m[1];
+  m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if(m) return m[1];
+  if(/^[a-zA-Z0-9_-]{10,}$/.test(s)) return s; // allow pasting a bare folder ID too
+  return null;
+}
+function gdriveGetAccessToken(){
+  return new Promise((resolve, reject)=>{
+    const clientId = (STATE.gdriveConfig && STATE.gdriveConfig.clientId) || '';
+    if(!clientId){ reject(new Error('NO_CLIENT_ID')); return; }
+    if(typeof google==='undefined' || !google.accounts || !google.accounts.oauth2){ reject(new Error('GIS_NOT_LOADED')); return; }
+    if(GDRIVE_ACCESS_TOKEN && Date.now() < GDRIVE_TOKEN_EXPIRES_AT - 30000){ resolve(GDRIVE_ACCESS_TOKEN); return; }
+    try{
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        callback: (resp)=>{
+          if(!resp || resp.error){ reject(new Error((resp && resp.error) || 'TOKEN_ERROR')); return; }
+          GDRIVE_ACCESS_TOKEN = resp.access_token;
+          GDRIVE_TOKEN_EXPIRES_AT = Date.now() + (Number(resp.expires_in)||3600)*1000;
+          resolve(GDRIVE_ACCESS_TOKEN);
+        },
+        error_callback: (err)=>{ reject(new Error((err && err.type) || 'TOKEN_ERROR')); },
+      });
+      tokenClient.requestAccessToken({prompt: GDRIVE_ACCESS_TOKEN ? '' : 'consent'});
+    }catch(e){ reject(e); }
+  });
+}
+async function gdriveListImages(folderId, token){
+  const q = encodeURIComponent(`'${folderId}' in parents and mimeType contains 'image/' and trashed=false`);
+  const fields = encodeURIComponent('files(id,name,mimeType)');
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if(!res.ok){
+    if(res.status===404) throw new Error('FOLDER_NOT_FOUND');
+    if(res.status===401 || res.status===403) throw new Error('NO_ACCESS');
+    throw new Error('LIST_FAILED');
+  }
+  const data = await res.json();
+  return data.files || [];
+}
+async function gdriveFetchImageAsObjectUrl(fileId, token){
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if(!res.ok) throw new Error('DOWNLOAD_FAILED');
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 function escapeFtHtml(value){
   return String(value==null?'':value).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
@@ -12780,7 +12912,11 @@ function ftDrawComposite(ctx, w, h, opts){
   } else { // whitebg
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0,0,w,h);
-    if(opts.brandmark){
+    if(opts.bgImg){
+      // Admin-uploaded White Background preset (Krissha, request) — takes over from the drawn
+      // placeholder below entirely once Admin has set one.
+      ctx.drawImage(opts.bgImg, 0,0,w,h);
+    } else if(opts.brandmark){
       ctx.fillStyle = '#eef1f5';
       ctx.font = `700 ${Math.round(w*0.18)}px Arial`;
       ctx.textAlign = 'center';
@@ -12851,6 +12987,13 @@ function ftDrawComposite(ctx, w, h, opts){
 function ftCurrentSub(){ return STATE.frameTool.sub; }
 function ftManualState(){ return STATE.frameTool.manual; }
 function ftWbgState(){ return STATE.frameTool.whitebg; }
+// Admin-managed White Background preset image — see the loadData() comment above for why this lives
+// outside the ephemeral STATE.frameTool tree. {url, name, updatedAt, updatedBy} or null (system default).
+function ftWhiteBgAsset(){ return STATE.ftWhiteBgAsset || null; }
+async function saveFtWhiteBgAsset(asset){
+  STATE.ftWhiteBgAsset = asset;
+  await saveKey('wt_ft_whitebg', asset);
+}
 function ftCsvState(){ return STATE.frameTool.csv; }
 
 function renderFrameTool(){
@@ -12962,6 +13105,8 @@ function renderFtWbgSliders(){
 
 function renderFtWhiteBG(){
   const w = ftWbgState();
+  const wbg = ftWhiteBgAsset();
+  const isAdmin = hasAdminAccess();
   const kw = (w.searchKw||'').toLowerCase();
   const filteredQueue = w.queue.filter(a => !kw || a.name.toLowerCase().includes(kw) || (a.source||'').toLowerCase().includes(kw));
   const selCount = w.queue.filter(a=>a.selected).length;
@@ -12979,9 +13124,20 @@ function renderFtWhiteBG(){
       <div class="ft-sec">
         <div class="ft-sec-title">Background Preset</div>
         <div class="ft-reference-card">
-          <div class="ft-reference-icon">⬜</div>
-          <div class="ft-reference-copy"><strong>White Background (Locked)</strong><p>พื้นหลังขาวมาตรฐานระบบ พร้อม Brandmark — ไม่สามารถแก้ไขได้</p></div>
+          <div class="ft-reference-icon">${wbg?.url?'🖼️':'⬜'}</div>
+          <div class="ft-reference-copy">
+            <strong>White Background ${isAdmin?'':'(Locked)'}</strong>
+            <p>${wbg?.url ? `อัปโหลดโดย Admin${wbg.updatedAt?' · '+fmtDate(wbg.updatedAt):''}` : 'พื้นหลังขาวมาตรฐานระบบ พร้อม Brandmark'}${isAdmin?'':' — ตั้งค่าโดย Admin เท่านั้น แก้ไขไม่ได้'}</p>
+          </div>
         </div>
+        ${isAdmin ? `
+          <label class="ft-upload" data-ftwbgbglabel style="margin-top:8px">
+            <span>📎</span><span>${wbg?.url?'เปลี่ยนรูปพื้นหลัง':'อัปโหลดรูปพื้นหลัง (Admin)'}</span>
+          </label>
+          <input type="file" id="ftWbgBgInput" accept="image/*" style="display:none">
+          ${wbg?.url ? `<button class="ft-btn ft-btn-secondary ft-btn-block" id="ftWbgBgReset" style="margin-top:6px">รีเซ็ตเป็นค่าเริ่มต้นของระบบ</button>` : ''}
+          <div class="ft-hint">เฉพาะ Admin/Lead Designer เท่านั้นที่แก้พื้นหลังนี้ได้ — ผู้ใช้คนอื่นจะเห็นแบบล็อกไว้</div>
+        ` : ''}
       </div>
 
       <div class="ft-sec">
@@ -13403,21 +13559,74 @@ function bindFtCSV(){
 function bindFtWhiteBG(){
   const w = ftWbgState();
 
+  if(hasAdminAccess()){
+    document.querySelector('[data-ftwbgbglabel]')?.addEventListener('click', ()=>{
+      document.getElementById('ftWbgBgInput')?.click();
+    });
+    document.getElementById('ftWbgBgInput')?.addEventListener('change', async (e)=>{
+      const file = e.target.files && e.target.files[0];
+      if(!file) return;
+      let url;
+      try{ url = await resizeImageFile(file); }
+      catch(err){ toast('อัปโหลดรูปไม่สำเร็จ ลองใหม่อีกครั้ง'); return; }
+      await saveFtWhiteBgAsset({url, name:file.name, updatedAt:new Date().toISOString(), updatedBy:STATE.auth.identity||''});
+      toast('อัปเดตพื้นหลัง White Background แล้ว — ใช้กับทุกคนในระบบ');
+      render();
+    });
+    document.getElementById('ftWbgBgReset')?.addEventListener('click', async ()=>{
+      await saveFtWhiteBgAsset(null);
+      toast('รีเซ็ตกลับเป็นพื้นหลังเริ่มต้นของระบบแล้ว');
+      render();
+    });
+  }
+
   document.querySelectorAll('[data-ftsource]').forEach(el=>{
     el.addEventListener('click', ()=>{ w.sourceTab = el.getAttribute('data-ftsource'); render(); });
   });
 
-  document.getElementById('ftDriveLoad')?.addEventListener('click', ()=>{
+  document.getElementById('ftDriveLoad')?.addEventListener('click', async ()=>{
     const url = document.getElementById('ftDriveUrl')?.value.trim() || '';
     if(!url){ toast('กรุณาวางลิงก์ Google Drive Folder ก่อน'); return; }
+    const folderId = gdriveExtractFolderId(url);
+    if(!folderId){ toast('ลิงก์ Google Drive Folder ไม่ถูกต้อง — วางลิงก์โฟลเดอร์ (drive.google.com/.../folders/...) เท่านั้น'); return; }
+    if(!(STATE.gdriveConfig && STATE.gdriveConfig.clientId)){
+      toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+      return;
+    }
     w.driveUrl = url;
     w.driveReference = url;
-    const added = ftAddToQueue([
-      {id:'ft_drive_'+Date.now()+'_1', name:'WT-AF301.jpg', previewUrl:'', source:'Google Drive', selected:true},
-      {id:'ft_drive_'+Date.now()+'_2', name:'WT-RC18.jpg', previewUrl:'', source:'Google Drive', selected:true},
-    ]);
-    toast(added ? `โหลดจาก Drive แล้ว ${added} รูป` : 'ไม่มีรูปใหม่ (ซ้ำกับ Queue เดิม)');
-    render();
+    const btn = document.getElementById('ftDriveLoad');
+    const setBtnLabel = (t)=>{ if(btn) btn.textContent = t; };
+    if(btn) btn.disabled = true;
+    setBtnLabel('กำลังเชื่อมต่อ Google...');
+    try{
+      const token = await gdriveGetAccessToken();
+      setBtnLabel('กำลังค้นหารูปในโฟลเดอร์...');
+      const files = await gdriveListImages(folderId, token);
+      if(!files.length){ toast('ไม่พบไฟล์รูปภาพในโฟลเดอร์นี้'); return; }
+      const assets = [];
+      for(let i=0;i<files.length;i++){
+        setBtnLabel(`กำลังโหลดรูป ${i+1}/${files.length}...`);
+        try{
+          const objUrl = await gdriveFetchImageAsObjectUrl(files[i].id, token);
+          assets.push({id:'ft_drive_'+files[i].id, name:files[i].name, previewUrl:objUrl, source:'Google Drive', selected:true});
+        }catch(e){ /* one file failing to download shouldn't block the rest of the folder */ }
+      }
+      if(!assets.length){ toast('โหลดรูปจากโฟลเดอร์นี้ไม่สำเร็จเลยสักไฟล์ ลองใหม่อีกครั้ง'); return; }
+      const added = ftAddToQueue(assets);
+      toast(added ? `โหลดจาก Drive แล้ว ${added} รูป` : 'ไม่มีรูปใหม่ (ซ้ำกับ Queue เดิม)');
+    }catch(e){
+      const msg = e && e.message;
+      if(msg==='NO_CLIENT_ID') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+      else if(msg==='GIS_NOT_LOADED') toast('โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่');
+      else if(msg==='FOLDER_NOT_FOUND') toast('ไม่พบโฟลเดอร์นี้ — ตรวจสอบลิงก์อีกครั้ง');
+      else if(msg==='NO_ACCESS') toast('ไม่มีสิทธิ์เข้าถึงโฟลเดอร์นี้ — ตรวจสอบว่าแชร์โฟลเดอร์ให้บัญชี Google ที่ Login อยู่แล้ว');
+      else if(msg==='popup_closed_by_user' || msg==='access_denied') toast('ยกเลิกการเชื่อมต่อ Google');
+      else toast('เชื่อมต่อ Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      if(btn){ btn.disabled = false; }
+      render();
+    }
   });
 
   document.getElementById('ftProductSearchBtn')?.addEventListener('click', ()=>{
@@ -13464,7 +13673,9 @@ function bindFtWhiteBG(){
     render();
   });
   document.getElementById('ftClearQueue')?.addEventListener('click', ()=>{
-    w.queue.forEach(a=>{ if(a.source==='Local' && a.previewUrl){ delete FT_IMG_CACHE[a.previewUrl]; URL.revokeObjectURL(a.previewUrl); } });
+    // Local uploads AND Google Drive downloads both carry real blob object URLs that need revoking
+    // (Drive/Product-search demo entries with an empty previewUrl have nothing to revoke).
+    w.queue.forEach(a=>{ if((a.source==='Local'||a.source==='Google Drive') && a.previewUrl){ delete FT_IMG_CACHE[a.previewUrl]; URL.revokeObjectURL(a.previewUrl); } });
     w.queue = [];
     render();
   });
@@ -13569,9 +13780,10 @@ function ftOptsFor(mode, st, item){
       brandmark: false,
     };
   }
+  const wbg = ftWhiteBgAsset();
   return {
     mode:'whitebg',
-    bgImg: null,
+    bgImg: wbg && wbg.url ? ftEnsureImage(wbg.url) : null,
     productItem: item,
     areaPct: {x:0.09,y:0.176,w:0.82,h:0.736},
     showGuide: st.showGuide,
@@ -13601,7 +13813,13 @@ function ftComposeDataUrl(mode, item, sizePx, format, limitKey){
   const off = document.createElement('canvas');
   off.width = sizePx; off.height = sizePx;
   const ctx = off.getContext('2d');
-  ftDrawComposite(ctx, sizePx, sizePx, ftOptsFor(mode, ftStateFor(mode), item));
+  // The dashed blue guide box (opts.showGuide, White Background mode's "แสดงเส้นกรอบพื้นที่สินค้า"
+  // toggle) is a live-preview positioning aid only — it must never be baked into the exported file, so
+  // it's forced off here regardless of the on-screen toggle state (Krissha, bug report: "มีกรอบฟ้าๆ ตอน
+  // Export").
+  const opts = ftOptsFor(mode, ftStateFor(mode), item);
+  opts.showGuide = false;
+  ftDrawComposite(ctx, sizePx, sizePx, opts);
 
   if(format==='png'){
     return off.toDataURL('image/png');
