@@ -13441,6 +13441,34 @@ async function gdriveDecodeProxyResponse(res){
   if(!blob || blob.size === 0) throw new Error('EMPTY_RESPONSE');
   return blob;
 }
+// CHUNKED FALLBACK (Krissha, "โหลดรูปไม่ได้" / "(Failed to fetch)" persisting through a size-threshold
+// JSON attempt AND a longer-timeout-plus-one-retry attempt — see getFileChunk()'s own comment in
+// DriveProxy.gs.txt for the full story): pulls one file as several small pieces instead of one big
+// response, so no single HTTP response can hit whatever ceiling was breaking the one-shot ?action=file
+// request. Only ever called as a FALLBACK — see ftLoadWorkingImage below — never the first attempt, so a
+// normal-sized file never pays this extra round-trip cost.
+async function gdriveFetchFileChunked(fileId){
+  const proxyUrl = gdriveProxyUrl();
+  if(!proxyUrl) throw new Error('NO_PROXY_URL');
+  const CHUNK_SIZE = 3*1024*1024; // must match getFileChunk()'s own default — kept explicit on both ends
+  let chunkIndex = 0, totalChunks = 1, mimeType = 'image/jpeg';
+  const parts = [];
+  while(chunkIndex < totalChunks){
+    const url = `${proxyUrl}?action=filechunk&id=${encodeURIComponent(fileId)}&chunkIndex=${chunkIndex}&chunkSize=${CHUNK_SIZE}`;
+    const res = await gdriveFetchWithTimeout(url, 30000); // each chunk is small — 30s is generous per piece
+    if(!res.ok) throw new Error('HTTP_'+res.status);
+    const data = await res.json();
+    if(!data || !data.ok) throw new Error((data&&data.error)||'CHUNK_FAILED');
+    totalChunks = data.totalChunks || 1;
+    mimeType = data.mimeType || mimeType;
+    const byteChars = atob(data.base64);
+    const bytes = new Uint8Array(byteChars.length);
+    for(let i=0;i<byteChars.length;i++){ bytes[i] = byteChars.charCodeAt(i); }
+    parts.push(bytes);
+    chunkIndex++;
+  }
+  return new Blob(parts, {type: mimeType});
+}
 async function gdriveFetchImageViaProxy(fileId){
   const proxyUrl = gdriveProxyUrl();
   if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
@@ -13612,9 +13640,21 @@ async function ftLoadWorkingImage(fileId, modifiedTime){
       if(!blob){
         const proxyUrl = gdriveProxyUrl();
         if(!proxyUrl) throw new Error('NO_PROXY_URL');
-        const res = await gdriveFetchWithTimeout(`${proxyUrl}?action=file&id=${encodeURIComponent(fileId)}`, 45000);
-        if(!res.ok) throw new Error('HTTP_'+res.status);
-        const fetched = await gdriveDecodeProxyResponse(res); // validates HTTP/MIME/size, throws on any of them
+        const url = `${proxyUrl}?action=file&id=${encodeURIComponent(fileId)}`;
+        // Krissha, bug report: "โหลดรูปไม่ได้" showing "(Failed to fetch)" — persisted even after a longer
+        // timeout + a plain same-request retry, which rules out a simple transient blip. Falls back to
+        // gdriveFetchFileChunked() instead (several small responses instead of one big one — see that
+        // function's own comment) whenever the single-shot request fails for ANY reason, not just this
+        // specific message, since the underlying issue is "this one big response never makes it back
+        // intact" whatever error text that happens to surface as.
+        let fetched;
+        try{
+          const res = await gdriveFetchWithTimeout(url, 60000);
+          if(!res.ok) throw new Error('HTTP_'+res.status);
+          fetched = await gdriveDecodeProxyResponse(res); // validates HTTP/MIME/size, throws on any of them
+        }catch(e1){
+          fetched = await gdriveFetchFileChunked(fileId);
+        }
         const resized = await ftResizeBitmapBlob(fetched, FT_MAX_DIM);
         blob = resized.blob;
         if(key) ftIdbSetBlob(key, blob); // fire-and-forget — never block the working image on this
