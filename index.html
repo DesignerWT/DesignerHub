@@ -1485,6 +1485,28 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 .ft-acopy p{margin-top:2px;color:var(--ink-faint);font-size:10px}
 .ft-stag{padding:3px 6px;border-radius:6px;background:#EEF2F6;color:var(--ink-faint);font-size:10px;white-space:nowrap}
 .ft-asset-empty{padding:18px 10px;border:1px dashed var(--line);border-radius:9px;color:var(--ink-faint);font-size:10px;text-align:center}
+.gdrive-browse-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(2px);z-index:130;display:flex;align-items:center;justify-content:center;padding:20px}
+.gdrive-browse-modal{background:#fff;border-radius:18px;box-shadow:var(--shadow-md);width:100%;max-width:820px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
+.gdrive-browse-head{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.gdrive-browse-title{font-weight:700;font-size:14px;flex:1}
+.gdrive-browse-close{border:none;background:transparent;cursor:pointer;font-size:16px;color:var(--ink-soft);width:28px;height:28px;border-radius:8px}
+.gdrive-browse-close:hover{background:rgba(15,23,42,.06)}
+.gdrive-crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:10px 18px;border-bottom:1px solid var(--line);font-size:11px;color:var(--ink-soft)}
+.gdrive-crumb{cursor:pointer;color:var(--accent);font-weight:600}
+.gdrive-crumb:hover{text-decoration:underline}
+.gdrive-crumb-sep{color:var(--ink-faint)}
+.gdrive-browse-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.gdrive-browse-body{flex:1;overflow:auto;padding:16px 18px}
+.gdrive-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
+.gdrive-tile{position:relative;border:1px solid var(--line);border-radius:12px;background:#F8FAFC;cursor:pointer;overflow:hidden;padding:0;display:block}
+.gdrive-tile.selected{border-color:#2f7df6;box-shadow:0 0 0 2px rgba(47,125,246,.25)}
+.gdrive-tile-thumb{width:100%;aspect-ratio:1/1;background:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;color:#94a3b8;overflow:hidden}
+.gdrive-tile-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.gdrive-tile-name{padding:6px 8px;font-size:10px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-top:1px solid var(--line);background:#fff}
+.gdrive-tile-check{position:absolute;top:6px;left:6px;width:18px;height:18px;accent-color:#2f7df6;z-index:2}
+.gdrive-tile.folder .gdrive-tile-thumb{background:linear-gradient(135deg,#eef2ff,#f8fafc)}
+.gdrive-browse-foot{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid var(--line)}
+.gdrive-browse-empty{padding:40px 10px;text-align:center;color:var(--ink-faint);font-size:12px}
 .ft-prod-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;margin-top:4px}
 .ft-prod-item{display:flex;align-items:center;gap:7px;padding:6px 7px;border-radius:7px;border:1.5px solid transparent;cursor:pointer}
 .ft-prod-item:hover{background:#F1F5F9}
@@ -1603,7 +1625,6 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
        own inline script would be were this not a single-file page, so it's ready before any Drive
        button click could run. -->
   <script src="https://accounts.google.com/gsi/client" defer></script>
-  <script src="https://apis.google.com/js/api.js" defer></script>
   <script>
     // If something already defined window.storage before this script ran (an automated test
     // harness's own stub via Playwright's addInitScript, or any other embedding host), leave it
@@ -2050,6 +2071,7 @@ let STATE = {
   projectFilter:"ALL",
   cal:{month:new Date().getMonth(), year:new Date().getFullYear(), selectedDate:null},
   detailTaskId:null, notifOpen:false, linkFormOpenId:null, userMenuOpen:false,
+  gdriveBrowser:null, // set while the custom Drive image-browser portal (checkbox grid) is open — see openGdriveBrowser()
   // Read-only Visual Brief viewer state for the full-page Task Workspace (replaces the old Task Detail
   // modal — Dev Requirement "Redesign Task Detail / Visual Brief Workspace"). Reset to these defaults
   // every time a different task is opened (see the [data-opentask] binding in bindEvents()).
@@ -10654,18 +10676,13 @@ function renderAdminPanel(){
       1. เปิด <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console → APIs & Services → Credentials</a><br>
       2. เปิดใช้งาน <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank">Google Drive API</a> ในโปรเจกต์นั้น<br>
       3. สร้าง Credentials → OAuth Client ID → ประเภท "Web application" → ใส่โดเมนจริงลงใน "Authorized JavaScript origins" — <strong>ต้องเปิดผ่านโดเมนจริง ไม่ใช่เปิดไฟล์ตรงๆ (file://) เพราะ Google จะปฏิเสธ</strong> → คัดลอก Client ID มาวางด้านล่าง<br>
-      4. สร้าง Credentials อีกอัน → API Key (สำหรับเปิดหน้าต่างเลือกโฟลเดอร์ Drive) → คัดลอกมาวางด้านล่างด้วย — จะกดจำกัดสิทธิ์ API Key ให้ใช้ได้เฉพาะ Google Picker API ก็ได้ (แนะนำ เพื่อความปลอดภัย)<br>
-      5. กดบันทึก<br>
-      6. แต่ละคนที่จะใช้ "เลือกโฟลเดอร์จาก Drive" ต้อง Login ด้วย Google Account ของตัวเอง (จะมีป๊อปอัปให้ Sign in ครั้งแรก) และบัญชีนั้นต้องถูกแชร์สิทธิ์เข้าถึงโฟลเดอร์ Drive ที่จะโหลดด้วย
+      4. กดบันทึก<br>
+      5. แต่ละคนที่จะใช้ "เลือกรูปจาก Drive" ต้อง Login ด้วย Google Account ของตัวเอง (จะมีป๊อปอัปให้ Sign in ครั้งแรก) และบัญชีนั้นต้องถูกแชร์สิทธิ์เข้าถึงโฟลเดอร์ Drive ที่จะโหลดด้วย
     </div>
     <form id="gdriveConfigForm">
       <div class="field">
         <label>OAuth Client ID</label>
         <input type="text" id="gdriveClientId" value="${escAttr(STATE.gdriveConfig?.clientId||'')}" placeholder="xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com">
-      </div>
-      <div class="field" style="margin-top:10px">
-        <label>API Key (สำหรับหน้าต่างเลือกโฟลเดอร์)</label>
-        <input type="text" id="gdriveApiKey" value="${escAttr(STATE.gdriveConfig?.apiKey||'')}" placeholder="AIzaSy...">
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;margin-top:10px">บันทึก Google Drive Settings</button>
     </form>
@@ -11536,11 +11553,11 @@ function bindEvents(){
   document.getElementById('gdriveConfigForm')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const clientId = document.getElementById('gdriveClientId')?.value.trim() || '';
-    const apiKey = document.getElementById('gdriveApiKey')?.value.trim() || '';
-    STATE.gdriveConfig = {clientId, apiKey};
+    // apiKey is kept (not cleared) if the field already held one from the old Picker-based flow — it's
+    // just unused now, no need to force Admins to blank it out.
+    STATE.gdriveConfig = {...(STATE.gdriveConfig||{}), clientId};
     await saveKey('wt_gdrive_config', STATE.gdriveConfig);
     GDRIVE_ACCESS_TOKEN = null; GDRIVE_TOKEN_EXPIRES_AT = 0; // Config changed — old token (if any) is for a different app config
-    GDRIVE_PICKER_LOADED = false; // force picker script to re-init with new API key
     toast('✅ บันทึก Google Drive Settings แล้ว');
   });
 
@@ -12846,56 +12863,199 @@ async function gdriveFetchImageAsObjectUrl(fileId, token){
   return URL.createObjectURL(blob);
 }
 
-/* ---------- Google Picker (Krissha, follow-up requests) ----------
-   First version only let her pick a whole FOLDER (Google's ViewId.FOLDERS forces the browse listing
-   itself down to folders-only, which is why drilling into "3 Years Waranty" showed "No items in this
-   folder" — the images inside were being filtered out of the view, not actually missing). She asked
-   for the picker to show the real image thumbnails while browsing, and to be able to select one image,
-   several, or all of them — so this now uses ViewId.DOCS_IMAGES (images, with folders still shown for
-   navigation) and turns on MULTISELECT_ENABLED. Needs a Picker-scoped API Key (Admin Panel > Google
-   Drive Integration) in addition to the OAuth Client ID already set up — the API Key is a public,
-   domain-restricted key (safe to ship client-side), NOT the OAuth Client Secret, which this app never
-   uses or stores. */
-let GDRIVE_PICKER_LOADED = false;
-function gdriveLoadPickerApi(){
-  return new Promise((resolve, reject)=>{
-    if(typeof gapi==='undefined'){ reject(new Error('GAPI_NOT_LOADED')); return; }
-    if(GDRIVE_PICKER_LOADED && typeof google!=='undefined' && google.picker){ resolve(); return; }
-    gapi.load('picker', { callback: ()=>{ GDRIVE_PICKER_LOADED = true; resolve(); }, onerror: ()=>reject(new Error('PICKER_LOAD_FAILED')) });
+/* ---------- Custom Drive Image Browser (Krissha, follow-up request) ----------
+   v1 used Google's own Picker widget (ViewId.DOCS_IMAGES + MULTISELECT_ENABLED) so she could click
+   thumbnails to multi-select. That covered "select several" (click each one — they highlight), but
+   Picker has no visible checkbox and no Select-All affordance at all — it's Google's own iframe, we
+   don't control its markup. She asked again for real tick-boxes plus a working Select All, matching
+   the checkbox grid the Local/Asset-Queue tiles already have. So this replaces the Picker call with our
+   OWN folder browser, built straight off the Drive v3 REST API (files.list + thumbnailLink), rendered
+   with the same tick-box language as the rest of the Import UI — selection state lives on OUR page now,
+   so Select All is just "check every box currently in view". This also means the Picker-only API Key
+   (Admin Panel > Google Drive Integration) is no longer needed for this flow — only the OAuth Client ID
+   + drive.readonly scope, both already set up. */
+function ftDriveState(){ return STATE.gdriveBrowser; }
+function openGdriveBrowser(mode){
+  closeGdriveBrowser();
+  STATE.gdriveBrowser = {
+    mode,
+    path: [{id: GDRIVE_DEFAULT_FOLDER_ID, name: 'Automation Img'}],
+    folders: [], images: [],
+    selected: {}, // id -> {id, name}
+    loading: true,
+    error: null,
+    importing: false,
+  };
+  const wrap = document.createElement('div');
+  wrap.id = 'gdriveBrowserPortal';
+  wrap.innerHTML = renderGdriveBrowser();
+  document.body.appendChild(wrap);
+  bindGdriveBrowser();
+  loadGdriveBrowserFolder(GDRIVE_DEFAULT_FOLDER_ID);
+}
+function closeGdriveBrowser(){
+  if(STATE.gdriveBrowser){
+    (STATE.gdriveBrowser.images||[]).forEach(im=>{ if(im.thumbUrl){ try{ URL.revokeObjectURL(im.thumbUrl); }catch(e){} } });
+  }
+  STATE.gdriveBrowser = null;
+  document.getElementById('gdriveBrowserPortal')?.remove();
+}
+function refreshGdriveBrowserPortal(){
+  const el = document.getElementById('gdriveBrowserPortal');
+  if(!el || !STATE.gdriveBrowser) return;
+  el.innerHTML = renderGdriveBrowser();
+  bindGdriveBrowser();
+}
+async function loadGdriveBrowserFolder(folderId){
+  const b = STATE.gdriveBrowser; if(!b) return;
+  b.loading = true; b.error = null; b.folders = []; b.images = [];
+  refreshGdriveBrowserPortal();
+  try{
+    const token = await gdriveGetAccessToken();
+    const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,thumbnailLink)&pageSize=200&orderBy=folder,name`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if(!res.ok) throw new Error('LIST_FAILED');
+    const data = await res.json();
+    if(STATE.gdriveBrowser !== b) return; // browser closed/reopened while this request was in flight
+    const files = data.files || [];
+    b.folders = files.filter(f=>f.mimeType==='application/vnd.google-apps.folder');
+    const images = files.filter(f=>f.mimeType && f.mimeType.indexOf('image/')===0);
+    b.images = images.map(f=>({id:f.id, name:f.name, thumbnailLink:f.thumbnailLink, thumbUrl:null, thumbFailed:false}));
+    b.loading = false;
+    refreshGdriveBrowserPortal();
+    loadGdriveBrowserThumbnails(b, token); // background-fill thumbnails a few at a time, doesn't block the grid
+  }catch(e){
+    if(STATE.gdriveBrowser !== b) return;
+    b.loading = false;
+    b.error = (e && e.message) || 'LIST_FAILED';
+    refreshGdriveBrowserPortal();
+  }
+}
+async function loadGdriveBrowserThumbnails(b, token){
+  const batch = b.images.slice();
+  const CONCURRENCY = 6;
+  let idx = 0;
+  async function worker(){
+    while(idx < batch.length){
+      const im = batch[idx++];
+      if(STATE.gdriveBrowser !== b) return; // browser closed/replaced mid-flight
+      if(!im.thumbnailLink){ im.thumbFailed = true; continue; }
+      try{
+        const res = await fetch(im.thumbnailLink, { headers: { Authorization: `Bearer ${token}` } });
+        if(!res.ok) throw new Error();
+        const blob = await res.blob();
+        im.thumbUrl = URL.createObjectURL(blob);
+      }catch(e){ im.thumbFailed = true; }
+      if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
+    }
+  }
+  const workers = []; for(let i=0;i<CONCURRENCY;i++) workers.push(worker());
+  await Promise.all(workers);
+}
+function renderGdriveBrowser(){
+  const b = STATE.gdriveBrowser; if(!b) return '';
+  const selCount = Object.keys(b.selected).length;
+  const imgsHere = b.images;
+  const selectedHere = imgsHere.filter(im=>b.selected[im.id]).length;
+  const allHereSelected = imgsHere.length>0 && selectedHere===imgsHere.length;
+  const errMsg = {
+    NO_CLIENT_ID: 'ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration',
+    GIS_NOT_LOADED: 'โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่',
+    popup_closed_by_user: 'ยกเลิกการเชื่อมต่อ Google',
+    access_denied: 'ยกเลิกการเชื่อมต่อ Google',
+    LIST_FAILED: 'โหลดรายการไฟล์ไม่สำเร็จ (เช็คว่า Login ด้วยบัญชีที่มีสิทธิ์เข้าถึงโฟลเดอร์นี้แล้ว)',
+  }[b.error] || (b.error ? 'โหลดรายการไม่สำเร็จ ลองใหม่อีกครั้ง' : '');
+  return `<div class="gdrive-browse-bg" id="gdriveBrowseBg">
+    <div class="gdrive-browse-modal">
+      <div class="gdrive-browse-head">
+        <div class="gdrive-browse-title">เลือกรูปจาก Google Drive</div>
+        <button type="button" class="gdrive-browse-close" id="gdriveBrowseClose">✕</button>
+      </div>
+      <div class="gdrive-crumbs">
+        ${b.path.map((p,i)=>`${i>0?'<span class="gdrive-crumb-sep">/</span>':''}<span class="gdrive-crumb" data-gdcrumb="${i}">${escapeFtHtml(p.name)}</span>`).join('')}
+      </div>
+      <div class="gdrive-browse-toolbar">
+        <label class="ft-checkline"><input type="checkbox" id="gdriveSelectAllHere" ${imgsHere.length?'':'disabled'} ${allHereSelected?'checked':''}> เลือกทั้งหมดในโฟลเดอร์นี้ (${selectedHere}/${imgsHere.length})</label>
+        <div class="ft-hint">เลือกแล้วทั้งหมด ${selCount} รูป</div>
+      </div>
+      <div class="gdrive-browse-body">
+        ${b.loading ? `<div class="gdrive-browse-empty">กำลังโหลด...</div>` :
+          b.error ? `<div class="gdrive-browse-empty">${escapeFtHtml(errMsg)}<br><button type="button" class="ft-btn ft-btn-secondary" id="gdriveBrowseRetry" style="margin-top:10px">ลองใหม่</button></div>` :
+          (b.folders.length===0 && b.images.length===0) ? `<div class="gdrive-browse-empty">ไม่มีไฟล์ในโฟลเดอร์นี้</div>` : `
+          <div class="gdrive-grid">
+            ${b.folders.map(f=>`
+              <div class="gdrive-tile folder" data-gdfolder="${f.id}" data-gdfoldername="${escapeFtHtml(f.name)}">
+                <div class="gdrive-tile-thumb">📁</div>
+                <div class="gdrive-tile-name">${escapeFtHtml(f.name)}</div>
+              </div>`).join('')}
+            ${b.images.map(im=>`
+              <label class="gdrive-tile ${b.selected[im.id]?'selected':''}">
+                <input type="checkbox" class="gdrive-tile-check" data-gdimg="${im.id}" data-gdimgname="${escapeFtHtml(im.name)}" ${b.selected[im.id]?'checked':''}>
+                <div class="gdrive-tile-thumb">${im.thumbUrl?`<img src="${im.thumbUrl}" alt="">`:(im.thumbFailed?'🖼️':'⏳')}</div>
+                <div class="gdrive-tile-name">${escapeFtHtml(im.name)}</div>
+              </label>`).join('')}
+          </div>`}
+      </div>
+      <div class="gdrive-browse-foot">
+        <button type="button" class="ft-btn ft-btn-secondary" id="gdriveBrowseCancel" style="flex:1">ยกเลิก</button>
+        <button type="button" class="ft-btn ft-btn-primary" id="gdriveBrowseImport" style="flex:1" ${selCount && !b.importing?'':'disabled'}>${b.importing?'กำลังนำเข้า...':`นำเข้าที่เลือก (${selCount})`}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function bindGdriveBrowser(){
+  const b = STATE.gdriveBrowser; if(!b) return;
+  document.getElementById('gdriveBrowseClose')?.addEventListener('click', ()=>closeGdriveBrowser());
+  document.getElementById('gdriveBrowseCancel')?.addEventListener('click', ()=>closeGdriveBrowser());
+  document.getElementById('gdriveBrowseBg')?.addEventListener('click', (e)=>{ if(e.target.id==='gdriveBrowseBg') closeGdriveBrowser(); });
+  document.getElementById('gdriveBrowseRetry')?.addEventListener('click', ()=>{ loadGdriveBrowserFolder(b.path[b.path.length-1].id); });
+  document.querySelectorAll('[data-gdfolder]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      b.path.push({id: el.getAttribute('data-gdfolder'), name: el.getAttribute('data-gdfoldername')});
+      loadGdriveBrowserFolder(el.getAttribute('data-gdfolder'));
+    });
+  });
+  document.querySelectorAll('[data-gdcrumb]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const i = Number(el.getAttribute('data-gdcrumb'));
+      if(i === b.path.length-1) return; // already here
+      b.path = b.path.slice(0, i+1);
+      loadGdriveBrowserFolder(b.path[b.path.length-1].id);
+    });
+  });
+  document.querySelectorAll('[data-gdimg]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      const id = el.getAttribute('data-gdimg');
+      if(b.selected[id]){ delete b.selected[id]; } else { b.selected[id] = {id, name: el.getAttribute('data-gdimgname')}; }
+      refreshGdriveBrowserPortal();
+    });
+  });
+  document.getElementById('gdriveSelectAllHere')?.addEventListener('change', (e)=>{
+    const check = e.target.checked;
+    b.images.forEach(im=>{
+      if(check){ b.selected[im.id] = {id:im.id, name:im.name}; } else { delete b.selected[im.id]; }
+    });
+    refreshGdriveBrowserPortal();
+  });
+  document.getElementById('gdriveBrowseImport')?.addEventListener('click', async ()=>{
+    const files = Object.values(b.selected);
+    if(!files.length || b.importing) return;
+    const mode = b.mode;
+    const st = ftStateFor(mode);
+    st.driveUrl = `https://drive.google.com/drive/folders/${GDRIVE_DEFAULT_FOLDER_ID}`;
+    st.driveReference = files.length===1 ? files[0].name : `${files.length} รูปที่เลือกจาก Drive`;
+    b.importing = true;
+    refreshGdriveBrowserPortal();
+    await gdriveImportPickedFiles(mode, files, null);
+    closeGdriveBrowser();
+    render();
   });
 }
-async function gdriveOpenImagePicker(){
-  const apiKey = (STATE.gdriveConfig && STATE.gdriveConfig.apiKey) || '';
-  if(!apiKey) throw new Error('NO_API_KEY');
-  const token = await gdriveGetAccessToken();
-  await gdriveLoadPickerApi();
-  return new Promise((resolve, reject)=>{
-    try{
-      const view = new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES)
-        .setIncludeFolders(true) // folders stay browsable (1 Year Waranty, 3 Years Waranty, ...) even though only images are selectable
-        .setParent(GDRIVE_DEFAULT_FOLDER_ID); // open straight into "Automation Img" instead of My Drive root
-      const picker = new google.picker.PickerBuilder()
-        .addView(view)
-        .setOAuthToken(token)
-        .setDeveloperKey(apiKey)
-        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED) // pick one, several, or (by clicking every thumbnail) all of them
-        .setTitle('เลือกรูปจาก Google Drive')
-        .setCallback((data)=>{
-          if(data.action === google.picker.Action.PICKED){
-            const docs = (data.docs||[]).filter(d=>d.mimeType && d.mimeType.indexOf('image/')===0);
-            if(docs.length){ resolve(docs.map(d=>({id:d.id, name:d.name}))); } else { reject(new Error('NO_SELECTION')); }
-          } else if(data.action === google.picker.Action.CANCEL){
-            reject(new Error('PICKER_CANCELLED'));
-          }
-        })
-        .build();
-      picker.setVisible(true);
-    }catch(e){ reject(e); }
-  });
-}
-// Downloads exactly the files the Picker's callback resolved with (already the user's own selection —
-// no separate folder-listing step needed) and drops them straight into the Frame Tool's import queue.
-// mode picks which sub-tab's queue receives them — Manual and White Background each keep their own.
+// Downloads exactly the files the browser's checkboxes resolved with and drops them straight into the
+// Frame Tool's import queue. mode picks which sub-tab's queue receives them — Manual and White
+// Background each keep their own.
 async function gdriveImportPickedFiles(mode, files, btn){
   const setBtnLabel = (t)=>{ if(btn) btn.textContent = t; };
   if(btn) btn.disabled = true;
@@ -13716,34 +13876,12 @@ function bindFtImportSection(mode){
     el.addEventListener('click', ()=>{ st.sourceTab = el.getAttribute('data-ftsource'); render(); });
   });
 
-  document.getElementById('ftDrivePick')?.addEventListener('click', async ()=>{
+  document.getElementById('ftDrivePick')?.addEventListener('click', ()=>{
     if(!(STATE.gdriveConfig && STATE.gdriveConfig.clientId)){
       toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
       return;
     }
-    if(!(STATE.gdriveConfig && STATE.gdriveConfig.apiKey)){
-      toast('ยังไม่ได้ตั้งค่า API Key สำหรับเลือกโฟลเดอร์ — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
-      return;
-    }
-    const btn = document.getElementById('ftDrivePick');
-    if(btn) btn.disabled = true;
-    try{
-      const files = await gdriveOpenImagePicker();
-      st.driveUrl = `https://drive.google.com/drive/folders/${GDRIVE_DEFAULT_FOLDER_ID}`;
-      st.driveReference = files.length===1 ? files[0].name : `${files.length} รูปที่เลือกจาก Drive`;
-      await gdriveImportPickedFiles(mode, files, btn);
-    }catch(e){
-      const msg = e && e.message;
-      if(msg==='NO_API_KEY') toast('ยังไม่ได้ตั้งค่า API Key สำหรับเลือกรูป — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
-      else if(msg==='NO_CLIENT_ID') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
-      else if(msg==='GIS_NOT_LOADED' || msg==='GAPI_NOT_LOADED' || msg==='PICKER_LOAD_FAILED') toast('โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่');
-      else if(msg==='PICKER_CANCELLED' || msg==='NO_SELECTION'){ /* user closed the picker without choosing — no toast needed */ }
-      else if(msg==='popup_closed_by_user' || msg==='access_denied') toast('ยกเลิกการเชื่อมต่อ Google');
-      else toast('เปิดตัวเลือกรูป Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
-    } finally {
-      if(btn){ btn.disabled = false; }
-      render();
-    }
+    openGdriveBrowser(mode);
   });
 
   document.getElementById('ftProductSearchBtn')?.addEventListener('click', ()=>{
