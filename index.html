@@ -13005,14 +13005,6 @@ const GDRIVE_DEFAULT_SHORTCUTS = [
 // (still the older deployment). Checked once per session instead of once per file — see
 // loadGdriveBrowserThumbnails() for why that matters.
 let GDRIVE_THUMB_SUPPORTED = null;
-// Krissha, "เวลาใช้งานจริงมันจะไม่ใช่ 13 รูป แต่เป็น 100 รูป": same null/true/false session cache as
-// GDRIVE_THUMB_SUPPORTED above, but for whether the deployed Apps Script supports the BATCHED thumbnail
-// action (?action=thumbs&ids=a,b,c,...). At 100 files, the dominant cost stops being what each response
-// carries (already fixed — see gdriveDecodeProxyResponse) and becomes simply HOW MANY Apps Script calls
-// get made: each one pays its own network round trip + Apps Script invocation start-up, no matter how
-// small the payload. Fetching ~15 thumbnails per call instead of 1 cuts that call count by ~15x.
-let GDRIVE_BATCH_THUMB_SUPPORTED = null;
-const GDRIVE_THUMB_BATCH_SIZE = 15;
 function gdriveProxyUrl(){
   return (STATE.gdriveConfig && STATE.gdriveConfig.proxyUrl) || '';
 }
@@ -13091,33 +13083,6 @@ async function gdriveFetchThumbnailViaProxy(fileId){
   if(!res.ok) throw new Error('THUMB_FAILED');
   const blob = await gdriveDecodeProxyResponse(res);
   return URL.createObjectURL(blob);
-}
-// Batched thumbnail fetch — one Apps Script call returns up to GDRIVE_THUMB_BATCH_SIZE thumbnails at
-// once (getThumbnails() in DriveProxy.gs.txt), instead of one call per image. Unlike the single-file
-// path above, the response HAS to be JSON+base64 here (a single HTTP response can't carry several
-// distinct binaries), but that cost is cheap at thumbnail size (tens of KB each) — nothing like the
-// problem it was for full-size images. Returns {fileId: objectUrl|null}, never throws per-file — a
-// missing/failed thumbnail inside a batch just comes back null so one bad file can't sink the other 14.
-async function gdriveFetchThumbnailsBatch(ids){
-  const proxyUrl = gdriveProxyUrl();
-  if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
-  const url = `${proxyUrl}?action=thumbs&ids=${encodeURIComponent(ids.join(','))}`;
-  const res = await gdriveFetchWithTimeout(url, 30000);
-  if(!res.ok) throw new Error('THUMBS_FAILED');
-  const data = await res.json();
-  if(!data || !data.ok) throw new Error((data && data.error) || 'THUMBS_FAILED');
-  const out = {};
-  ids.forEach(id=>{
-    const t = data.thumbs && data.thumbs[id];
-    if(!t){ out[id] = null; return; }
-    try{
-      const byteChars = atob(t.base64);
-      const bytes = new Uint8Array(byteChars.length);
-      for(let i=0;i<byteChars.length;i++){ bytes[i] = byteChars.charCodeAt(i); }
-      out[id] = URL.createObjectURL(new Blob([bytes], {type: t.mimeType || 'image/jpeg'}));
-    }catch(e){ out[id] = null; }
-  });
-  return out;
 }
 
 /* ---------- Custom Drive Image Browser (Krissha, follow-up request) ----------
@@ -13200,57 +13165,19 @@ async function loadGdriveBrowserFolder(folderId){
     refreshGdriveBrowserPortal();
   }
 }
-// Krissha, "เวลาใช้งานจริงมันจะไม่ใช่ 13 รูป แต่เป็น 100 รูป จำเป็นต้องเห็นรูปก่อนว่าถูกต้องมั้ย": entry
-// point tries the BATCHED thumbnail endpoint first (fetch ~15 thumbnails per Apps Script call instead of
-// 1 — see gdriveFetchThumbnailsBatch's own comment for why that's the lever that actually scales to 100
-// files), probed once per session via GDRIVE_BATCH_THUMB_SUPPORTED. If the deployed Apps Script is still
-// the older one without ?action=thumbs, this falls back to loadGdriveBrowserThumbnailsPerFile() below —
-// the exact single-file path this app already had, unchanged, so nobody's stuck without previews just
-// because they haven't redeployed yet.
+// Thumbnails go through gdriveFetchThumbnailViaProxy (real, small Drive thumbnails — see that function's
+// comment for why: fetching full-size files here was both slow and, for Krissha's biggest product PNGs
+// (13-14MB), outright failing) — but ONLY once we know the deployed Apps Script actually supports
+// ?action=thumb. An older deployment answers UNKNOWN_ACTION for every single image, which used to mean
+// every tile wasted a doomed thumb attempt before falling back to a full-size fetch. So: probe once per
+// session (GDRIVE_THUMB_SUPPORTED, declared above near GDRIVE_DEFAULT_FOLDER_ID) instead of once per file.
+// Concurrency: the Apps Script side now uses DriveApp.File.getThumbnail() (one in-process call) instead
+// of two separate UrlFetchApp round trips to the Drive REST API — that was the actual reason thumbnails
+// stayed slow even after switching away from full-size files. With that fixed, a moderate concurrency is
+// safe again; keep it below the old full-file CONCURRENCY (still real network+base64 work per tile, just
+// less of it than before).
 async function loadGdriveBrowserThumbnails(b){
   const batch = b.images.slice();
-  if(!batch.length) return;
-  if(GDRIVE_BATCH_THUMB_SUPPORTED === null){
-    const firstChunk = batch.slice(0, GDRIVE_THUMB_BATCH_SIZE);
-    try{
-      const urls = await gdriveFetchThumbnailsBatch(firstChunk.map(im=>im.id));
-      firstChunk.forEach(im=>{ if(urls[im.id]) im.thumbUrl = urls[im.id]; else im.thumbFailed = true; });
-      GDRIVE_BATCH_THUMB_SUPPORTED = true;
-    }catch(e){
-      GDRIVE_BATCH_THUMB_SUPPORTED = false;
-    }
-    if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
-  }
-  if(!GDRIVE_BATCH_THUMB_SUPPORTED){
-    return loadGdriveBrowserThumbnailsPerFile(b, batch.filter(im=>!im.thumbUrl && !im.thumbFailed));
-  }
-  const remaining = batch.filter(im=>!im.thumbUrl && !im.thumbFailed);
-  const chunks = [];
-  for(let i=0;i<remaining.length;i+=GDRIVE_THUMB_BATCH_SIZE) chunks.push(remaining.slice(i, i+GDRIVE_THUMB_BATCH_SIZE));
-  // 3 batches in flight at once ≈ up to 45 images loading per round instead of 3-4 — Apps Script's
-  // per-script concurrent-execution ceiling (well above this) is what bounds how high this can safely go.
-  const CONCURRENCY = 3;
-  let idx = 0;
-  async function worker(){
-    while(idx < chunks.length){
-      const chunk = chunks[idx++];
-      if(STATE.gdriveBrowser !== b) return; // browser closed/replaced mid-flight
-      try{
-        const urls = await gdriveFetchThumbnailsBatch(chunk.map(im=>im.id));
-        chunk.forEach(im=>{ if(urls[im.id]) im.thumbUrl = urls[im.id]; else im.thumbFailed = true; });
-      }catch(e){
-        chunk.forEach(im=>{ im.thumbFailed = true; });
-      }
-      if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
-    }
-  }
-  const workers = []; for(let i=0;i<CONCURRENCY;i++) workers.push(worker());
-  await Promise.all(workers);
-}
-// Original single-file thumbnail path (kept as the fallback for an Apps Script deployment that predates
-// ?action=thumbs) — same probe-once-per-session shape as before, just renamed and only reached when
-// batching isn't available yet.
-async function loadGdriveBrowserThumbnailsPerFile(b, batch){
   if(!batch.length) return;
   if(GDRIVE_THUMB_SUPPORTED === null){
     try{
