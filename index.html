@@ -4214,7 +4214,27 @@ function myCompletedSearchHay(t){
 // delegated binding); the Folder link stops propagation so opening it in a new tab doesn't ALSO navigate
 // into Task Detail in this one — the "ดูงาน →" button deliberately has no handler of its own, a click on
 // it just bubbles up to the row's own data-opentask the same as clicking anywhere else in the row.
-function myCompletedRowHTML(t, me){
+//
+// Reorder Dashboard dev spec, SECTION 6: the dashboard's "current month" table uses a DIFFERENT column
+// set than this same function's use on the ประวัติงาน/Archive page (no Role column there), and adds a
+// Lead/Admin-only "เปิดงานใหม่" (Reopen) action — opts lets both callers share this one row renderer
+// instead of forking two near-identical copies. showReopen is gated again inside handleAction('reopenTask')
+// itself, not just here, so this is a display-only convenience, never the real permission check.
+// Reorder Dashboard dev spec, SECTION 6: "Dashboard ใช้สำหรับงานตอนนี้ + เดือนนี้ ส่วน Completed Work
+// Archive ใช้สำหรับค้นหาประวัติย้อนหลังทั้งหมด" — this scopes the same myCompletedAllTasks() set down to
+// just the CURRENT Buddhist month/year; the Archive page (renderMyCompletedJobs) deliberately keeps
+// searching all time, unchanged, so the two pages stay clearly different jobs instead of overlapping.
+function myCompletedThisMonth(me){
+  const g0 = myCompletedGroupInfo(todayISO());
+  return myCompletedAllTasks(me).filter(t=>{
+    const g = myCompletedGroupInfo(deliveredDateOf(t));
+    return g.bYear===g0.bYear && g.month===g0.month;
+  });
+}
+function myCompletedRowHTML(t, me, opts){
+  const o = opts || {};
+  const showRole = o.showRole !== false;
+  const showReopen = !!o.showReopen && (isLead() || hasAdminAccess());
   const roles = myRoleOnTask(t, me);
   return `<tr data-opentask="${t.task_id}">
     <td style="white-space:nowrap">${fmtDate(deliveredDateOf(t))}</td>
@@ -4222,12 +4242,74 @@ function myCompletedRowHTML(t, me){
     <td>${t.project_name||'—'}</td>
     <td>${t.task_type||t.task_category||'—'}</td>
     <td>${(t.platform||[]).length ? t.platform.join(', ') : '—'}</td>
-    <td class="hint">${roles.length ? roles.join(' / ') : '—'}</td>
+    ${showRole ? `<td class="hint">${roles.length ? roles.join(' / ') : '—'}</td>` : ''}
     <td style="white-space:nowrap">${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 เปิด Folder</a>` : '—'}</td>
-    <td style="white-space:nowrap"><button type="button" class="btn btn-sm btn-ghost">ดูงาน →</button></td>
+    <td style="white-space:nowrap;display:flex;gap:6px">
+      <button type="button" class="btn btn-sm btn-ghost">ดูงาน →</button>
+      ${showReopen ? `<button type="button" class="btn btn-sm btn-ghost" style="color:#b45309" data-act="reopenTask" data-id="${t.task_id}" title="นำงานนี้กลับเข้า Work Queue">เปิดงานใหม่</button>` : ''}
+    </td>
   </tr>`;
 }
 
+// Reorder Dashboard dev spec, SECTION 4 (new): "งานที่ต้องจัดการวันนี้" — one priority-ranked list instead
+// of leaving "what do I do first" to be inferred from the plain Kanban board. Waterfall bucketing, checked
+// in exactly this order, so a task lands in only the FIRST tier it matches (a CRITICAL task that also
+// happens to be overdue shows once, under Urgent — never twice): Urgent (CRITICAL/URGENT priority — the
+// same set PRIORITY_NEEDS_APPROVAL already flags) → Overdue (past prefer_delivery_date) → Due Today →
+// Revision (review_status==='revision', and wasn't already caught above) → Active (everything else still
+// open). Design spec: "ห้ามเพิ่ม Emoji / Decorative Icon" — every tier label here is plain colored text
+// plus a thin left border, no icon/emoji at all (unlike priorityBadge()'s 🔴🟠🟡🔵 used elsewhere — that
+// helper is untouched; this is a brand-new section, so it just never adopts that pattern to begin with).
+const MYWORK_TODAY_TIERS = [
+  {key:'urgent',   label:'ด่วนมาก',              color:'var(--crit-tx)'},
+  {key:'overdue',  label:'เลยกำหนดส่ง',           color:'var(--crit-tx)'},
+  {key:'duetoday', label:'ครบกำหนดวันนี้',         color:'var(--urg-tx)'},
+  {key:'revision', label:'งานแก้ไข',              color:'var(--urg-tx)'},
+  {key:'active',   label:'งานที่กำลังดำเนินการ',   color:'var(--ink-faint)'},
+];
+function myTodayActionTasks(me){
+  const today = todayISO();
+  const mine = STATE.tasks.filter(t=>t.assigned_user_name===me && !['rejected','closed_max_revision','delivered'].includes(t.review_status));
+  const order = MYWORK_TODAY_TIERS.map(x=>x.key);
+  const tiered = mine.map(t=>{
+    let tier;
+    if(PRIORITY_NEEDS_APPROVAL[t.priority]) tier='urgent';
+    else if(t.prefer_delivery_date && t.prefer_delivery_date<today) tier='overdue';
+    else if(t.prefer_delivery_date===today) tier='duetoday';
+    else if(t.review_status==='revision') tier='revision';
+    else tier='active';
+    return {t, tier};
+  });
+  tiered.sort((a,b)=>{
+    const oi = order.indexOf(a.tier)-order.indexOf(b.tier);
+    if(oi) return oi;
+    return (a.t.prefer_delivery_date||'').localeCompare(b.t.prefer_delivery_date||'');
+  });
+  return tiered;
+}
+function myTodayActionRowHTML(t, tier){
+  const tierDef = MYWORK_TODAY_TIERS.find(x=>x.key===tier);
+  const platformText = (t.platform||[]).length ? t.platform.join(', ') : '';
+  return `<div class="mywork-row" data-opentask="${t.task_id}" style="cursor:pointer;border-left:3px solid ${tierDef?tierDef.color:'var(--line)'};padding-left:10px">
+    <span class="hint" style="font-weight:700;flex-shrink:0;min-width:120px;color:${tierDef?tierDef.color:'inherit'}">${tierDef?tierDef.label:''}</span>
+    <span class="mywork-name">${taskDisplayName(t)}</span>
+    <span class="mywork-meta">${t.task_type||''}${platformText?' · '+platformText:''}</span>
+    <span class="mywork-pts">DL: ${fmtDate(t.prefer_delivery_date)}</span>
+  </div>`;
+}
+// Design spec: "compact empty state" — deliberately much shorter (~88px) than the ~150px+ placeholder
+// renderMyWorkTimeline() below still uses for its own empty state (untouched — that one wasn't part of
+// this spec), since a clear day here is the common case, not something that needs a big illustrated card.
+function renderMyTodayActionList(me){
+  const tiered = myTodayActionTasks(me);
+  if(tiered.length===0){
+    return `<div class="card placeholder" style="min-height:88px;display:flex;align-items:center;justify-content:center;padding:14px;margin-bottom:16px">ไม่มีงานที่ต้องจัดการวันนี้</div>`;
+  }
+  return `<div class="card" style="margin-bottom:16px">
+    <div class="section-title" style="margin-bottom:0">งานที่ต้องจัดการวันนี้</div>
+    <div class="mywork-list" style="margin-top:8px">${tiered.map(x=>myTodayActionRowHTML(x.t, x.tier)).join('')}</div>
+  </div>`;
+}
 function renderWorkspace(){
   const me = STATE.auth.identity;
   const role = (PEOPLE[me]||{}).role || 'Designer';
@@ -4245,11 +4327,13 @@ function renderWorkspace(){
   const waitingReviewCount = mine.filter(t=>['pending_review','pending_client_review'].includes(t.review_status)).length;
   const revisionCount = mine.filter(t=>t.review_status==='revision').length;
   const completedTodayCount = mine.filter(t=>t.review_status==='delivered' && t.completed_at && t.completed_at.slice(0,10)===today).length;
-  // §2/§7 — the ever-visible "งานที่เสร็จแล้ว" preview below the Active Kanban: latest 5-10 completed jobs
-  // (ALL-time, not just today — that's what makes it useful when "เสร็จวันนี้" reads 0) plus the button into
-  // the full History page. myCompletedAllTasks() already scopes strictly to this account (§8).
-  const myCompletedAll = myCompletedAllTasks(me).slice().sort((a,b)=>deliveredDateOf(b).localeCompare(deliveredDateOf(a)));
-  const myCompletedPreview = myCompletedAll.slice(0, 10);
+  // Reorder Dashboard dev spec, SECTION 6: "งานที่เสร็จแล้ว — {เดือนปัจจุบัน ปีปัจจุบัน}" — CURRENT month/year
+  // only now (was "latest 10, all-time" before this spec), unlimited row count (a scrollable table body
+  // instead of a hard slice, once there are enough rows to need it). myCompletedThisMonth() already scopes
+  // strictly to this account (reuses myCompletedAllTasks()'s own §8 scoping) on top of the month filter.
+  const myCompletedMonth = myCompletedThisMonth(me).slice().sort((a,b)=>deliveredDateOf(b).localeCompare(deliveredDateOf(a)));
+  const thisMonthG = myCompletedGroupInfo(today);
+  const completedSectionTitle = `งานที่เสร็จแล้ว — ${thisMonthG.monthLabel} ${thisMonthG.bYear}`;
 
   const monday = mondayOfWeek(today);
   const weekDays = ['จ','อ','พ','พฤ','ศ'];
@@ -4287,39 +4371,10 @@ function renderWorkspace(){
     <div class="ws-stat-card" id="myWorkStatCompletedCard" style="cursor:pointer" title="ดูประวัติงานที่เสร็จแล้วทั้งหมด"><div class="lbl">เสร็จวันนี้</div><div class="num ok">${completedTodayCount}</div></div>
   </div>
 
-  ${renderMyWorkTimeline(me, today)}
-
-  <!-- DEV SPEC — My Work Kanban + Time Tracking + Capacity Logic: "งานของฉัน" — Active work only
-       (งานใหม่ → กำลังทำ → รอตรวจ → แก้ไข). Columns are just a view over the SAME review_status
-       values/workflow the rest of the app already uses (see MYWORK_KANBAN_COLUMNS) — no new status field,
-       so a card here and the same task's badge in Task Detail/Process Board can never disagree. Completed
-       work has its own section right below instead of a 5th column here — see dev prompt §1. -->
-  <div class="ws-tasklist">
-    <div class="ws-tasklist-head">งานของฉัน</div>
-    ${renderMyWorkKanban(me)}
-  </div>
-
-  <!-- §1-§2/§7: "งานที่เสร็จแล้ว" — always visible right under the Active board (not hidden behind a small
-       button), latest 5-10 shown here as a compact table, full history one click away. Krissha, earlier
-       follow-up "แล้วทำไม่มันไม่มาโชว์ในโปไฟล์ส่วนตัว" — this replaces that first small link with a real,
-       un-missable section. -->
-  <div class="ws-tasklist">
-    <div class="ws-tasklist-head" style="display:flex;align-items:center;justify-content:space-between">
-      <span>งานที่เสร็จแล้ว</span>
-      <button type="button" class="btn btn-sm btn-primary" id="myWorkSeeCompletedBtn">ดูประวัติงานทั้งหมด →</button>
-    </div>
-    <div class="ws-tasklist-body">
-      ${myCompletedAll.length===0 ? `<div class="card placeholder"><div class="ico">📋</div>ยังไม่มีประวัติงานที่เสร็จแล้ว</div>` : `
-      <table class="po-briefs-table">
-        <thead><tr><th>วันที่เสร็จ</th><th>ชื่องาน</th><th>Project</th><th>ประเภทงาน</th><th>Platform</th><th>Role</th><th>Final Folder</th><th></th></tr></thead>
-        <tbody>${myCompletedPreview.map(t=>myCompletedRowHTML(t, me)).join('')}</tbody>
-      </table>
-      ${myCompletedAll.length>myCompletedPreview.length ? `<div class="hint" style="padding:10px 4px 2px">แสดง ${myCompletedPreview.length} จากทั้งหมด ${myCompletedAll.length} งาน — กด "ดูประวัติงานทั้งหมด" ด้านบนเพื่อดูทุกงาน</div>` : ''}
-      `}
-    </div>
-  </div>
-
-  <div class="ws-bottom">
+  <!-- Reorder Dashboard dev spec, SECTION 2-3: Weekly Capacity + Notifications move up here (were at the
+       very bottom of the page before this spec) — both are "right now" context, same as the KPI row above
+       them, so they read before the task lists instead of after. -->
+  <div class="ws-bottom" style="margin-bottom:16px">
     <div class="card">
       <div class="section-title" style="margin-bottom:0">ภาระงานสัปดาห์นี้ — ${role}</div>
       <div class="week-strip">
@@ -4334,11 +4389,51 @@ function renderWorkspace(){
       <div class="section-title" style="margin-bottom:0">แจ้งเตือนล่าสุด</div>
       ${notifs.length===0 ? `<div class="hint" style="margin-top:8px">ยังไม่มีการแจ้งเตือน</div>` : `
       <ul class="notif-feed">
-        ${notifs.map(n=>`<li>
+        ${notifs.map(n=>`<li data-notifitem="${n.id}" ${n.taskId?`data-opentask="${n.taskId}" style="cursor:pointer"`:''}>
           <span class="nf-icon">${n.read?'🔔':'🔵'}</span>
           <div><div class="nf-msg"><strong>${n.title}</strong> ${n.message}</div><div class="nf-time">${fmtDateTime(n.timestamp)}</div></div>
         </li>`).join('')}
       </ul>`}
+    </div>
+  </div>
+
+  <!-- Reorder Dashboard dev spec, SECTION 4 (new): "งานที่ต้องจัดการวันนี้" — priority-ranked action list,
+       see renderMyTodayActionList()/myTodayActionTasks() above for the tier logic. -->
+  ${renderMyTodayActionList(me)}
+
+  ${renderMyWorkTimeline(me, today)}
+
+  <!-- DEV SPEC — My Work Kanban + Time Tracking + Capacity Logic: "งานของฉัน" — Active work only
+       (งานใหม่ → กำลังทำ → รอตรวจ → แก้ไข). Columns are just a view over the SAME review_status
+       values/workflow the rest of the app already uses (see MYWORK_KANBAN_COLUMNS) — no new status field,
+       so a card here and the same task's badge in Task Detail/Process Board can never disagree. Completed
+       work has its own section right below instead of a 5th column here — see dev prompt §1. -->
+  <div class="ws-tasklist">
+    <div class="ws-tasklist-head">งานของฉัน</div>
+    ${renderMyWorkKanban(me)}
+  </div>
+
+  <!-- Reorder Dashboard dev spec, SECTION 6: "งานที่เสร็จแล้ว — {เดือนปัจจุบัน ปีปัจจุบัน}" — current month
+       only, unlimited rows (scrolls internally past ~8 so the page itself doesn't grow unbounded), and a
+       different column set than the Archive page's (no Role column here — see myCompletedRowHTML's
+       showRole option) plus a Lead/Admin-only Reopen action. "ดูประวัติงานทั้งหมด →" still leads to the
+       same full ประวัติงาน/Archive page as before (renderMyCompletedJobs) — that page already covers
+       "search all history", unchanged, so it doubles as the spec's "Completed Work Archive". -->
+  <div class="ws-tasklist">
+    <div class="ws-tasklist-head" style="display:flex;align-items:center;justify-content:space-between">
+      <span>${completedSectionTitle}</span>
+      <button type="button" class="btn btn-sm btn-primary" id="myWorkSeeCompletedBtn">ดูประวัติงานทั้งหมด →</button>
+    </div>
+    <div class="ws-tasklist-body">
+      ${myCompletedMonth.length===0 ? `<div class="card placeholder"><div class="ico">📋</div>ยังไม่มีงานที่เสร็จแล้วในเดือนนี้</div>` : `
+      <div style="${myCompletedMonth.length>8?'max-height:480px;overflow-y:auto':''}">
+      <table class="po-briefs-table">
+        <thead><tr><th>วันที่เสร็จ</th><th>ชื่องาน</th><th>Project</th><th>ประเภทงาน</th><th>Platform</th><th>Final Folder</th><th></th></tr></thead>
+        <tbody>${myCompletedMonth.map(t=>myCompletedRowHTML(t, me, {showRole:false, showReopen:true})).join('')}</tbody>
+      </table>
+      </div>
+      <div class="hint" style="padding:10px 4px 2px">${myCompletedMonth.length} งานที่เสร็จในเดือนนี้ — กด "ดูประวัติงานทั้งหมด" ด้านบนเพื่อดูงานเดือนอื่นๆ ย้อนหลัง</div>
+      `}
     </div>
   </div>
   `;
@@ -4623,7 +4718,7 @@ function renderMyCompletedJobs(){
           </div>
           ${mOpen ? `<table class="po-briefs-table" style="border-radius:0;border-left:none;border-right:none;box-shadow:none;margin:0">
             <thead><tr><th>วันที่เสร็จ</th><th>ชื่องาน</th><th>Project</th><th>ประเภทงาน</th><th>Platform</th><th>Role</th><th>Final Folder</th><th></th></tr></thead>
-            <tbody>${md.tasks.map(t=>myCompletedRowHTML(t, me)).join('')}</tbody>
+            <tbody>${md.tasks.map(t=>myCompletedRowHTML(t, me, {showReopen:true})).join('')}</tbody>
           </table>` : ''}
         </div>`;
       }).join('') : ''}
@@ -11411,6 +11506,22 @@ function bindEvents(){
     STATE.taskWs = {zoom:'fit', activePageId:null, activeArtworkIndex:0, fullscreen:false, sectionOpen:{}}; // fresh viewer state per task opened
     render();
   });
+  // Reorder Dashboard dev spec, SECTION 3: Notifications card, "read-state and click-to-task" — the <li>
+  // above already carries data-opentask (when the notif has one) so the binding right above this already
+  // handles navigation; this just marks that one notification read on click, same effect the bell dropdown
+  // already has for ALL notifications on open (see openNotifPortal), just scoped to a single item here.
+  document.querySelectorAll('[data-notifitem]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const n = STATE.notifications.find(x=>x.id===el.getAttribute('data-notifitem'));
+      if(n && !n.read){ n.read = true; saveNotifs(); }
+    });
+  });
+  // Reorder Dashboard dev spec, BUSINESS LOGIC — Task Reopen: the button itself carries data-act=
+  // "reopenTask" (see myCompletedRowHTML), so the existing generic [data-act] delegated handler further
+  // below (which already does e.stopPropagation() before calling handleAction(act,id) — see that binding's
+  // own comment) wires this up with no dedicated listener needed. Permission is re-checked inside
+  // handleAction('reopenTask',...) itself; the button only being rendered for Lead/Admin (showReopen) is a
+  // display convenience on top of that, never the real gate.
   // Task Workspace (full-page Task Detail) — back button + Visual Brief viewer controls.
   document.getElementById('taskwsBackBtn')?.addEventListener('click', ()=>{ STATE.detailTaskId=null; render(); });
   document.querySelectorAll('[data-taskwszoom]').forEach(b=>b.onclick=()=>{
@@ -13174,6 +13285,36 @@ async function handleAction(act, id){
     notify(t.project_owner_email, 'Lead Designer ขอให้เปลี่ยนวันที่/Priority', `"${t.task_name}" — ${reason}`, t.task_id);
     toast('แจ้งขอเปลี่ยนวันที่แล้ว');
   }
+  // Reorder Dashboard dev spec, BUSINESS LOGIC — "Task Reopen": no code path used to be able to move a
+  // "delivered" task back out of Completed at all (see finalizeTaskCompletion's own comment, §5 "Completed
+  // = Final State" — that rule predates this spec and is deliberately being changed here, not violated).
+  // Restricted to Lead Designer/Admin, same trust level as the other reversible/destructive review moves
+  // in this switch (requestRevision's Lead-only gate, etc.) — a Designer or Brief Owner who spots a
+  // mistakenly-completed task still needs to ask Lead to reopen it, same as she already has to approve a
+  // Revision. Sends the task back to "แก้ไข" (Revision) rather than guessing which earlier column it came
+  // from — "reopen" almost always means "needs another pass", and Revision is exactly the column that
+  // means that; started_at resets to now so the Timer/Capacity genuinely resume (Core Logic: an open task
+  // always holds Capacity) instead of trying to resurrect a stopped clock. completed_at/cycle_time_ms/
+  // actual_delivery_date are cleared — not kept alongside the new open state — so the task can't show as
+  // simultaneously "completed on X" and "back in the active queue" anywhere in the app; the REOPEN_TASK
+  // history line preserves the record of when it had been completed, for the audit trail.
+  else if(act==='reopenTask'){
+    if(!(isLead()||hasAdminAccess())){ toast('เปิดงานใหม่ได้เฉพาะ Lead Designer/Admin เท่านั้น'); return; }
+    if(t.review_status!=='delivered'){ toast('งานนี้ยังไม่ได้อยู่ในสถานะเสร็จแล้ว'); return; }
+    const ok = confirm(`เปิดงาน "${taskDisplayName(t)}" กลับเข้า Work Queue อีกครั้งใช่หรือไม่?\nงานจะถูกนำออกจาก "งานที่เสร็จแล้ว" และกลับไปที่สถานะ "แก้ไข" (Revision) — Capacity ของงานนี้จะถูกนับกลับเข้าไปใหม่`);
+    if(!ok) return;
+    const reason = prompt('เหตุผลที่เปิดงานนี้ใหม่ (บังคับกรอก):');
+    if(!reason){ toast('ต้องระบุเหตุผล'); return; }
+    const prevCompletedAt = t.completed_at;
+    t.review_status = 'revision';
+    t.started_at = new Date().toISOString();
+    delete t.completed_at;
+    delete t.cycle_time_ms;
+    delete t.actual_delivery_date;
+    t.review_history.push({timestamp:new Date().toISOString(), action:'REOPEN_TASK', comment:`เปิดงานใหม่จาก "เสร็จแล้ว" (เดิมเสร็จเมื่อ ${prevCompletedAt?fmtDateTime(prevCompletedAt):'-'}) — เหตุผล: ${reason}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+    notify(t.assigned_user_name, 'งานถูกเปิดใหม่', `"${t.task_name}" ถูกเปิดกลับเข้า Work Queue อีกครั้ง — เหตุผล: ${reason}`, t.task_id);
+    toast('↺ เปิดงานใหม่แล้ว — กลับเข้า "แก้ไข" ใน Work Queue');
+  }
   await saveTasks();
   render();
 }
@@ -13289,12 +13430,15 @@ async function gdriveDecodeProxyResponse(res){
     throw new Error((data && data.error) || 'FETCH_FAILED');
   }
   const blob = await res.blob();
-  // Image Pipeline spec (Krissha): never let an HTML error page, an empty body, or an unsupported
-  // MIME type pass through as if it were real image bytes — this is what used to cause "some images
-  // download fine but preview never shows" when the proxy hiccuped. Reject those here, once, so every
-  // caller (working image, thumbnail, batch-probe) gets the same guarantee for free.
+  // Image Pipeline spec (Krissha): reject a genuinely empty body here so it never gets handed to <img>/
+  // canvas as if it were real image bytes. NOTE: an earlier version of this also rejected on Content-Type
+  // not starting with "image/" — reverted (Krissha, bug report: ALL 13 files in a batch suddenly failing
+  // with "Preview unavailable" right after that shipped) because Apps Script's raw-Blob doGet responses
+  // don't reliably come back with an image/* Content-Type header even when the bytes themselves are a
+  // perfectly good image (Google's serving layer for a raw Blob return can report something generic like
+  // application/octet-stream) — trusting that header as a hard gate was the actual regression, not a real
+  // safety net. Empty-body is still a reliable, safe signal on its own.
   if(!blob || blob.size === 0) throw new Error('EMPTY_RESPONSE');
-  if(!/^image\//.test(blob.type) && !/^image\//.test(contentType)) throw new Error('UNSUPPORTED_RESPONSE');
   return blob;
 }
 async function gdriveFetchImageViaProxy(fileId){
@@ -13683,6 +13827,20 @@ function renderGdriveBrowser(){
   const imgsHere = b.images;
   const selectedHere = imgsHere.filter(im=>b.selected[im.id]).length;
   const allHereSelected = imgsHere.length>0 && selectedHere===imgsHere.length;
+  // Krissha, "หน้านี้บอกได้มั้ยว่าโหลดรูปถึงไหนละ": the ⏳ tiles used to give zero feedback while the
+  // batch/per-file thumbnail probes above ran their course (each one is timeout-guarded, so it always
+  // finishes, but with no visible progress a several-tens-of-seconds wait on a slow/cold-started Apps
+  // Script looks indistinguishable from actually being stuck). This line makes that progress visible —
+  // and, since a failed PREVIEW never blocks the checkbox/import below (the real Import re-fetches the
+  // full file itself via ftLoadWorkingImage, independent of this thumbnail), also reassures her that a
+  // 🖼️ tile is still perfectly importable.
+  const thumbTotal = imgsHere.length;
+  const thumbReady = imgsHere.filter(im=>im.thumbUrl).length;
+  const thumbFailedCount = imgsHere.filter(im=>im.thumbFailed).length;
+  const thumbLoadingCount = thumbTotal - thumbReady - thumbFailedCount;
+  const thumbProgressHtml = thumbLoadingCount>0
+    ? `<div class="ft-hint" style="width:100%;margin-top:4px">กำลังโหลดรูปตัวอย่าง ${thumbReady+thumbFailedCount}/${thumbTotal}${thumbFailedCount>0?` (โหลดไม่สำเร็จ ${thumbFailedCount} รูป)`:''}...</div>`
+    : (thumbFailedCount>0 ? `<div class="ft-hint" style="width:100%;margin-top:4px;color:#dc2626">โหลดรูปตัวอย่างไม่สำเร็จ ${thumbFailedCount}/${thumbTotal} รูป (ยังเลือก/นำเข้าไฟล์จริงได้ตามปกติค่ะ)</div>` : '');
   const errMsg = {
     NO_PROXY_URL: 'ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration',
     LIST_FAILED: 'โหลดรายการไฟล์ไม่สำเร็จ (เช็คว่าโฟลเดอร์นี้ถูกแชร์กับบัญชีที่ใช้ Deploy Apps Script แล้ว)',
@@ -13701,6 +13859,7 @@ function renderGdriveBrowser(){
         <label class="ft-checkline"><input type="checkbox" id="gdriveSelectAllHere" ${imgsHere.length?'':'disabled'} ${allHereSelected?'checked':''}> เลือกทั้งหมดในโฟลเดอร์นี้ (${selectedHere}/${imgsHere.length})</label>
         <button type="button" class="ft-btn ft-btn-secondary" id="gdriveBrowseRefresh" style="margin-left:8px" ${b.loading?'disabled':''}>รีเฟรช</button>
         <div class="ft-hint">เลือกแล้วทั้งหมด ${selCount} รูป</div>
+        ${thumbProgressHtml}
       </div>
       <div class="gdrive-browse-body">
         ${b.loading ? `<div class="gdrive-browse-empty">กำลังโหลด...</div>` :
@@ -14251,7 +14410,7 @@ function renderFtImportSection(mode){
                 <strong>${escapeFtHtml(a.name)}</strong>
                 <p>${
                   a.status==='loading' ? 'กำลังเตรียมรูป...' :
-                  a.status==='error' ? '<span style="color:#dc2626">โหลดรูปไม่สำเร็จ — Preview unavailable</span>' :
+                  a.status==='error' ? `<span style="color:#dc2626">โหลดรูปไม่สำเร็จ — Preview unavailable${a.error?` <span style="opacity:.7">(${escapeFtHtml(a.error)})</span>`:''}</span>` :
                   escapeFtHtml(a.source||'')
                 }</p>
               </div>
