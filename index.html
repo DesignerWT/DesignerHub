@@ -1625,6 +1625,11 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
        own inline script would be were this not a single-file page, so it's ready before any Drive
        button click could run. -->
   <script src="https://accounts.google.com/gsi/client" defer></script>
+  <!-- Frame Tool — "Export ทั้งหมด / ZIP ทั้งหมด" (Krissha, bug report: "มันเซฟทีละรูป ไม่ซิปมา" — the
+       button was already LABELED "ZIP ทั้งหมด" but only ever triggered one browser Save-As dialog per
+       file). JSZip bundles every exported frame into a single .zip so it's one real download — see
+       ftExportAll() below. -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
   <script>
     // If something already defined window.storage before this script ran (an automated test
     // harness's own stub via Playwright's addInitScript, or any other embedding host), leave it
@@ -12869,7 +12874,7 @@ async function gdriveFetchImageAsObjectUrl(fileId, token){
    Picker has no visible checkbox and no Select-All affordance at all — it's Google's own iframe, we
    don't control its markup. She asked again for real tick-boxes plus a working Select All, matching
    the checkbox grid the Local/Asset-Queue tiles already have. So this replaces the Picker call with our
-   OWN folder browser, built straight off the Drive v3 REST API (files.list + thumbnailLink), rendered
+   OWN folder browser, built straight off the Drive v3 REST API (files.list to browse), rendered
    with the same tick-box language as the rest of the Import UI — selection state lives on OUR page now,
    so Select All is just "check every box currently in view". This also means the Picker-only API Key
    (Admin Panel > Google Drive Integration) is no longer needed for this flow — only the OAuth Client ID
@@ -12913,7 +12918,7 @@ async function loadGdriveBrowserFolder(folderId){
   try{
     const token = await gdriveGetAccessToken();
     const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType,thumbnailLink)&pageSize=200&orderBy=folder,name`, {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=200&orderBy=folder,name`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if(!res.ok) throw new Error('LIST_FAILED');
@@ -12922,7 +12927,7 @@ async function loadGdriveBrowserFolder(folderId){
     const files = data.files || [];
     b.folders = files.filter(f=>f.mimeType==='application/vnd.google-apps.folder');
     const images = files.filter(f=>f.mimeType && f.mimeType.indexOf('image/')===0);
-    b.images = images.map(f=>({id:f.id, name:f.name, thumbnailLink:f.thumbnailLink, thumbUrl:null, thumbFailed:false}));
+    b.images = images.map(f=>({id:f.id, name:f.name, thumbUrl:null, thumbFailed:false}));
     b.loading = false;
     refreshGdriveBrowserPortal();
     loadGdriveBrowserThumbnails(b, token); // background-fill thumbnails a few at a time, doesn't block the grid
@@ -12933,20 +12938,27 @@ async function loadGdriveBrowserFolder(folderId){
     refreshGdriveBrowserPortal();
   }
 }
+// Deliberately does NOT fetch im.thumbnailLink — that URL lives on a different Google domain
+// (lh3.googleusercontent.com, not googleapis.com) with its own auth rules, and attaching our OAuth
+// Bearer token to it fails uniformly (every tile fell back to the placeholder icon — Krissha
+// screenshot). gdriveFetchImageAsObjectUrl() below already works reliably for the exact same
+// googleapis.com + Bearer-token pattern (it's how "Import Selected" downloads the real files), so
+// thumbnails reuse that proven path instead — a little heavier per tile, but folders here are small.
+// v1 fired 4 of these at once and EVERY tile still failed (placeholder icon, every time), while
+// "Import Selected" — the exact same fetch, just one file at a time in a plain loop — always worked
+// (Krissha confirmed). That points at Google's per-second Drive API quota rejecting the burst of
+// simultaneous full-image requests, so this now loads thumbnails one at a time too, matching the
+// proven-working pattern exactly instead of guessing at a "safe" concurrency number.
 async function loadGdriveBrowserThumbnails(b, token){
   const batch = b.images.slice();
-  const CONCURRENCY = 6;
+  const CONCURRENCY = 1;
   let idx = 0;
   async function worker(){
     while(idx < batch.length){
       const im = batch[idx++];
       if(STATE.gdriveBrowser !== b) return; // browser closed/replaced mid-flight
-      if(!im.thumbnailLink){ im.thumbFailed = true; continue; }
       try{
-        const res = await fetch(im.thumbnailLink, { headers: { Authorization: `Bearer ${token}` } });
-        if(!res.ok) throw new Error();
-        const blob = await res.blob();
-        im.thumbUrl = URL.createObjectURL(blob);
+        im.thumbUrl = await gdriveFetchImageAsObjectUrl(im.id, token);
       }catch(e){ im.thumbFailed = true; }
       if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
     }
@@ -13206,16 +13218,12 @@ function ftDrawComposite(ctx, w, h, opts){
     if(opts.bgImg){
       ctx.drawImage(opts.bgImg, 0,0,w,h);
     } else {
-      ctx.fillStyle = '#F1F5F9';
+      // Krissha, bug report: "ตอนยังไม่เพิ่มเฟรม ให้เป็นพื้นหลังขาวล้วน...ตอนนี้มันขึ้นกรอบ สี และ text
+      // มอคอัพ" — plain white now instead of the old gray fill + dashed border + "อัปโหลด Warranty
+      // Frame" placeholder text (that copy still exists as the sidebar upload button/label, so nothing
+      // is actually lost — the canvas itself just shouldn't draw mockup chrome onto the preview/export).
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(0,0,w,h);
-      ctx.strokeStyle = '#CBD5E1';
-      ctx.setLineDash([8,6]);
-      ctx.strokeRect(10,10,w-20,h-20);
-      ctx.setLineDash([]);
-      ctx.fillStyle = '#64748B';
-      ctx.font = `${Math.round(w*0.032)}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.fillText('อัปโหลด Warranty Frame', w/2, h/2);
     }
   } else if(mode==='csv'){
     ctx.fillStyle = '#ffffff';
@@ -14133,9 +14141,47 @@ function ftExportCurrent(mode){
   toast('บันทึกรูปแล้ว');
 }
 
-function ftExportAll(mode){
+// Bundles every exported frame into one .zip (Krissha, bug report: "มันเซฟทีละรูปอ่ะ ไม่ซิปมา" — the
+// button was already labeled "ZIP ทั้งหมด"/"Export ทั้งหมด" but the old version just fired N separate
+// <a download> clicks, so the browser prompted a Save dialog once per file instead of one real zip).
+// Falls back to the old one-by-one download (ftExportAllIndividually) only if JSZip failed to load
+// (e.g. no internet right at that moment) so Export All never just silently does nothing.
+async function ftExportAll(mode){
   const st = ftStateFor(mode);
   if(!st.items.length){ toast('ไม่มีรูปให้ Export'); return; }
+  if(typeof JSZip==='undefined'){
+    toast('โหลดระบบสร้าง ZIP ไม่สำเร็จ (เช็คอินเทอร์เน็ต) — จะดาวน์โหลดทีละไฟล์แทน');
+    ftExportAllIndividually(mode);
+    return;
+  }
+  const size = mode==='whitebg' ? 1200 : st.exportSize;
+  const format = mode==='whitebg' ? 'png' : st.exportFormat;
+  const limit = mode==='whitebg' ? 'none' : st.exportLimit;
+  toast(`กำลังรวม ${st.items.length} รูปเป็น ZIP...`);
+  try{
+    const zip = new JSZip();
+    const usedNames = {};
+    st.items.forEach(item=>{
+      const dataUrl = ftComposeDataUrl(mode, item, size, format, limit);
+      const base = ftBaseName(item.name)+'_frame.'+format;
+      let name = base;
+      if(usedNames[base]){ usedNames[base]++; name = ftBaseName(item.name)+'_frame_'+usedNames[base]+'.'+format; }
+      else { usedNames[base] = 1; }
+      zip.file(name, dataUrl.split(',')[1], {base64:true});
+    });
+    const blob = await zip.generateAsync({type:'blob'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `Frame_Export_${st.items.length}pcs.zip`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url); }catch(e){} }, 4000);
+    toast(`ดาวน์โหลด ZIP แล้ว (${st.items.length} รูป)`);
+  }catch(e){
+    toast('สร้างไฟล์ ZIP ไม่สำเร็จ ลองใหม่อีกครั้ง');
+  }
+}
+function ftExportAllIndividually(mode){
+  const st = ftStateFor(mode);
   const size = mode==='whitebg' ? 1200 : st.exportSize;
   const format = mode==='whitebg' ? 'png' : st.exportFormat;
   const limit = mode==='whitebg' ? 'none' : st.exportLimit;
@@ -14145,7 +14191,6 @@ function ftExportAll(mode){
       ftDownloadDataUrl(dataUrl, ftBaseName(item.name)+'_frame.'+format);
     }, i*250);
   });
-  toast(`กำลังดาวน์โหลด ${st.items.length} รูป (ทีละไฟล์)`);
 }
 
 /* ============================= BOOT ============================= */
