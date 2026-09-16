@@ -77,7 +77,7 @@ body{
 }
 .avatar{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));
   color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
-.usermenu-drop{position:absolute;top:46px;right:18px;width:220px;background:#fff;border-radius:16px;box-shadow:var(--shadow-md);
+.usermenu-drop{position:fixed;top:46px;right:18px;width:220px;background:#fff;border-radius:16px;box-shadow:var(--shadow-md);
   border:1px solid var(--line);overflow:hidden;z-index:50}
 .usermenu-head{padding:12px 14px;border-bottom:1px solid var(--line)}
 .usermenu-head .n{font-weight:700;font-size:13px}
@@ -340,7 +340,7 @@ hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 .adminlogin-badge{width:44px;height:44px;border-radius:12px;background:rgba(15,23,42,.06);display:flex;align-items:center;justify-content:center;font-size:20px;margin:0 auto 10px}
 
 /* notif */
-.notifdrop{position:absolute;top:46px;right:18px;width:320px;background:#fff;border-radius:16px;box-shadow:var(--shadow-md);
+.notifdrop{position:fixed;top:46px;right:18px;width:320px;background:#fff;border-radius:16px;box-shadow:var(--shadow-md);
   border:1px solid var(--line);z-index:80;max-height:400px;overflow-y:auto}
 .notifitem{padding:11px 14px;border-bottom:1px solid var(--line);font-size:12px}
 .notifitem:last-child{border-bottom:none}
@@ -2092,12 +2092,18 @@ let STATE = {
     sub:'manual',
     manual:{
       frameName:'', frameUrl:'',
+      // Import Product Images (Krissha, request): Manual now shares the exact same import system as
+      // White Background — Google Drive / Product System / Local source tabs, an Asset Queue with
+      // search + select-all + import-selected, and Reference & Working Files. See renderFtImportSection()/
+      // bindFtImportSection() below, shared by both modes via ftStateFor(mode).
+      sourceTab:'drive', driveUrl:'', driveReference:'', productSearch:'', productReference:'',
+      queue:[], searchKw:'',
       items:[], currentIndex:0,
       global:{scale:100,x:0,y:0},
       exportFormat:'jpg', exportSize:1000, exportLimit:'none',
     },
     whitebg:{
-      sourceTab:'drive', driveUrl:'', driveReference:'', driveFolderId:'', driveFolderName:'', productSearch:'', productReference:'',
+      sourceTab:'drive', driveUrl:'', driveReference:'', productSearch:'', productReference:'',
       queue:[], searchKw:'', items:[], currentIndex:0, showGuide:true,
     },
     csv:{
@@ -3168,7 +3174,7 @@ function renderTopNav(){
   // stepped INTO Admin Mode (adminModeActive) can step back out to her normal workspace.
   const canToggleAdminMode = hasAdminAccess() && STATE.auth.role!=='admin';
   return `
-  <div class="topnav" style="position:relative">
+  <div class="topnav">
     <div class="brandmark"><span class="dot"></span>GD Worldtech</div>
     ${tabs.map(t=>`<button class="tabbtn ${STATE.tab===t.id?'active':''}" data-tab="${t.id}">${t.label}</button>`).join('')}
     <div class="spacer"></div>
@@ -3181,8 +3187,6 @@ function renderTopNav(){
       <span>${displayName}${isPO && STATE.auth.user?.department ? ` · ${STATE.auth.user.department}` : ''}</span>
 
     </div>
-    ${STATE.notifOpen ? renderNotifDropdown() : ''}
-    ${STATE.userMenuOpen ? renderUserMenuDropdown() : ''}
   </div>
   ${STATE.adminModePanelOpen ? renderAdminModePanel() : ''}`;
 }
@@ -3203,6 +3207,48 @@ function renderNotifDropdown(){
     ${list.length===0 ? `<div class="notifitem"><div class="m">ไม่มีการแจ้งเตือน</div></div>` :
     list.map(n=>`<div class="notifitem ${n.read?'':'unread'}"><div class="t">${n.title}</div><div class="m">${n.message}</div><div class="ts">${fmtDateTime(n.timestamp)}</div></div>`).join('')}
   </div>`;
+}
+// Rendered as body-level DOM portals — deliberately NOT part of renderTopNav()'s own returned HTML.
+// .topnav has backdrop-filter (for the glass/blur look), and per spec a non-none backdrop-filter makes
+// an element act as the containing block for any position:fixed descendant — exactly like transform or
+// filter does. That silently re-traps a "position:fixed" notif/user-menu box back inside the topnav's
+// own short box, so it rendered as a barely-visible sliver instead of a full dropdown (Krissha screenshot,
+// Sep 2026). Appending straight to <body> sidesteps that entirely — same portal pattern already used by
+// showArtworkApplyPromptModal() above.
+function openUserMenuPortal(){
+  closeUserMenuPortal();
+  STATE.userMenuOpen = true;
+  const wrap = document.createElement('div');
+  wrap.id = 'userMenuPortal';
+  wrap.innerHTML = renderUserMenuDropdown();
+  document.body.appendChild(wrap);
+  document.getElementById('confirmLogoutBtn')?.addEventListener('click', ()=>{
+    STATE.auth = {loggedIn:false, role:null, identity:null, isAdminUnlocked:false, user:null};
+    STATE.detailTaskId=null; STATE.editingTaskId=null; STATE.editingDraftId=null;
+    STATE.accessDenied=false; STATE.accessDeniedEmail=null; STATE.googleChooserOpen=false;
+    STATE.adminModeActive=false; STATE.adminModePanelOpen=false;
+    STATE.vbProductPicker=null; STATE.vbReferenceForm=null; clearOverlay();
+    clearSavedSession();
+    closeUserMenuPortal();
+    render();
+  });
+}
+function closeUserMenuPortal(){
+  STATE.userMenuOpen = false;
+  document.getElementById('userMenuPortal')?.remove();
+}
+function openNotifPortal(){
+  closeNotifPortal();
+  STATE.notifOpen = true;
+  myNotifs().forEach(n=>n.read=true); saveNotifs();
+  const wrap = document.createElement('div');
+  wrap.id = 'notifPortal';
+  wrap.innerHTML = renderNotifDropdown();
+  document.body.appendChild(wrap);
+}
+function closeNotifPortal(){
+  STATE.notifOpen = false;
+  document.getElementById('notifPortal')?.remove();
 }
 
 function renderSidebar(){
@@ -10689,21 +10735,13 @@ function bindEvents(){
   // trying to get to her workspace) signed her straight out. Logging out is now its own explicit button
   // inside that menu (#confirmLogoutBtn below), so a click on the pill itself is never destructive.
   document.getElementById('userMenuBtn')?.addEventListener('click', (e)=>{
-    e.stopPropagation(); STATE.userMenuOpen = !STATE.userMenuOpen;
-    render();
-  });
-  document.getElementById('confirmLogoutBtn')?.addEventListener('click', ()=>{
-    STATE.auth = {loggedIn:false, role:null, identity:null, isAdminUnlocked:false, user:null};
-    STATE.detailTaskId=null; STATE.notifOpen=false; STATE.userMenuOpen=false; STATE.editingTaskId=null; STATE.editingDraftId=null;
-    STATE.accessDenied=false; STATE.accessDeniedEmail=null; STATE.googleChooserOpen=false;
-    STATE.adminModeActive=false; STATE.adminModePanelOpen=false;
-    STATE.vbProductPicker=null; STATE.vbReferenceForm=null; clearOverlay();
-    clearSavedSession();
+    e.stopPropagation();
+    if(document.getElementById('userMenuPortal')){ closeUserMenuPortal(); } else { openUserMenuPortal(); }
     render();
   });
   document.getElementById('notifBell')?.addEventListener('click', (e)=>{
-    e.stopPropagation(); STATE.notifOpen = !STATE.notifOpen;
-    if(STATE.notifOpen){ myNotifs().forEach(n=>n.read=true); saveNotifs(); }
+    e.stopPropagation();
+    if(document.getElementById('notifPortal')){ closeNotifPortal(); } else { openNotifPortal(); }
     render();
   });
   // Navigation / Route Bug (Master Dev Spec §37-39): clicking a primary nav control (top Tab or
@@ -11519,8 +11557,8 @@ function bindEvents(){
   });
 
   document.body.addEventListener('click', (e)=>{
-    if(STATE.notifOpen && !e.target.closest('#notifBell') && !e.target.closest('.notifdrop')){ STATE.notifOpen=false; render(); }
-    if(STATE.userMenuOpen && !e.target.closest('#userMenuBtn') && !e.target.closest('.usermenu-drop')){ STATE.userMenuOpen=false; render(); }
+    if(document.getElementById('notifPortal') && !e.target.closest('#notifBell') && !e.target.closest('.notifdrop')){ closeNotifPortal(); render(); }
+    if(document.getElementById('userMenuPortal') && !e.target.closest('#userMenuBtn') && !e.target.closest('.usermenu-drop')){ closeUserMenuPortal(); render(); }
     if(STATE.pui.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.pui.menuOpenFor=null; render(); }
     if(STATE.platUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.platUI.menuOpenFor=null; render(); }
     if(STATE.assetUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.assetUI.menuOpenFor=null; render(); }
@@ -12777,15 +12815,6 @@ let GDRIVE_TOKEN_EXPIRES_AT = 0;
 // 6 Month Waranty / ALL SKUs in SHOP / All Waranty / No Waranty without navigating down from My Drive each
 // time. She can still navigate elsewhere in the picker if she ever needs a different folder.
 const GDRIVE_DEFAULT_FOLDER_ID = '1wDODqsNR7bMWSKj1W8RZMmQOr4JGujWu';
-function gdriveExtractFolderId(url){
-  const s = String(url||'').trim();
-  let m = s.match(/\/folders\/([a-zA-Z0-9_-]{10,})/);
-  if(m) return m[1];
-  m = s.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
-  if(m) return m[1];
-  if(/^[a-zA-Z0-9_-]{10,}$/.test(s)) return s; // allow pasting a bare folder ID too
-  return null;
-}
 function gdriveGetAccessToken(){
   return new Promise((resolve, reject)=>{
     const clientId = (STATE.gdriveConfig && STATE.gdriveConfig.clientId) || '';
@@ -12808,20 +12837,6 @@ function gdriveGetAccessToken(){
     }catch(e){ reject(e); }
   });
 }
-async function gdriveListImages(folderId, token){
-  const q = encodeURIComponent(`'${folderId}' in parents and mimeType contains 'image/' and trashed=false`);
-  const fields = encodeURIComponent('files(id,name,mimeType)');
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=${fields}&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if(!res.ok){
-    if(res.status===404) throw new Error('FOLDER_NOT_FOUND');
-    if(res.status===401 || res.status===403) throw new Error('NO_ACCESS');
-    throw new Error('LIST_FAILED');
-  }
-  const data = await res.json();
-  return data.files || [];
-}
 async function gdriveFetchImageAsObjectUrl(fileId, token){
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -12831,11 +12846,16 @@ async function gdriveFetchImageAsObjectUrl(fileId, token){
   return URL.createObjectURL(blob);
 }
 
-/* ---------- Google Picker (Krissha, follow-up request: "คลิกแล้วเลือกโฟลเดอร์นี้เท่านั้น" —
-   click once, pick the folder visually, no more pasting URLs). Needs a Picker-scoped API Key
-   (Admin Panel > Google Drive Integration) in addition to the OAuth Client ID already set up —
-   the API Key is a public, domain-restricted key (safe to ship client-side), NOT the OAuth
-   Client Secret, which this app never uses or stores. */
+/* ---------- Google Picker (Krissha, follow-up requests) ----------
+   First version only let her pick a whole FOLDER (Google's ViewId.FOLDERS forces the browse listing
+   itself down to folders-only, which is why drilling into "3 Years Waranty" showed "No items in this
+   folder" — the images inside were being filtered out of the view, not actually missing). She asked
+   for the picker to show the real image thumbnails while browsing, and to be able to select one image,
+   several, or all of them — so this now uses ViewId.DOCS_IMAGES (images, with folders still shown for
+   navigation) and turns on MULTISELECT_ENABLED. Needs a Picker-scoped API Key (Admin Panel > Google
+   Drive Integration) in addition to the OAuth Client ID already set up — the API Key is a public,
+   domain-restricted key (safe to ship client-side), NOT the OAuth Client Secret, which this app never
+   uses or stores. */
 let GDRIVE_PICKER_LOADED = false;
 function gdriveLoadPickerApi(){
   return new Promise((resolve, reject)=>{
@@ -12844,27 +12864,26 @@ function gdriveLoadPickerApi(){
     gapi.load('picker', { callback: ()=>{ GDRIVE_PICKER_LOADED = true; resolve(); }, onerror: ()=>reject(new Error('PICKER_LOAD_FAILED')) });
   });
 }
-async function gdriveOpenFolderPicker(){
+async function gdriveOpenImagePicker(){
   const apiKey = (STATE.gdriveConfig && STATE.gdriveConfig.apiKey) || '';
   if(!apiKey) throw new Error('NO_API_KEY');
   const token = await gdriveGetAccessToken();
   await gdriveLoadPickerApi();
   return new Promise((resolve, reject)=>{
     try{
-      const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
-        .setSelectFolderEnabled(true)
-        .setIncludeFolders(true)
-        .setMimeTypes('application/vnd.google-apps.folder')
+      const view = new google.picker.DocsView(google.picker.ViewId.DOCS_IMAGES)
+        .setIncludeFolders(true) // folders stay browsable (1 Year Waranty, 3 Years Waranty, ...) even though only images are selectable
         .setParent(GDRIVE_DEFAULT_FOLDER_ID); // open straight into "Automation Img" instead of My Drive root
       const picker = new google.picker.PickerBuilder()
         .addView(view)
         .setOAuthToken(token)
         .setDeveloperKey(apiKey)
-        .setTitle('เลือกโฟลเดอร์ Google Drive')
+        .enableFeature(google.picker.Feature.MULTISELECT_ENABLED) // pick one, several, or (by clicking every thumbnail) all of them
+        .setTitle('เลือกรูปจาก Google Drive')
         .setCallback((data)=>{
           if(data.action === google.picker.Action.PICKED){
-            const doc = data.docs && data.docs[0];
-            if(doc){ resolve({ id: doc.id, name: doc.name }); } else { reject(new Error('NO_SELECTION')); }
+            const docs = (data.docs||[]).filter(d=>d.mimeType && d.mimeType.indexOf('image/')===0);
+            if(docs.length){ resolve(docs.map(d=>({id:d.id, name:d.name}))); } else { reject(new Error('NO_SELECTION')); }
           } else if(data.action === google.picker.Action.CANCEL){
             reject(new Error('PICKER_CANCELLED'));
           }
@@ -12874,17 +12893,14 @@ async function gdriveOpenFolderPicker(){
     }catch(e){ reject(e); }
   });
 }
-// Shared list+download logic used by both the folder picker and the "โหลดซ้ำ" (reload) button —
-// factored out so there's exactly one place that walks a folder and fills the import queue.
-async function gdriveLoadFolderImages(folderId, folderName, btn){
+// Downloads exactly the files the Picker's callback resolved with (already the user's own selection —
+// no separate folder-listing step needed) and drops them straight into the Frame Tool's import queue.
+// mode picks which sub-tab's queue receives them — Manual and White Background each keep their own.
+async function gdriveImportPickedFiles(mode, files, btn){
   const setBtnLabel = (t)=>{ if(btn) btn.textContent = t; };
   if(btn) btn.disabled = true;
   try{
-    setBtnLabel('กำลังเชื่อมต่อ Google...');
     const token = await gdriveGetAccessToken();
-    setBtnLabel('กำลังค้นหารูปในโฟลเดอร์...');
-    const files = await gdriveListImages(folderId, token);
-    if(!files.length){ toast('ไม่พบไฟล์รูปภาพในโฟลเดอร์นี้'); return false; }
     const assets = [];
     for(let i=0;i<files.length;i++){
       setBtnLabel(`กำลังโหลดรูป ${i+1}/${files.length}...`);
@@ -12893,16 +12909,14 @@ async function gdriveLoadFolderImages(folderId, folderName, btn){
         assets.push({id:'ft_drive_'+files[i].id, name:files[i].name, previewUrl:objUrl, source:'Google Drive', selected:true});
       }catch(e){ /* skip failed file */ }
     }
-    if(!assets.length){ toast('โหลดรูปจากโฟลเดอร์นี้ไม่สำเร็จเลยสักไฟล์ ลองใหม่อีกครั้ง'); return false; }
-    const added = ftAddToQueue(assets);
-    toast(added ? `โหลดจาก "${folderName||'Drive'}" แล้ว ${added} รูป` : 'ไม่มีรูปใหม่ (ซ้ำกับ Queue เดิม)');
+    if(!assets.length){ toast('โหลดรูปที่เลือกไม่สำเร็จเลยสักไฟล์ ลองใหม่อีกครั้ง'); return false; }
+    const added = ftAddToQueue(mode, assets);
+    toast(added ? `โหลดจาก Drive แล้ว ${added} รูป` : 'ไม่มีรูปใหม่ (ซ้ำกับ Queue เดิม)');
     return true;
   }catch(e){
     const msg = e && e.message;
     if(msg==='NO_CLIENT_ID') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
     else if(msg==='GIS_NOT_LOADED') toast('โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่');
-    else if(msg==='FOLDER_NOT_FOUND') toast('ไม่พบโฟลเดอร์นี้ — อาจถูกลบหรือย้ายแล้ว ลองเลือกโฟลเดอร์ใหม่');
-    else if(msg==='NO_ACCESS') toast('ไม่มีสิทธิ์เข้าถึงโฟลเดอร์นี้ — ตรวจสอบว่าแชร์โฟลเดอร์ให้บัญชี Google ที่ Login อยู่แล้ว');
     else if(msg==='popup_closed_by_user' || msg==='access_denied') toast('ยกเลิกการเชื่อมต่อ Google');
     else toast('เชื่อมต่อ Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
     return false;
@@ -13186,12 +13200,10 @@ function renderFtManual(){
         <input type="file" id="ftManualFrameInput" accept="image/*" style="display:none">
       </div>
 
+      ${renderFtImportSection('manual')}
+
       <div class="ft-sec">
-        <div class="ft-sec-title">Product Images</div>
-        <label class="ft-upload" data-ftmanualprodlabel>
-          <span>⬆️</span><span>${items.length ? items.length+' รูปถูกเลือก' : 'อัปโหลดรูปสินค้า (เลือกได้หลายรูป)'}</span>
-        </label>
-        <input type="file" id="ftManualProdInput" accept="image/*" multiple style="display:none">
+        <div class="ft-sec-title">Product Images (${items.length})</div>
         <div class="ft-prod-list">
           ${items.map((it,i)=>`
             <div class="ft-prod-item ${i===m.currentIndex?'active':''}" data-ftmanualpick="${i}">
@@ -13201,7 +13213,7 @@ function renderFtManual(){
                 <div class="ft-pmeta">Scale: ${Math.round(it.transform.scale)}%</div>
               </div>
               <button class="ft-prod-remove" data-ftmanualremove="${i}" title="ลบ">✕</button>
-            </div>`).join('') || `<div class="ft-hint">ยังไม่มีรูปสินค้า</div>`}
+            </div>`).join('') || `<div class="ft-hint">ยังไม่มีรูปสินค้า — นำเข้าจากด้านบน</div>`}
         </div>
       </div>
 
@@ -13252,20 +13264,89 @@ function renderFtWbgSliders(){
   `;
 }
 
-function renderFtWhiteBG(){
-  const w = ftWbgState();
-  const wbg = ftWhiteBgAsset();
-  const isAdmin = hasAdminAccess();
-  const kw = (w.searchKw||'').toLowerCase();
-  const filteredQueue = w.queue.filter(a => !kw || a.name.toLowerCase().includes(kw) || (a.source||'').toLowerCase().includes(kw));
-  const selCount = w.queue.filter(a=>a.selected).length;
-  const allChecked = w.queue.length>0 && w.queue.every(a=>a.selected);
-
+// Import Product Images + Asset Queue + Reference & Working Files (Krissha, request): shared by every
+// mode that imports product photos the same way — originally White Background only, now Manual too —
+// so this lives in one place instead of being copy-pasted per mode. Reads/writes via ftStateFor(mode),
+// same pattern as ftDrawComposite/ftOptsFor use elsewhere in the Frame Tool.
+function renderFtImportSection(mode){
+  const st = ftStateFor(mode);
+  const kw = (st.searchKw||'').toLowerCase();
+  const filteredQueue = st.queue.filter(a => !kw || a.name.toLowerCase().includes(kw) || (a.source||'').toLowerCase().includes(kw));
+  const selCount = st.queue.filter(a=>a.selected).length;
+  const allChecked = st.queue.length>0 && st.queue.every(a=>a.selected);
   const sourceTabs = [
     {id:'drive', label:'📁 Google Drive'},
     {id:'product', label:'🔍 Product System'},
     {id:'local', label:'💻 Local'},
   ];
+  return `
+      <div class="ft-sec">
+        <div class="ft-sec-title">Import Product Images</div>
+        <div class="ft-source-tabs">
+          ${sourceTabs.map(t=>`<button class="ft-source-tab ${st.sourceTab===t.id?'active':''}" data-ftsource="${t.id}">${t.label}</button>`).join('')}
+        </div>
+        ${st.sourceTab==='drive' ? `
+          <button class="ft-btn ft-btn-primary ft-btn-block" id="ftDrivePick">📁 เลือกรูปจาก Drive</button>
+          <div class="ft-hint" style="margin-top:8px">เปิดแล้วไล่เข้าไปในโฟลเดอร์ได้ตามปกติ เห็นรูปตัวอย่างจริง เลือกได้ทีละรูป หลายรูป หรือกดเลือกทุกรูปในโฟลเดอร์นั้นก็ได้</div>
+        ` : st.sourceTab==='product' ? `
+          <div class="ft-input-row"><input type="text" class="ft-input" id="ftProductSearch" placeholder="ค้นหา SKU / ชื่อสินค้า" value="${escapeFtHtml(st.productSearch)}"></div>
+          <button class="ft-btn ft-btn-primary ft-btn-block" id="ftProductSearchBtn">ค้นหาในระบบสินค้า</button>
+        ` : `
+          <label class="ft-upload" data-ftlocallabel><span>⬆️</span><span>อัปโหลดรูปจากเครื่อง (เลือกได้หลายรูป)</span></label>
+          <input type="file" id="ftLocalInput" accept="image/*" multiple style="display:none">
+        `}
+      </div>
+
+      <div class="ft-sec">
+        <div class="ft-sec-title">Asset Queue (${st.queue.length})</div>
+        <div class="ft-asset-toolbar">
+          <label class="ft-checkline"><input type="checkbox" id="ftAssetSelectAll" ${allChecked?'checked':''} ${st.queue.length?'':'disabled'}> เลือกทั้งหมด (${selCount}/${st.queue.length})</label>
+        </div>
+        <input type="text" class="ft-input ft-search" id="ftAssetSearch" placeholder="ค้นหาใน Queue..." value="${escapeFtHtml(st.searchKw)}">
+        <div class="ft-assets">
+          ${filteredQueue.length ? filteredQueue.map(a=>`
+            <label class="ft-asset ${a.selected?'selected':''}">
+              <input type="checkbox" data-ftassetcheck="${a.id}" ${a.selected?'checked':''}>
+              <div class="ft-athumb">${a.previewUrl?`<img src="${a.previewUrl}" alt="">`:'🖼️'}</div>
+              <div class="ft-acopy"><strong>${escapeFtHtml(a.name)}</strong><p>${escapeFtHtml(a.source||'')}</p></div>
+              <span class="ft-stag">${escapeFtHtml(a.source||'')}</span>
+            </label>`).join('') : `<div class="ft-asset-empty">ยังไม่มีรูปใน Queue — โหลดจาก Drive / ค้นหาสินค้า / อัปโหลดจากเครื่อง</div>`}
+        </div>
+        <div class="ft-input-row" style="margin-top:8px;gap:8px;display:flex">
+          <button class="ft-btn ft-btn-primary" id="ftImportSelected" style="flex:1" ${selCount?'':'disabled'}>นำเข้าที่เลือก (${selCount})</button>
+          <button class="ft-btn ft-btn-secondary" id="ftClearQueue" style="flex:1" ${st.queue.length?'':'disabled'}>ล้าง Queue</button>
+        </div>
+      </div>
+
+      <div class="ft-sec">
+        <div class="ft-sec-title">Reference & Working Files</div>
+        <div class="ft-reference-card">
+          <div class="ft-reference-icon">📁</div>
+          <div class="ft-reference-copy"><strong>Drive Source</strong><p>${st.driveReference ? escapeFtHtml(st.driveReference) : 'ยังไม่ได้เชื่อมโยง'}</p></div>
+          <div class="ft-reference-actions">
+            <button class="ft-mini-btn" id="ftRefDriveOpen" ${st.driveReference?'':'disabled'}>เปิด</button>
+            <button class="ft-mini-btn" id="ftRefDriveCopy" ${st.driveReference?'':'disabled'}>คัดลอก</button>
+          </div>
+        </div>
+        <div class="ft-reference-card">
+          <div class="ft-reference-icon">🔍</div>
+          <div class="ft-reference-copy"><strong>Product Source</strong><p>${st.productReference ? escapeFtHtml(st.productReference) : 'ยังไม่ได้เชื่อมโยง'}</p></div>
+          <div class="ft-reference-actions">
+            <button class="ft-mini-btn" id="ftRefProductOpen" ${st.productReference?'':'disabled'}>เปิด</button>
+            <button class="ft-mini-btn" id="ftRefProductCopy" ${st.productReference?'':'disabled'}>คัดลอก</button>
+          </div>
+        </div>
+        <div class="ft-reference-card">
+          <div class="ft-reference-icon">➕</div>
+          <div class="ft-reference-copy"><strong>เพิ่มลิงก์อ้างอิง</strong><p>เพิ่มลิงก์ไฟล์ทำงาน/อ้างอิงเพิ่มเติม</p></div>
+          <div class="ft-reference-actions"><button class="ft-mini-btn" id="ftRefAdd">เพิ่ม</button></div>
+        </div>
+      </div>`;
+}
+function renderFtWhiteBG(){
+  const w = ftWbgState();
+  const wbg = ftWhiteBgAsset();
+  const isAdmin = hasAdminAccess();
 
   return `
   <div class="ft-layout">
@@ -13289,73 +13370,7 @@ function renderFtWhiteBG(){
         ` : ''}
       </div>
 
-      <div class="ft-sec">
-        <div class="ft-sec-title">Import Product Images</div>
-        <div class="ft-source-tabs">
-          ${sourceTabs.map(t=>`<button class="ft-source-tab ${w.sourceTab===t.id?'active':''}" data-ftsource="${t.id}">${t.label}</button>`).join('')}
-        </div>
-        ${w.sourceTab==='drive' ? `
-          <button class="ft-btn ft-btn-primary ft-btn-block" id="ftDrivePick">📁 เลือกโฟลเดอร์จาก Drive</button>
-          ${w.driveFolderName ? `
-            <div class="ft-hint" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-              <span>โฟลเดอร์ล่าสุด: <strong>${escapeFtHtml(w.driveFolderName)}</strong></span>
-              <button class="ft-mini-btn" id="ftDriveReload">โหลดซ้ำ</button>
-            </div>
-          ` : ''}
-        ` : w.sourceTab==='product' ? `
-          <div class="ft-input-row"><input type="text" class="ft-input" id="ftProductSearch" placeholder="ค้นหา SKU / ชื่อสินค้า" value="${escapeFtHtml(w.productSearch)}"></div>
-          <button class="ft-btn ft-btn-primary ft-btn-block" id="ftProductSearchBtn">ค้นหาในระบบสินค้า</button>
-        ` : `
-          <label class="ft-upload" data-ftlocallabel><span>⬆️</span><span>อัปโหลดรูปจากเครื่อง (เลือกได้หลายรูป)</span></label>
-          <input type="file" id="ftLocalInput" accept="image/*" multiple style="display:none">
-        `}
-      </div>
-
-      <div class="ft-sec">
-        <div class="ft-sec-title">Asset Queue (${w.queue.length})</div>
-        <div class="ft-asset-toolbar">
-          <label class="ft-checkline"><input type="checkbox" id="ftAssetSelectAll" ${allChecked?'checked':''} ${w.queue.length?'':'disabled'}> เลือกทั้งหมด (${selCount}/${w.queue.length})</label>
-        </div>
-        <input type="text" class="ft-input ft-search" id="ftAssetSearch" placeholder="ค้นหาใน Queue..." value="${escapeFtHtml(w.searchKw)}">
-        <div class="ft-assets">
-          ${filteredQueue.length ? filteredQueue.map(a=>`
-            <label class="ft-asset ${a.selected?'selected':''}">
-              <input type="checkbox" data-ftassetcheck="${a.id}" ${a.selected?'checked':''}>
-              <div class="ft-athumb">${a.previewUrl?`<img src="${a.previewUrl}" alt="">`:'🖼️'}</div>
-              <div class="ft-acopy"><strong>${escapeFtHtml(a.name)}</strong><p>${escapeFtHtml(a.source||'')}</p></div>
-              <span class="ft-stag">${escapeFtHtml(a.source||'')}</span>
-            </label>`).join('') : `<div class="ft-asset-empty">ยังไม่มีรูปใน Queue — โหลดจาก Drive / ค้นหาสินค้า / อัปโหลดจากเครื่อง</div>`}
-        </div>
-        <div class="ft-input-row" style="margin-top:8px;gap:8px;display:flex">
-          <button class="ft-btn ft-btn-primary" id="ftImportSelected" style="flex:1" ${selCount?'':'disabled'}>นำเข้าที่เลือก (${selCount})</button>
-          <button class="ft-btn ft-btn-secondary" id="ftClearQueue" style="flex:1" ${w.queue.length?'':'disabled'}>ล้าง Queue</button>
-        </div>
-      </div>
-
-      <div class="ft-sec">
-        <div class="ft-sec-title">Reference & Working Files</div>
-        <div class="ft-reference-card">
-          <div class="ft-reference-icon">📁</div>
-          <div class="ft-reference-copy"><strong>Drive Source</strong><p>${w.driveReference ? escapeFtHtml(w.driveReference) : 'ยังไม่ได้เชื่อมโยง'}</p></div>
-          <div class="ft-reference-actions">
-            <button class="ft-mini-btn" id="ftRefDriveOpen" ${w.driveReference?'':'disabled'}>เปิด</button>
-            <button class="ft-mini-btn" id="ftRefDriveCopy" ${w.driveReference?'':'disabled'}>คัดลอก</button>
-          </div>
-        </div>
-        <div class="ft-reference-card">
-          <div class="ft-reference-icon">🔍</div>
-          <div class="ft-reference-copy"><strong>Product Source</strong><p>${w.productReference ? escapeFtHtml(w.productReference) : 'ยังไม่ได้เชื่อมโยง'}</p></div>
-          <div class="ft-reference-actions">
-            <button class="ft-mini-btn" id="ftRefProductOpen" ${w.productReference?'':'disabled'}>เปิด</button>
-            <button class="ft-mini-btn" id="ftRefProductCopy" ${w.productReference?'':'disabled'}>คัดลอก</button>
-          </div>
-        </div>
-        <div class="ft-reference-card">
-          <div class="ft-reference-icon">➕</div>
-          <div class="ft-reference-copy"><strong>เพิ่มลิงก์อ้างอิง</strong><p>เพิ่มลิงก์ไฟล์ทำงาน/อ้างอิงเพิ่มเติม</p></div>
-          <div class="ft-reference-actions"><button class="ft-mini-btn" id="ftRefAdd">เพิ่ม</button></div>
-        </div>
-      </div>
+      ${renderFtImportSection('whitebg')}
 
       <div class="ft-sec">
         <div class="ft-sec-title">Product Position</div>
@@ -13492,13 +13507,13 @@ function renderFtCSV(){
   </div>`;
 }
 
-function ftAddToQueue(newAssets){
-  const w = ftWbgState();
-  const existingNames = new Set(w.queue.map(a=>a.name.toLowerCase()));
+function ftAddToQueue(mode, newAssets){
+  const st = ftStateFor(mode);
+  const existingNames = new Set(st.queue.map(a=>a.name.toLowerCase()));
   let added = 0;
   newAssets.forEach(a=>{
     if(existingNames.has(a.name.toLowerCase())) return;
-    w.queue.push(a);
+    st.queue.push(a);
     existingNames.add(a.name.toLowerCase());
     added++;
   });
@@ -13530,25 +13545,7 @@ function bindFtManual(){
     render();
   });
 
-  document.querySelector('[data-ftmanualprodlabel]')?.addEventListener('click', ()=>{
-    document.getElementById('ftManualProdInput')?.click();
-  });
-  document.getElementById('ftManualProdInput')?.addEventListener('change', (e)=>{
-    const files = Array.from(e.target.files||[]);
-    if(!files.length) return;
-    const wasEmpty = m.items.length===0;
-    files.forEach(file=>{
-      m.items.push({
-        id: 'ft_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-        name: file.name,
-        previewUrl: URL.createObjectURL(file),
-        transform: {...m.global},
-        _img: null,
-      });
-    });
-    if(wasEmpty) m.currentIndex = 0;
-    render();
-  });
+  bindFtImportSection('manual');
 
   document.querySelectorAll('[data-ftmanualpick]').forEach(el=>{
     el.addEventListener('click', (e)=>{
@@ -13710,6 +13707,117 @@ function bindFtCSV(){
   bindFtNav('csv');
 }
 
+// Bind side of renderFtImportSection() above — shared by every mode using the Import Product Images /
+// Asset Queue / Reference & Working Files UI (Manual and White Background so far).
+function bindFtImportSection(mode){
+  const st = ftStateFor(mode);
+
+  document.querySelectorAll('[data-ftsource]').forEach(el=>{
+    el.addEventListener('click', ()=>{ st.sourceTab = el.getAttribute('data-ftsource'); render(); });
+  });
+
+  document.getElementById('ftDrivePick')?.addEventListener('click', async ()=>{
+    if(!(STATE.gdriveConfig && STATE.gdriveConfig.clientId)){
+      toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+      return;
+    }
+    if(!(STATE.gdriveConfig && STATE.gdriveConfig.apiKey)){
+      toast('ยังไม่ได้ตั้งค่า API Key สำหรับเลือกโฟลเดอร์ — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+      return;
+    }
+    const btn = document.getElementById('ftDrivePick');
+    if(btn) btn.disabled = true;
+    try{
+      const files = await gdriveOpenImagePicker();
+      st.driveUrl = `https://drive.google.com/drive/folders/${GDRIVE_DEFAULT_FOLDER_ID}`;
+      st.driveReference = files.length===1 ? files[0].name : `${files.length} รูปที่เลือกจาก Drive`;
+      await gdriveImportPickedFiles(mode, files, btn);
+    }catch(e){
+      const msg = e && e.message;
+      if(msg==='NO_API_KEY') toast('ยังไม่ได้ตั้งค่า API Key สำหรับเลือกรูป — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+      else if(msg==='NO_CLIENT_ID') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+      else if(msg==='GIS_NOT_LOADED' || msg==='GAPI_NOT_LOADED' || msg==='PICKER_LOAD_FAILED') toast('โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่');
+      else if(msg==='PICKER_CANCELLED' || msg==='NO_SELECTION'){ /* user closed the picker without choosing — no toast needed */ }
+      else if(msg==='popup_closed_by_user' || msg==='access_denied') toast('ยกเลิกการเชื่อมต่อ Google');
+      else toast('เปิดตัวเลือกรูป Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      if(btn){ btn.disabled = false; }
+      render();
+    }
+  });
+
+  document.getElementById('ftProductSearchBtn')?.addEventListener('click', ()=>{
+    const kw = document.getElementById('ftProductSearch')?.value.trim() || '';
+    if(!kw){ toast('กรุณาระบุ SKU หรือชื่อสินค้าก่อน'); return; }
+    st.productSearch = kw;
+    st.productReference = kw;
+    const added = ftAddToQueue(mode, [
+      {id:'ft_prod_'+Date.now(), name:kw+'.jpg', previewUrl:'', source:'Product System', selected:true},
+    ]);
+    toast(added ? 'พบสินค้าและเพิ่มเข้า Queue แล้ว' : 'ไม่มีรูปใหม่ (ซ้ำกับ Queue เดิม)');
+    render();
+  });
+
+  document.querySelector('[data-ftlocallabel]')?.addEventListener('click', ()=>{
+    document.getElementById('ftLocalInput')?.click();
+  });
+  document.getElementById('ftLocalInput')?.addEventListener('change', (e)=>{
+    const files = Array.from(e.target.files||[]);
+    if(!files.length) return;
+    const assets = files.map(file=>({
+      id:'ft_local_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+      name:file.name, previewUrl:URL.createObjectURL(file), source:'Local', selected:true,
+    }));
+    const added = ftAddToQueue(mode, assets);
+    toast(`เพิ่มจากเครื่อง ${added} รูป`);
+    render();
+  });
+
+  document.querySelectorAll('[data-ftassetcheck]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      const id = el.getAttribute('data-ftassetcheck');
+      const a = st.queue.find(x=>x.id===id);
+      if(a) a.selected = el.checked;
+      render();
+    });
+  });
+  document.getElementById('ftAssetSelectAll')?.addEventListener('change', (e)=>{
+    st.queue.forEach(a=>{ a.selected = e.target.checked; });
+    render();
+  });
+  document.getElementById('ftAssetSearch')?.addEventListener('input', (e)=>{
+    st.searchKw = e.target.value;
+    render();
+  });
+  document.getElementById('ftClearQueue')?.addEventListener('click', ()=>{
+    // Local uploads AND Google Drive downloads both carry real blob object URLs that need revoking
+    // (Drive/Product-search demo entries with an empty previewUrl have nothing to revoke).
+    st.queue.forEach(a=>{ if((a.source==='Local'||a.source==='Google Drive') && a.previewUrl){ delete FT_IMG_CACHE[a.previewUrl]; URL.revokeObjectURL(a.previewUrl); } });
+    st.queue = [];
+    render();
+  });
+  document.getElementById('ftImportSelected')?.addEventListener('click', ()=>{
+    const selected = st.queue.filter(a=>a.selected);
+    if(!selected.length){ toast('กรุณาเลือกรูปอย่างน้อย 1 รูปก่อนนำเข้า'); return; }
+    st.items = selected.map(a=>({
+      id: a.id, name: a.name, previewUrl: a.previewUrl, source: a.source,
+      transform: {scale:100,x:0,y:0}, _img:null,
+    }));
+    st.currentIndex = 0;
+    toast(`นำเข้า ${selected.length} รูปเรียบร้อย`);
+    render();
+  });
+
+  document.getElementById('ftRefDriveOpen')?.addEventListener('click', ()=>{ if(st.driveReference) window.open(st.driveReference, '_blank'); });
+  document.getElementById('ftRefDriveCopy')?.addEventListener('click', ()=>{ if(st.driveReference) ftCopyText(st.driveReference); });
+  document.getElementById('ftRefProductOpen')?.addEventListener('click', ()=>{ if(st.productReference) window.open(st.productReference, '_blank'); });
+  document.getElementById('ftRefProductCopy')?.addEventListener('click', ()=>{ if(st.productReference) ftCopyText(st.productReference); });
+  document.getElementById('ftRefAdd')?.addEventListener('click', ()=>{
+    const link = prompt('วางลิงก์ไฟล์อ้างอิง/ไฟล์ทำงาน:');
+    if(link) toast('เพิ่มลิงก์อ้างอิงแล้ว');
+  });
+}
+
 function bindFtWhiteBG(){
   const w = ftWbgState();
 
@@ -13734,119 +13842,7 @@ function bindFtWhiteBG(){
     });
   }
 
-  document.querySelectorAll('[data-ftsource]').forEach(el=>{
-    el.addEventListener('click', ()=>{ w.sourceTab = el.getAttribute('data-ftsource'); render(); });
-  });
-
-  document.getElementById('ftDrivePick')?.addEventListener('click', async ()=>{
-    if(!(STATE.gdriveConfig && STATE.gdriveConfig.clientId)){
-      toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
-      return;
-    }
-    if(!(STATE.gdriveConfig && STATE.gdriveConfig.apiKey)){
-      toast('ยังไม่ได้ตั้งค่า API Key สำหรับเลือกโฟลเดอร์ — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
-      return;
-    }
-    const btn = document.getElementById('ftDrivePick');
-    if(btn) btn.disabled = true;
-    try{
-      const folder = await gdriveOpenFolderPicker();
-      w.driveFolderId = folder.id;
-      w.driveFolderName = folder.name;
-      w.driveUrl = folder.id;
-      w.driveReference = folder.name;
-      await gdriveLoadFolderImages(folder.id, folder.name, btn);
-    }catch(e){
-      const msg = e && e.message;
-      if(msg==='NO_API_KEY') toast('ยังไม่ได้ตั้งค่า API Key สำหรับเลือกโฟลเดอร์ — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
-      else if(msg==='NO_CLIENT_ID') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
-      else if(msg==='GIS_NOT_LOADED' || msg==='GAPI_NOT_LOADED' || msg==='PICKER_LOAD_FAILED') toast('โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่');
-      else if(msg==='PICKER_CANCELLED' || msg==='NO_SELECTION'){ /* user closed the picker without choosing — no toast needed */ }
-      else if(msg==='popup_closed_by_user' || msg==='access_denied') toast('ยกเลิกการเชื่อมต่อ Google');
-      else toast('เปิดตัวเลือกโฟลเดอร์ Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
-    } finally {
-      if(btn){ btn.disabled = false; }
-      render();
-    }
-  });
-
-  document.getElementById('ftDriveReload')?.addEventListener('click', async ()=>{
-    if(!w.driveFolderId){ toast('ยังไม่ได้เลือกโฟลเดอร์'); return; }
-    const btn = document.getElementById('ftDriveReload');
-    await gdriveLoadFolderImages(w.driveFolderId, w.driveFolderName, btn);
-    render();
-  });
-
-  document.getElementById('ftProductSearchBtn')?.addEventListener('click', ()=>{
-    const kw = document.getElementById('ftProductSearch')?.value.trim() || '';
-    if(!kw){ toast('กรุณาระบุ SKU หรือชื่อสินค้าก่อน'); return; }
-    w.productSearch = kw;
-    w.productReference = kw;
-    const added = ftAddToQueue([
-      {id:'ft_prod_'+Date.now(), name:kw+'.jpg', previewUrl:'', source:'Product System', selected:true},
-    ]);
-    toast(added ? 'พบสินค้าและเพิ่มเข้า Queue แล้ว' : 'ไม่มีรูปใหม่ (ซ้ำกับ Queue เดิม)');
-    render();
-  });
-
-  document.querySelector('[data-ftlocallabel]')?.addEventListener('click', ()=>{
-    document.getElementById('ftLocalInput')?.click();
-  });
-  document.getElementById('ftLocalInput')?.addEventListener('change', (e)=>{
-    const files = Array.from(e.target.files||[]);
-    if(!files.length) return;
-    const assets = files.map(file=>({
-      id:'ft_local_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
-      name:file.name, previewUrl:URL.createObjectURL(file), source:'Local', selected:true,
-    }));
-    const added = ftAddToQueue(assets);
-    toast(`เพิ่มจากเครื่อง ${added} รูป`);
-    render();
-  });
-
-  document.querySelectorAll('[data-ftassetcheck]').forEach(el=>{
-    el.addEventListener('change', ()=>{
-      const id = el.getAttribute('data-ftassetcheck');
-      const a = w.queue.find(x=>x.id===id);
-      if(a) a.selected = el.checked;
-      render();
-    });
-  });
-  document.getElementById('ftAssetSelectAll')?.addEventListener('change', (e)=>{
-    w.queue.forEach(a=>{ a.selected = e.target.checked; });
-    render();
-  });
-  document.getElementById('ftAssetSearch')?.addEventListener('input', (e)=>{
-    w.searchKw = e.target.value;
-    render();
-  });
-  document.getElementById('ftClearQueue')?.addEventListener('click', ()=>{
-    // Local uploads AND Google Drive downloads both carry real blob object URLs that need revoking
-    // (Drive/Product-search demo entries with an empty previewUrl have nothing to revoke).
-    w.queue.forEach(a=>{ if((a.source==='Local'||a.source==='Google Drive') && a.previewUrl){ delete FT_IMG_CACHE[a.previewUrl]; URL.revokeObjectURL(a.previewUrl); } });
-    w.queue = [];
-    render();
-  });
-  document.getElementById('ftImportSelected')?.addEventListener('click', ()=>{
-    const selected = w.queue.filter(a=>a.selected);
-    if(!selected.length){ toast('กรุณาเลือกรูปอย่างน้อย 1 รูปก่อนนำเข้า'); return; }
-    w.items = selected.map(a=>({
-      id: a.id, name: a.name, previewUrl: a.previewUrl, source: a.source,
-      transform: {scale:100,x:0,y:0}, _img:null,
-    }));
-    w.currentIndex = 0;
-    toast(`นำเข้า ${selected.length} รูปเรียบร้อย`);
-    render();
-  });
-
-  document.getElementById('ftRefDriveOpen')?.addEventListener('click', ()=>{ if(w.driveReference) window.open(w.driveReference, '_blank'); });
-  document.getElementById('ftRefDriveCopy')?.addEventListener('click', ()=>{ if(w.driveReference) ftCopyText(w.driveReference); });
-  document.getElementById('ftRefProductOpen')?.addEventListener('click', ()=>{ if(w.productReference) window.open(w.productReference, '_blank'); });
-  document.getElementById('ftRefProductCopy')?.addEventListener('click', ()=>{ if(w.productReference) ftCopyText(w.productReference); });
-  document.getElementById('ftRefAdd')?.addEventListener('click', ()=>{
-    const link = prompt('วางลิงก์ไฟล์อ้างอิง/ไฟล์ทำงาน:');
-    if(link) toast('เพิ่มลิงก์อ้างอิงแล้ว');
-  });
+  bindFtImportSection('whitebg');
 
   document.getElementById('ftGuideToggle')?.addEventListener('change', (e)=>{
     w.showGuide = e.target.checked;
