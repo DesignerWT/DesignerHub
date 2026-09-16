@@ -2382,6 +2382,11 @@ async function loadData(){
   if(!STATE.gdriveConfig || typeof STATE.gdriveConfig !== 'object') STATE.gdriveConfig = {};
   if(STATE.gdriveConfig.proxyUrl == null) STATE.gdriveConfig.proxyUrl = '';
   if(!Array.isArray(STATE.gdriveConfig.shortcuts)) STATE.gdriveConfig.shortcuts = GDRIVE_DEFAULT_SHORTCUTS.slice();
+  // Email Notifications (Krissha, request: "ระบบแจ้งเตือน Email มีมั้ย") — reuses this same Apps Script
+  // proxy (it already has a trusted deployment under Krissha's Google account) to call MailApp.sendEmail,
+  // mirroring every in-app notify() call 1:1. Off by default until she's redeployed the Apps Script with
+  // the sendEmail action AND ticked the box in Admin Panel — see sendEmailNotification()/notify() below.
+  if(STATE.gdriveConfig.emailNotifyEnabled == null) STATE.gdriveConfig.emailNotifyEnabled = false;
   // Designer/Lead Designer Login: remember which of the 3 accounts was last used ON THIS BROWSER (never
   // the password) so the login screen can jump straight to the Password step for it. Only honored if that
   // account is still an active Designer/Lead — an inactive/removed account falls back to the picker.
@@ -2589,6 +2594,36 @@ function toast(msg){
 function notify(to, title, message, taskId){
   STATE.notifications.push({id:'n_'+Math.random().toString(36).slice(2,9), to, title, message, timestamp:new Date().toISOString(), read:false, taskId: taskId||null});
   saveNotifs();
+  // Email Notifications (Krissha, request: "ระบบแจ้งเตือน Email มีมั้ย") — mirrors every in-app
+  // notification 1:1 via the same Apps Script proxy used for Drive. Deliberately fire-and-forget and
+  // wrapped so a slow/broken email leg can never delay or break the in-app notification above it — see
+  // sendEmailNotification()'s own comment for why.
+  sendEmailNotification(to, title, message);
+}
+// `to` here is whatever notify()'s many call sites already use as a person identifier — sometimes a
+// real email (project_owner_email), sometimes a plain name (assigned_user_name, LEAD, a reassigned
+// designer's name) because that's what STATE.auth.identity is for Designers/Lead. Resolve a name back to
+// its account's real email via STATE.users; if it's already an email, use it as-is.
+function resolveNotifyEmail(to){
+  const s = String(to||'').trim();
+  if(!s) return null;
+  if(s.includes('@')) return s;
+  const u = (STATE.users||[]).find(u=>u.name===s);
+  return u?.email || null;
+}
+function sendEmailNotification(to, subject, body){
+  try{
+    if(!STATE.gdriveConfig?.emailNotifyEnabled) return;
+    const proxyUrl = gdriveProxyUrl();
+    if(!proxyUrl) return;
+    const email = resolveNotifyEmail(to);
+    if(!email) return;
+    const url = `${proxyUrl}?action=sendEmail&to=${encodeURIComponent(email)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    // Best-effort only — never await/throw into notify()'s caller. A stale deployment (not yet redeployed
+    // with the sendEmail action) or a Gmail quota hiccup should silently no-op, not break the workflow
+    // action that triggered this notification.
+    gdriveFetchWithTimeout(url, 15000).catch(()=>{});
+  }catch(e){ /* email is a bonus on top of in-app notifications, never let it break them */ }
 }
 function myNotifs(){
   const me = STATE.auth.identity;
@@ -10703,6 +10738,14 @@ function renderAdminPanel(){
         <p class="hint" style="margin:2px 0 6px">แสดงเป็นปุ่มลัดในหน้า "เลือกจาก Drive" ของ Frame Tool — บรรทัดละ 1 รายการ รูปแบบ <code>ชื่อที่จะแสดง | ลิงก์โฟลเดอร์ Drive หรือ Folder ID</code> (คัดลอกลิงก์จากแถบที่อยู่ตอนเปิดโฟลเดอร์ใน Drive ได้เลย ระบบดึง ID ออกมาเอง)</p>
         <textarea id="gdriveShortcuts" rows="7" style="width:100%;font-family:inherit;font-size:13px;padding:8px;border:1px solid var(--border,#ccc);border-radius:6px" placeholder="1 Year Waranty | https://drive.google.com/drive/folders/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">${escAttr(gdriveShortcuts().map(s=>`${s.name} | ${s.folderId}`).join('\n'))}</textarea>
       </div>
+      <div class="field" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color,#e0e0e0)">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer">
+          <input type="checkbox" id="gdriveEmailNotify" ${STATE.gdriveConfig?.emailNotifyEnabled?'checked':''}>
+          ส่งแจ้งเตือนทาง Email ด้วย (นอกเหนือจากกระดิ่งแจ้งเตือนในระบบ 🔔)
+        </label>
+        <p class="hint" style="margin-top:4px">ใช้ Apps Script ตัวเดียวกับ Drive Proxy URL ด้านบนนี้ในการส่งอีเมล (ไม่ต้องสร้างโปรเจกต์ใหม่) — แต่ต้องนำโค้ด Apps Script เวอร์ชันล่าสุดไปวางแล้วกด Deploy ใหม่ก่อน ถึงจะรองรับการส่งอีเมล (ครั้งแรกจะมีป๊อปอัปขอสิทธิ์ส่งอีเมลเพิ่มจากเดิม ให้กด Authorize อนุญาตอีกรอบ) ไม่งั้นติ๊กไว้ก็จะยังไม่มีอีเมลออกไป</p>
+        <button type="button" id="gdriveEmailTestBtn" class="btn btn-sm btn-ghost" style="margin-top:6px">ส่งอีเมลทดสอบหาตัวเอง</button>
+      </div>
       <button type="submit" class="btn btn-primary" style="width:100%;margin-top:10px">บันทึก Google Drive Settings</button>
     </form>
   </div>
@@ -11582,9 +11625,32 @@ function bindEvents(){
       const name = (parts[0]||'').trim() || folderId;
       return {name, folderId};
     }).filter(s=>s.folderId);
-    STATE.gdriveConfig = {...(STATE.gdriveConfig||{}), proxyUrl, shortcuts};
+    const emailNotifyEnabled = !!document.getElementById('gdriveEmailNotify')?.checked;
+    STATE.gdriveConfig = {...(STATE.gdriveConfig||{}), proxyUrl, shortcuts, emailNotifyEnabled};
     await saveKey('wt_gdrive_config', STATE.gdriveConfig);
     toast('✅ บันทึก Google Drive Settings แล้ว');
+  });
+  // Email Notifications test button — sends a real test email to whoever's logged in right now (their
+  // account email if it has one, else falls back to LEAD's), so Krissha can confirm the Apps Script
+  // redeploy + Authorize step actually worked without waiting for a real workflow event to fire one.
+  document.getElementById('gdriveEmailTestBtn')?.addEventListener('click', async ()=>{
+    const proxyUrl = document.getElementById('gdriveProxyUrl')?.value.trim() || '';
+    if(!proxyUrl){ toast('กรุณาใส่ Drive Proxy URL ก่อน'); return; }
+    const myEmail = STATE.auth.user?.email || resolveNotifyEmail(STATE.auth.identity);
+    if(!myEmail){ toast('หาอีเมลของบัญชีที่ล็อกอินอยู่ไม่เจอ'); return; }
+    const btn = document.getElementById('gdriveEmailTestBtn');
+    if(btn){ btn.disabled = true; btn.textContent = 'กำลังส่ง...'; }
+    try{
+      const url = `${proxyUrl}?action=sendEmail&to=${encodeURIComponent(myEmail)}&subject=${encodeURIComponent('ทดสอบแจ้งเตือน Email — GD Worldtech')}&body=${encodeURIComponent('ถ้าได้รับอีเมลนี้ แปลว่าตั้งค่าสำเร็จแล้วค่ะ ✅')}`;
+      const res = await gdriveFetchWithTimeout(url, 15000);
+      const data = await res.json();
+      if(data && data.ok) toast(`✅ ส่งอีเมลทดสอบไปที่ ${myEmail} แล้ว`);
+      else toast(`❌ ส่งไม่สำเร็จ: ${data?.error || 'ไม่ทราบสาเหตุ'}`);
+    }catch(e){
+      toast('❌ ส่งไม่สำเร็จ — เช็คว่า Deploy โค้ดล่าสุดแล้วหรือยัง');
+    }finally{
+      if(btn){ btn.disabled = false; btn.textContent = 'ส่งอีเมลทดสอบหาตัวเอง'; }
+    }
   });
 
   // calendar nav + pick — only for 'view' mode calendars (Team Dashboard / Workspace); the Brief form's
