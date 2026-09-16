@@ -2072,6 +2072,10 @@ let STATE = {
   usersUI:{editingId:null, search:'', roleFilter:'ALL'}, deptUI:{editingId:null}, designerUI:{editingId:null},
   briefAutosaveState:'idle', briefAutosaveAt:null, editingDraftId:null,
   poWs:{briefsSearch:'', briefsStatus:'ALL', briefsSort:'latest'},
+  // Completed Jobs (Designer/Lead) — Krissha, follow-up to "แล้วจะดูงานเก่ายังไง แบบ DATA อ่ะ": same
+  // search/sort shape as poWs above, own bucket since a Designer and a PO can browse independently in
+  // the same session (e.g. Krissha unlocking Admin Mode doesn't touch this).
+  myCompletedUI:{search:'', sort:'latest'},
   projectFilter:"ALL",
   cal:{month:new Date().getMonth(), year:new Date().getFullYear(), selectedDate:null},
   detailTaskId:null, notifOpen:false, linkFormOpenId:null, userMenuOpen:false,
@@ -3339,7 +3343,7 @@ function renderSidebar(){
     </div>`;
   }
   const groups = [
-    {grp:'Working Process', items:[['brief','Brief & Intake'],['board','Process Board'],['dashboard','Team Dashboard'],['backdated','Backdated Task']]},
+    {grp:'Working Process', items:[['brief','Brief & Intake'],['board','Process Board'],['dashboard','Team Dashboard'],['backdated','Backdated Task'],['myCompleted','Completed Jobs']]},
     {grp:'Resources', items:[['assets','Assets Center']]},
     {grp:'Brand Standard', items:[['ci','CI Reference Center'],['banners','Standard Banner'],['pdp','PDP Pattern']]},
     {grp:'Team', items:[['leave','Leave Calendar'],['performance','Performance']]},
@@ -3362,7 +3366,7 @@ function renderSidebar(){
 // Sections that are internal-only (Designer/Lead/Admin) — a Project Owner must never render these, even if
 // sideSection ends up pointing at one (stale state, direct manipulation, etc). Defensive, on top of the
 // sidebar already never offering these buttons to a PO.
-const PO_FORBIDDEN_SECTIONS = ['dashboard','admin','users','departments','designers','leave','security','backdated'];
+const PO_FORBIDDEN_SECTIONS = ['dashboard','admin','users','departments','designers','leave','security','backdated','myCompleted'];
 // Admin-only sections: reachable only while Admin Mode is actually on (isAdminModeOn()). This catches the
 // case where Krissha's sideSection is left pointing at 'users' etc. from a previous Admin Mode session but
 // STATE.adminModeActive has since reset to false (e.g. logged out and back in) — same defensive pattern as
@@ -3431,6 +3435,7 @@ function renderMain(){
   if(STATE.tab==='studioflow') return renderStudioFlowPage();
   if(STATE.sideSection==='brief') return renderBriefForm();
   if(STATE.sideSection==='backdated') return renderBackdatedTaskForm();
+  if(STATE.sideSection==='myCompleted') return renderMyCompletedJobs();
   if(STATE.sideSection==='poHome') return renderPOWorkspace();
   if(STATE.sideSection==='poBriefs') return renderPOBriefsList('active');
   if(STATE.sideSection==='poDrafts') return renderPODrafts();
@@ -4406,6 +4411,56 @@ function bindPOWorkspace(){
   document.getElementById('poBriefsSort')?.addEventListener('change', e=>{ STATE.poWs.briefsSort=e.target.value; render(); });
   document.querySelectorAll('[data-resumedraft]').forEach(el=>el.onclick=()=>resumeDraft(el.dataset.resumedraft));
   document.querySelectorAll('[data-rmdraft]').forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); deleteDraft(el.dataset.rmdraft); });
+}
+// Completed Jobs (Designer/Lead) — Krissha, follow-up to "ทำไมงานที่เสร็จแล้วไม่ลิงก์มางานของฉัน" / "แล้วจะดูงานเก่า
+// ยังไง แบบ DATA อ่ะ": "งานของฉัน" Kanban's "เสร็จสิ้น" column deliberately only shows TODAY's completions
+// (keyed off completed_at, stamped only by the live "close task" action — see renderMyWorkKanban's own
+// comment) so it never grows unbounded. A Backdated task never gets a completed_at at all, since it's
+// entered directly as an already-finished historical record and never passes through that live action —
+// so it can never appear there, on any day. This page is the missing counterpart: every one of MY
+// delivered tasks (live-completed AND Backdated), searchable/sortable, each row opening straight into
+// Task Detail — same shape as the PO's own "Completed Jobs" page (renderPOBriefsList('completed')) so the
+// pattern is consistent across roles.
+function renderMyCompletedJobs(){
+  const me = STATE.auth.identity;
+  const ui = STATE.myCompletedUI;
+  let mine = STATE.tasks.filter(t=>t.assigned_user_name===me && t.review_status==='delivered');
+  if(ui.search.trim()) mine = mine.filter(t=>taskDisplayName(t).toLowerCase().includes(ui.search.trim().toLowerCase()));
+  const deliveredDateOf = t => t.actual_delivery_date || (t.completed_at ? t.completed_at.slice(0,10) : '') || t.prefer_delivery_date || '';
+  mine = mine.slice().sort((a,b)=>{
+    const da = deliveredDateOf(a), db = deliveredDateOf(b);
+    return ui.sort==='oldest' ? da.localeCompare(db) : db.localeCompare(da);
+  });
+  return `
+  <h1 class="pagetitle">Completed Jobs</h1>
+  <p class="pagesub">งานที่ส่งมอบเสร็จสมบูรณ์แล้วของคุณทั้งหมด (รวมงาน Backdated) — เห็นเฉพาะของคุณเท่านั้น</p>
+  <div class="board-toolbar">
+    <div style="min-width:220px"><label>Search</label><input id="myCompletedSearch" value="${escAttr(ui.search)}" placeholder="ค้นหาชื่องาน..."></div>
+    <div style="min-width:160px"><label>Sort</label>
+      <select id="myCompletedSort">
+        <option value="latest" ${ui.sort==='latest'?'selected':''}>ล่าสุดก่อน</option>
+        <option value="oldest" ${ui.sort==='oldest'?'selected':''}>เก่าสุดก่อน</option>
+      </select></div>
+    <div class="chip" style="padding:8px 12px;font-size:12px">${mine.length} รายการ</div>
+  </div>
+  ${mine.length===0 ? `<div class="card placeholder"><div class="ico">📋</div>ยังไม่มีงานที่ส่งมอบเสร็จแล้ว</div>` : `
+  <table class="po-briefs-table">
+    <thead><tr><th>Task</th><th>Category</th><th>Delivered Date</th><th>Brief Owner</th><th></th></tr></thead>
+    <tbody>
+      ${mine.map(t=>`<tr data-opentask="${t.task_id}">
+          <td><strong>${taskDisplayName(t)}</strong><div class="hint mono" style="margin-top:1px">${t.task_id}</div>${t.is_backdated ? `<span class="chip" style="color:#a15c00;font-weight:700;margin-top:2px;display:inline-block">⏱ Backdated</span>` : ''}</td>
+          <td>${t.task_type||t.task_category||'—'}</td>
+          <td>${fmtDate(deliveredDateOf(t))}</td>
+          <td class="hint">${findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '—'}</td>
+          <td style="white-space:nowrap">${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 Folder ↗</a>` : ''}</td>
+        </tr>`).join('')}
+    </tbody>
+  </table>`}
+  `;
+}
+function bindMyCompletedJobs(){
+  document.getElementById('myCompletedSearch')?.addEventListener('input', e=>{ STATE.myCompletedUI.search=e.target.value; render(); });
+  document.getElementById('myCompletedSort')?.addEventListener('change', e=>{ STATE.myCompletedUI.sort=e.target.value; render(); });
 }
 
 /* ---------- Brief & Intake Form (v3 layout) ---------- */
@@ -10862,6 +10917,8 @@ function bindEvents(){
 
   // Project Owner: My Workspace / My Briefs / Drafts (no-ops on pages where these elements don't exist)
   bindPOWorkspace();
+  // Designer/Lead: Completed Jobs (no-op on pages where these elements don't exist)
+  bindMyCompletedJobs();
   // Admin: User / Department / Designer Management (no-ops on pages where these elements don't exist)
   bindUserManagement();
   bindDepartmentManagement();
@@ -12948,6 +13005,14 @@ const GDRIVE_DEFAULT_SHORTCUTS = [
 // (still the older deployment). Checked once per session instead of once per file — see
 // loadGdriveBrowserThumbnails() for why that matters.
 let GDRIVE_THUMB_SUPPORTED = null;
+// Krissha, "เวลาใช้งานจริงมันจะไม่ใช่ 13 รูป แต่เป็น 100 รูป": same null/true/false session cache as
+// GDRIVE_THUMB_SUPPORTED above, but for whether the deployed Apps Script supports the BATCHED thumbnail
+// action (?action=thumbs&ids=a,b,c,...). At 100 files, the dominant cost stops being what each response
+// carries (already fixed — see gdriveDecodeProxyResponse) and becomes simply HOW MANY Apps Script calls
+// get made: each one pays its own network round trip + Apps Script invocation start-up, no matter how
+// small the payload. Fetching ~15 thumbnails per call instead of 1 cuts that call count by ~15x.
+let GDRIVE_BATCH_THUMB_SUPPORTED = null;
+const GDRIVE_THUMB_BATCH_SIZE = 15;
 function gdriveProxyUrl(){
   return (STATE.gdriveConfig && STATE.gdriveConfig.proxyUrl) || '';
 }
@@ -12978,17 +13043,38 @@ function gdriveFetchWithTimeout(url, ms){
 // Fetches one file's bytes through the Apps Script proxy (?action=file&id=...), which returns
 // {ok:true, mimeType, base64}. Decoded client-side into a Blob → object URL, same shape the rest of
 // the Frame Tool import pipeline already expects from gdriveFetchImageAsObjectUrl() before it.
+// Krissha, "มันช้ามากเลยค่ะ" (Import สู้ 13 รูปแล้วยังช้า): found the ACTUAL next bottleneck, not a
+// guess — the proxy was wrapping every file in JSON as base64 text (ContentService.createTextOutput),
+// which costs three things on top of the raw bytes: ~33% more data over the wire (base64 inflation),
+// a JSON.parse() of a multi-MB string, and a synchronous byte-by-byte atob() decode loop — all on the
+// browser's single main thread, so it serializes across every file in the batch regardless of
+// CONCURRENCY (concurrency only overlaps the network wait, never this decode work). Apps Script's doGet
+// can instead return a Blob directly and have it served as raw binary — no JSON, no base64, no decode
+// loop — see getFile()/getThumbnail() in DriveProxy.gs.txt. gdriveDecodeProxyResponse() below still
+// understands the OLD JSON+base64 success shape too, purely so this doesn't break for anyone mid-way
+// through redeploying the new Apps Script code — once redeployed, that branch just never fires.
+async function gdriveDecodeProxyResponse(res){
+  const contentType = res.headers.get('content-type') || '';
+  if(contentType.includes('application/json')){
+    const data = await res.json();
+    if(data && data.ok && data.base64){
+      // Old-style success envelope (Apps Script not yet redeployed to the raw-Blob version) — decode it
+      // the same way this always worked, just kept alive as a fallback rather than the normal path now.
+      const byteChars = atob(data.base64);
+      const bytes = new Uint8Array(byteChars.length);
+      for(let i=0;i<byteChars.length;i++){ bytes[i] = byteChars.charCodeAt(i); }
+      return new Blob([bytes], {type: data.mimeType || 'image/jpeg'});
+    }
+    throw new Error((data && data.error) || 'FETCH_FAILED');
+  }
+  return await res.blob();
+}
 async function gdriveFetchImageViaProxy(fileId){
   const proxyUrl = gdriveProxyUrl();
   if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
   const res = await gdriveFetchWithTimeout(`${proxyUrl}?action=file&id=${encodeURIComponent(fileId)}`, 30000);
   if(!res.ok) throw new Error('DOWNLOAD_FAILED');
-  const data = await res.json();
-  if(!data || !data.ok) throw new Error((data && data.error) || 'DOWNLOAD_FAILED');
-  const byteChars = atob(data.base64);
-  const bytes = new Uint8Array(byteChars.length);
-  for(let i=0;i<byteChars.length;i++){ bytes[i] = byteChars.charCodeAt(i); }
-  const blob = new Blob([bytes], {type: data.mimeType || 'image/jpeg'});
+  const blob = await gdriveDecodeProxyResponse(res);
   return URL.createObjectURL(blob);
 }
 // Grid previews use a real small thumbnail (?action=thumb) instead of the full-size file — Krissha hit
@@ -13003,13 +13089,35 @@ async function gdriveFetchThumbnailViaProxy(fileId){
   if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
   const res = await gdriveFetchWithTimeout(`${proxyUrl}?action=thumb&id=${encodeURIComponent(fileId)}`, 15000);
   if(!res.ok) throw new Error('THUMB_FAILED');
-  const data = await res.json();
-  if(!data || !data.ok) throw new Error((data && data.error) || 'THUMB_FAILED');
-  const byteChars = atob(data.base64);
-  const bytes = new Uint8Array(byteChars.length);
-  for(let i=0;i<byteChars.length;i++){ bytes[i] = byteChars.charCodeAt(i); }
-  const blob = new Blob([bytes], {type: data.mimeType || 'image/jpeg'});
+  const blob = await gdriveDecodeProxyResponse(res);
   return URL.createObjectURL(blob);
+}
+// Batched thumbnail fetch — one Apps Script call returns up to GDRIVE_THUMB_BATCH_SIZE thumbnails at
+// once (getThumbnails() in DriveProxy.gs.txt), instead of one call per image. Unlike the single-file
+// path above, the response HAS to be JSON+base64 here (a single HTTP response can't carry several
+// distinct binaries), but that cost is cheap at thumbnail size (tens of KB each) — nothing like the
+// problem it was for full-size images. Returns {fileId: objectUrl|null}, never throws per-file — a
+// missing/failed thumbnail inside a batch just comes back null so one bad file can't sink the other 14.
+async function gdriveFetchThumbnailsBatch(ids){
+  const proxyUrl = gdriveProxyUrl();
+  if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
+  const url = `${proxyUrl}?action=thumbs&ids=${encodeURIComponent(ids.join(','))}`;
+  const res = await gdriveFetchWithTimeout(url, 30000);
+  if(!res.ok) throw new Error('THUMBS_FAILED');
+  const data = await res.json();
+  if(!data || !data.ok) throw new Error((data && data.error) || 'THUMBS_FAILED');
+  const out = {};
+  ids.forEach(id=>{
+    const t = data.thumbs && data.thumbs[id];
+    if(!t){ out[id] = null; return; }
+    try{
+      const byteChars = atob(t.base64);
+      const bytes = new Uint8Array(byteChars.length);
+      for(let i=0;i<byteChars.length;i++){ bytes[i] = byteChars.charCodeAt(i); }
+      out[id] = URL.createObjectURL(new Blob([bytes], {type: t.mimeType || 'image/jpeg'}));
+    }catch(e){ out[id] = null; }
+  });
+  return out;
 }
 
 /* ---------- Custom Drive Image Browser (Krissha, follow-up request) ----------
@@ -13092,19 +13200,57 @@ async function loadGdriveBrowserFolder(folderId){
     refreshGdriveBrowserPortal();
   }
 }
-// Thumbnails go through gdriveFetchThumbnailViaProxy (real, small Drive thumbnails — see that function's
-// comment for why: fetching full-size files here was both slow and, for Krissha's biggest product PNGs
-// (13-14MB), outright failing) — but ONLY once we know the deployed Apps Script actually supports
-// ?action=thumb. An older deployment answers UNKNOWN_ACTION for every single image, which used to mean
-// every tile wasted a doomed thumb attempt before falling back to a full-size fetch. So: probe once per
-// session (GDRIVE_THUMB_SUPPORTED, declared above near GDRIVE_DEFAULT_FOLDER_ID) instead of once per file.
-// Concurrency: the Apps Script side now uses DriveApp.File.getThumbnail() (one in-process call) instead
-// of two separate UrlFetchApp round trips to the Drive REST API — that was the actual reason thumbnails
-// stayed slow even after switching away from full-size files. With that fixed, a moderate concurrency is
-// safe again; keep it below the old full-file CONCURRENCY (still real network+base64 work per tile, just
-// less of it than before).
+// Krissha, "เวลาใช้งานจริงมันจะไม่ใช่ 13 รูป แต่เป็น 100 รูป จำเป็นต้องเห็นรูปก่อนว่าถูกต้องมั้ย": entry
+// point tries the BATCHED thumbnail endpoint first (fetch ~15 thumbnails per Apps Script call instead of
+// 1 — see gdriveFetchThumbnailsBatch's own comment for why that's the lever that actually scales to 100
+// files), probed once per session via GDRIVE_BATCH_THUMB_SUPPORTED. If the deployed Apps Script is still
+// the older one without ?action=thumbs, this falls back to loadGdriveBrowserThumbnailsPerFile() below —
+// the exact single-file path this app already had, unchanged, so nobody's stuck without previews just
+// because they haven't redeployed yet.
 async function loadGdriveBrowserThumbnails(b){
   const batch = b.images.slice();
+  if(!batch.length) return;
+  if(GDRIVE_BATCH_THUMB_SUPPORTED === null){
+    const firstChunk = batch.slice(0, GDRIVE_THUMB_BATCH_SIZE);
+    try{
+      const urls = await gdriveFetchThumbnailsBatch(firstChunk.map(im=>im.id));
+      firstChunk.forEach(im=>{ if(urls[im.id]) im.thumbUrl = urls[im.id]; else im.thumbFailed = true; });
+      GDRIVE_BATCH_THUMB_SUPPORTED = true;
+    }catch(e){
+      GDRIVE_BATCH_THUMB_SUPPORTED = false;
+    }
+    if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
+  }
+  if(!GDRIVE_BATCH_THUMB_SUPPORTED){
+    return loadGdriveBrowserThumbnailsPerFile(b, batch.filter(im=>!im.thumbUrl && !im.thumbFailed));
+  }
+  const remaining = batch.filter(im=>!im.thumbUrl && !im.thumbFailed);
+  const chunks = [];
+  for(let i=0;i<remaining.length;i+=GDRIVE_THUMB_BATCH_SIZE) chunks.push(remaining.slice(i, i+GDRIVE_THUMB_BATCH_SIZE));
+  // 3 batches in flight at once ≈ up to 45 images loading per round instead of 3-4 — Apps Script's
+  // per-script concurrent-execution ceiling (well above this) is what bounds how high this can safely go.
+  const CONCURRENCY = 3;
+  let idx = 0;
+  async function worker(){
+    while(idx < chunks.length){
+      const chunk = chunks[idx++];
+      if(STATE.gdriveBrowser !== b) return; // browser closed/replaced mid-flight
+      try{
+        const urls = await gdriveFetchThumbnailsBatch(chunk.map(im=>im.id));
+        chunk.forEach(im=>{ if(urls[im.id]) im.thumbUrl = urls[im.id]; else im.thumbFailed = true; });
+      }catch(e){
+        chunk.forEach(im=>{ im.thumbFailed = true; });
+      }
+      if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
+    }
+  }
+  const workers = []; for(let i=0;i<CONCURRENCY;i++) workers.push(worker());
+  await Promise.all(workers);
+}
+// Original single-file thumbnail path (kept as the fallback for an Apps Script deployment that predates
+// ?action=thumbs) — same probe-once-per-session shape as before, just renamed and only reached when
+// batching isn't available yet.
+async function loadGdriveBrowserThumbnailsPerFile(b, batch){
   if(!batch.length) return;
   if(GDRIVE_THUMB_SUPPORTED === null){
     try{
