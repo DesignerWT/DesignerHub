@@ -4224,7 +4224,15 @@ function renderWorkspace(){
        review_status values/workflow the rest of the app already uses (see MYWORK_KANBAN_COLUMNS) — no new
        status field, so a card here and the same task's badge in Task Detail/Process Board can never disagree. -->
   <div class="ws-tasklist">
-    <div class="ws-tasklist-head">งานของฉัน</div>
+    <!-- Krissha, "แล้วทำไมมันไม่มาโชว์ในโปรไฟล์ส่วนตัว": the "เสร็จสิ้น" column here only ever shows
+         TODAY's completions by design (see MYWORK_KANBAN_COLUMNS/renderMyWorkKanban's own comment) — the
+         full history (including Backdated jobs, which never even get a completed_at) lives on the
+         separate "Completed Jobs" page instead. That page was easy to miss tucked under Graphic Design
+         Workflow's sidebar, so this link surfaces it directly from her own workspace/profile page too. -->
+    <div class="ws-tasklist-head" style="display:flex;align-items:center;justify-content:space-between">
+      <span>งานของฉัน</span>
+      <button type="button" class="btn btn-sm btn-ghost" id="myWorkSeeCompletedBtn" style="font-weight:400">ดูงานที่เสร็จแล้วทั้งหมด →</button>
+    </div>
     ${renderMyWorkKanban(me)}
   </div>
 
@@ -10919,6 +10927,9 @@ function bindEvents(){
   bindPOWorkspace();
   // Designer/Lead: Completed Jobs (no-op on pages where these elements don't exist)
   bindMyCompletedJobs();
+  document.getElementById('myWorkSeeCompletedBtn')?.addEventListener('click', ()=>{
+    STATE.tab='workflow'; STATE.sideSection='myCompleted'; render();
+  });
   // Admin: User / Department / Designer Management (no-ops on pages where these elements don't exist)
   bindUserManagement();
   bindDepartmentManagement();
@@ -13005,6 +13016,14 @@ const GDRIVE_DEFAULT_SHORTCUTS = [
 // (still the older deployment). Checked once per session instead of once per file — see
 // loadGdriveBrowserThumbnails() for why that matters.
 let GDRIVE_THUMB_SUPPORTED = null;
+// Krissha, "เวลาใช้งานจริงมันจะไม่ใช่ 13 รูป แต่เป็น 100 รูป": same null/true/false session cache as
+// GDRIVE_THUMB_SUPPORTED above, but for whether the deployed Apps Script supports the BATCHED thumbnail
+// action (?action=thumbs&ids=a,b,c,...). At 100 files, the dominant cost stops being what each response
+// carries (already fixed — see gdriveDecodeProxyResponse) and becomes simply HOW MANY Apps Script calls
+// get made: each one pays its own network round trip + Apps Script invocation start-up, no matter how
+// small the payload. Fetching ~15 thumbnails per call instead of 1 cuts that call count by ~15x.
+let GDRIVE_BATCH_THUMB_SUPPORTED = null;
+const GDRIVE_THUMB_BATCH_SIZE = 15;
 function gdriveProxyUrl(){
   return (STATE.gdriveConfig && STATE.gdriveConfig.proxyUrl) || '';
 }
@@ -13059,7 +13078,14 @@ async function gdriveDecodeProxyResponse(res){
     }
     throw new Error((data && data.error) || 'FETCH_FAILED');
   }
-  return await res.blob();
+  const blob = await res.blob();
+  // Image Pipeline spec (Krissha): never let an HTML error page, an empty body, or an unsupported
+  // MIME type pass through as if it were real image bytes — this is what used to cause "some images
+  // download fine but preview never shows" when the proxy hiccuped. Reject those here, once, so every
+  // caller (working image, thumbnail, batch-probe) gets the same guarantee for free.
+  if(!blob || blob.size === 0) throw new Error('EMPTY_RESPONSE');
+  if(!/^image\//.test(blob.type) && !/^image\//.test(contentType)) throw new Error('UNSUPPORTED_RESPONSE');
+  return blob;
 }
 async function gdriveFetchImageViaProxy(fileId){
   const proxyUrl = gdriveProxyUrl();
@@ -13083,6 +13109,176 @@ async function gdriveFetchThumbnailViaProxy(fileId){
   if(!res.ok) throw new Error('THUMB_FAILED');
   const blob = await gdriveDecodeProxyResponse(res);
   return URL.createObjectURL(blob);
+}
+// Batched thumbnail fetch — one Apps Script call returns up to GDRIVE_THUMB_BATCH_SIZE thumbnails at
+// once (getThumbnails() in DriveProxy.gs.txt), instead of one call per image. Unlike the single-file
+// path above, the response HAS to be JSON+base64 here (a single HTTP response can't carry several
+// distinct binaries), but that cost is cheap at thumbnail size (tens of KB each) — nothing like the
+// problem it was for full-size images. Returns {fileId: objectUrl|null}, never throws per-file — a
+// missing/failed thumbnail inside a batch just comes back null so one bad file can't sink the other 14.
+async function gdriveFetchThumbnailsBatch(ids){
+  const proxyUrl = gdriveProxyUrl();
+  if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
+  const url = `${proxyUrl}?action=thumbs&ids=${encodeURIComponent(ids.join(','))}`;
+  const res = await gdriveFetchWithTimeout(url, 30000);
+  if(!res.ok) throw new Error('THUMBS_FAILED');
+  const data = await res.json();
+  if(!data || !data.ok) throw new Error((data && data.error) || 'THUMBS_FAILED');
+  const out = {};
+  ids.forEach(id=>{
+    const t = data.thumbs && data.thumbs[id];
+    if(!t){ out[id] = null; return; }
+    try{
+      const byteChars = atob(t.base64);
+      const bytes = new Uint8Array(byteChars.length);
+      for(let i=0;i<byteChars.length;i++){ bytes[i] = byteChars.charCodeAt(i); }
+      out[id] = URL.createObjectURL(new Blob([bytes], {type: t.mimeType || 'image/jpeg'}));
+    }catch(e){ out[id] = null; }
+  });
+  return out;
+}
+
+/* ---------- Frame Tool Image Pipeline v2 (Krissha spec, "แก้ Image Pipeline" — don't rebuild Frame
+   Tool, just fix how it loads/caches/decodes Drive product images) ----------
+   Two-tier cache keyed by driveFileId_modifiedTime (ftCacheKey): FT_WORK_CACHE is the in-memory tier
+   (this session only — decoded ImageBitmap, ready to draw with zero further work), IndexedDB
+   (ftIdb*) is the persistent tier (the already-resized ≤2000px Blob, so a future session — or
+   reselecting the same file later this session — skips the Drive round trip AND the resize step, not
+   just the decode). A file is fetched from Drive at most once per (id, modifiedTime) ever, on this
+   device: ftLoadWorkingImage() below is the single entry point every caller (Import, Retry) goes
+   through, so that guarantee holds everywhere instead of being something each caller has to remember. */
+const FT_WORK_CACHE = new Map(); // cacheKey -> {status:'loading'|'ready'|'error', bitmap, blobUrl, w, h, promise, error}
+const FT_MAX_DIM = 2000; // matches Canvas/Export size — never any reason to hold a bigger decoded image in memory
+const FT_DB_NAME = 'wt_ft_cache_v1';
+const FT_DB_STORE = 'images';
+let _ftDbPromise = null;
+function ftIdbOpen(){
+  if(_ftDbPromise) return _ftDbPromise;
+  _ftDbPromise = new Promise((resolve)=>{
+    try{
+      if(!window.indexedDB){ resolve(null); return; }
+      const req = indexedDB.open(FT_DB_NAME, 1);
+      req.onupgradeneeded = ()=>{ try{ req.result.createObjectStore(FT_DB_STORE); }catch(e){} };
+      req.onsuccess = ()=> resolve(req.result);
+      req.onerror = ()=> resolve(null); // no IndexedDB (private mode, etc.) — callers fall back to Drive, never break
+    }catch(e){ resolve(null); }
+  });
+  return _ftDbPromise;
+}
+async function ftIdbGetBlob(key){
+  try{
+    const db = await ftIdbOpen();
+    if(!db) return null;
+    return await new Promise((resolve)=>{
+      const tx = db.transaction(FT_DB_STORE, 'readonly');
+      const req = tx.objectStore(FT_DB_STORE).get(key);
+      req.onsuccess = ()=> resolve(req.result ? req.result.blob : null);
+      req.onerror = ()=> resolve(null);
+    });
+  }catch(e){ return null; }
+}
+async function ftIdbSetBlob(key, blob){
+  try{
+    const db = await ftIdbOpen();
+    if(!db) return;
+    await new Promise((resolve)=>{
+      const tx = db.transaction(FT_DB_STORE, 'readwrite');
+      tx.objectStore(FT_DB_STORE).put({blob, ts:Date.now()}, key);
+      tx.oncomplete = ()=>resolve(); tx.onerror = ()=>resolve();
+    });
+  }catch(e){ /* persistent cache is a bonus — never let it block or break the actual load */ }
+}
+function ftCacheKey(fileId, modifiedTime){
+  return fileId ? `${fileId}_${modifiedTime||'0'}` : null;
+}
+// Decodes a Blob into something drawImage()-able. createImageBitmap is preferred (decodes off the
+// main thread in most browsers, and gives back a lightweight ImageBitmap rather than a DOM <img>); a
+// plain <img>+decode() is the fallback for the rare browser/format combo where createImageBitmap
+// fails. Either return value works directly with ctx.drawImage() and with img.naturalWidth||img.width.
+async function ftDecodeBlobToBitmap(blob){
+  if(typeof createImageBitmap==='function'){
+    try{ return await createImageBitmap(blob); }catch(e){ /* fall through to <img> decode below */ }
+  }
+  const url = URL.createObjectURL(blob);
+  try{
+    const img = new Image();
+    img.src = url;
+    if(img.decode){ await img.decode(); } else { await new Promise((res,rej)=>{ img.onload=res; img.onerror=rej; }); }
+    return img;
+  } finally {
+    // Object URL lifecycle rule (Krissha spec): never revoke before load/decode finishes — img.decode()
+    // above is awaited first, so by the time we get here the browser has already fully decoded it and
+    // no longer needs the URL to stay alive.
+    URL.revokeObjectURL(url);
+  }
+}
+// Requirement #1 (Krissha spec): resize-before-use — scale = min(1, MAX_DIM / max(width, height)),
+// so a file already ≤2000px on both sides is never upscaled or re-encoded (returned untouched), and
+// anything bigger is scaled down preserving aspect ratio exactly (no independent width/height
+// stretch). PNG stays PNG (keeps transparency); everything else keeps its original mime where the
+// canvas can produce it, otherwise falls back to PNG so nothing silently loses alpha.
+async function ftResizeBitmapBlob(blob, maxDim){
+  const bitmap = await ftDecodeBlobToBitmap(blob);
+  const w = bitmap.naturalWidth || bitmap.width, h = bitmap.naturalHeight || bitmap.height;
+  const scale = (w && h) ? Math.min(1, maxDim / Math.max(w, h)) : 1;
+  if(!w || !h || scale >= 1){
+    return {blob, bitmap, w: w||0, h: h||0};
+  }
+  const outW = Math.max(1, Math.round(w*scale)), outH = Math.max(1, Math.round(h*scale));
+  const useOffscreen = typeof OffscreenCanvas !== 'undefined';
+  const canvas = useOffscreen ? new OffscreenCanvas(outW, outH) : document.createElement('canvas');
+  if(!useOffscreen){ canvas.width = outW; canvas.height = outH; }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,outW,outH);
+  ctx.drawImage(bitmap, 0, 0, outW, outH);
+  const outMime = (blob.type==='image/png' || blob.type==='image/webp') ? blob.type : (blob.type==='image/jpeg' ? 'image/jpeg' : 'image/png');
+  let outBlob;
+  if(canvas.convertToBlob){ outBlob = await canvas.convertToBlob({type: outMime, quality: outMime==='image/jpeg'?0.92:undefined}); }
+  else { outBlob = await new Promise(res=> canvas.toBlob(res, outMime, outMime==='image/jpeg'?0.92:undefined)); }
+  try{ if(bitmap.close) bitmap.close(); }catch(e){}
+  const outBitmap = await ftDecodeBlobToBitmap(outBlob);
+  return {blob: outBlob, bitmap: outBitmap, w: outW, h: outH};
+}
+// Single entry point for loading one Drive file as a ready-to-draw working image — resized to
+// ≤2000px, validated, decoded, and cached both tiers (see block comment above). De-dupes concurrent
+// requests for the same file (two workers picking up the same id would otherwise both hit Drive).
+// Never throws into the caller's render loop uncaught — rejects with a plain Error whose .message the
+// caller turns into a per-image "โหลดรูปไม่สำเร็จ" + Retry state, never a page-wide failure.
+async function ftLoadWorkingImage(fileId, modifiedTime){
+  const key = ftCacheKey(fileId, modifiedTime);
+  if(key && FT_WORK_CACHE.has(key)){
+    const hit = FT_WORK_CACHE.get(key);
+    if(hit.status==='ready') return hit;
+    if(hit.status==='loading') return hit.promise;
+  }
+  const entry = {status:'loading'};
+  const run = (async ()=>{
+    try{
+      let blob = key ? await ftIdbGetBlob(key) : null; // persistent-cache hit — skip Drive entirely
+      if(!blob){
+        const proxyUrl = gdriveProxyUrl();
+        if(!proxyUrl) throw new Error('NO_PROXY_URL');
+        const res = await gdriveFetchWithTimeout(`${proxyUrl}?action=file&id=${encodeURIComponent(fileId)}`, 45000);
+        if(!res.ok) throw new Error('HTTP_'+res.status);
+        const fetched = await gdriveDecodeProxyResponse(res); // validates HTTP/MIME/size, throws on any of them
+        const resized = await ftResizeBitmapBlob(fetched, FT_MAX_DIM);
+        blob = resized.blob;
+        if(key) ftIdbSetBlob(key, blob); // fire-and-forget — never block the working image on this
+      }
+      const bitmap = await ftDecodeBlobToBitmap(blob);
+      const blobUrl = URL.createObjectURL(blob);
+      const ready = {status:'ready', bitmap, blobUrl, w: bitmap.naturalWidth||bitmap.width, h: bitmap.naturalHeight||bitmap.height};
+      if(key) FT_WORK_CACHE.set(key, ready);
+      return ready;
+    }catch(e){
+      const failed = {status:'error', error: (e&&e.message)||'LOAD_FAILED'};
+      if(key) FT_WORK_CACHE.set(key, failed);
+      throw e;
+    }
+  })();
+  entry.promise = run;
+  if(key) FT_WORK_CACHE.set(key, entry);
+  return run;
 }
 
 /* ---------- Custom Drive Image Browser (Krissha, follow-up request) ----------
@@ -13154,7 +13350,11 @@ async function loadGdriveBrowserFolder(folderId){
     const files = data.files || [];
     b.folders = files.filter(f=>f.mimeType==='application/vnd.google-apps.folder');
     const images = files.filter(f=>f.mimeType && f.mimeType.indexOf('image/')===0);
-    b.images = images.map(f=>({id:f.id, name:f.name, thumbUrl:null, thumbFailed:false}));
+    // modifiedTime (from Drive's LastUpdated, added to DriveProxy.gs.txt's listFolder alongside this
+    // change) is what makes the Image Pipeline's cache key (ftCacheKey) actually distinguish "same file,
+    // unchanged" from "someone replaced this file since we last cached it" — comes back undefined on an
+    // older deployed proxy, which the cache key already tolerates (falls back to id-only).
+    b.images = images.map(f=>({id:f.id, name:f.name, modifiedTime:f.modifiedTime||null, thumbUrl:null, thumbFailed:false}));
     b.loading = false;
     refreshGdriveBrowserPortal();
     loadGdriveBrowserThumbnails(b); // background-fill thumbnails a few at a time, doesn't block the grid
@@ -13165,19 +13365,57 @@ async function loadGdriveBrowserFolder(folderId){
     refreshGdriveBrowserPortal();
   }
 }
-// Thumbnails go through gdriveFetchThumbnailViaProxy (real, small Drive thumbnails — see that function's
-// comment for why: fetching full-size files here was both slow and, for Krissha's biggest product PNGs
-// (13-14MB), outright failing) — but ONLY once we know the deployed Apps Script actually supports
-// ?action=thumb. An older deployment answers UNKNOWN_ACTION for every single image, which used to mean
-// every tile wasted a doomed thumb attempt before falling back to a full-size fetch. So: probe once per
-// session (GDRIVE_THUMB_SUPPORTED, declared above near GDRIVE_DEFAULT_FOLDER_ID) instead of once per file.
-// Concurrency: the Apps Script side now uses DriveApp.File.getThumbnail() (one in-process call) instead
-// of two separate UrlFetchApp round trips to the Drive REST API — that was the actual reason thumbnails
-// stayed slow even after switching away from full-size files. With that fixed, a moderate concurrency is
-// safe again; keep it below the old full-file CONCURRENCY (still real network+base64 work per tile, just
-// less of it than before).
+// Krissha, "เวลาใช้งานจริงมันจะไม่ใช่ 13 รูป แต่เป็น 100 รูป จำเป็นต้องเห็นรูปก่อนว่าถูกต้องมั้ย": entry
+// point tries the BATCHED thumbnail endpoint first (fetch ~15 thumbnails per Apps Script call instead of
+// 1 — see gdriveFetchThumbnailsBatch's own comment for why that's the lever that actually scales to 100
+// files), probed once per session via GDRIVE_BATCH_THUMB_SUPPORTED. If the deployed Apps Script is still
+// the older one without ?action=thumbs, this falls back to loadGdriveBrowserThumbnailsPerFile() below —
+// the exact single-file path this app already had, unchanged, so nobody's stuck without previews just
+// because they haven't redeployed yet.
 async function loadGdriveBrowserThumbnails(b){
   const batch = b.images.slice();
+  if(!batch.length) return;
+  if(GDRIVE_BATCH_THUMB_SUPPORTED === null){
+    const firstChunk = batch.slice(0, GDRIVE_THUMB_BATCH_SIZE);
+    try{
+      const urls = await gdriveFetchThumbnailsBatch(firstChunk.map(im=>im.id));
+      firstChunk.forEach(im=>{ if(urls[im.id]) im.thumbUrl = urls[im.id]; else im.thumbFailed = true; });
+      GDRIVE_BATCH_THUMB_SUPPORTED = true;
+    }catch(e){
+      GDRIVE_BATCH_THUMB_SUPPORTED = false;
+    }
+    if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
+  }
+  if(!GDRIVE_BATCH_THUMB_SUPPORTED){
+    return loadGdriveBrowserThumbnailsPerFile(b, batch.filter(im=>!im.thumbUrl && !im.thumbFailed));
+  }
+  const remaining = batch.filter(im=>!im.thumbUrl && !im.thumbFailed);
+  const chunks = [];
+  for(let i=0;i<remaining.length;i+=GDRIVE_THUMB_BATCH_SIZE) chunks.push(remaining.slice(i, i+GDRIVE_THUMB_BATCH_SIZE));
+  // 3 batches in flight at once ≈ up to 45 images loading per round instead of 3-4 — Apps Script's
+  // per-script concurrent-execution ceiling (well above this) is what bounds how high this can safely go.
+  const CONCURRENCY = 3;
+  let idx = 0;
+  async function worker(){
+    while(idx < chunks.length){
+      const chunk = chunks[idx++];
+      if(STATE.gdriveBrowser !== b) return; // browser closed/replaced mid-flight
+      try{
+        const urls = await gdriveFetchThumbnailsBatch(chunk.map(im=>im.id));
+        chunk.forEach(im=>{ if(urls[im.id]) im.thumbUrl = urls[im.id]; else im.thumbFailed = true; });
+      }catch(e){
+        chunk.forEach(im=>{ im.thumbFailed = true; });
+      }
+      if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
+    }
+  }
+  const workers = []; for(let i=0;i<CONCURRENCY;i++) workers.push(worker());
+  await Promise.all(workers);
+}
+// Original single-file thumbnail path (kept as the fallback for an Apps Script deployment that predates
+// ?action=thumbs) — same probe-once-per-session shape as before, just renamed and only reached when
+// batching isn't available yet.
+async function loadGdriveBrowserThumbnailsPerFile(b, batch){
   if(!batch.length) return;
   if(GDRIVE_THUMB_SUPPORTED === null){
     try{
@@ -13314,14 +13552,18 @@ function bindGdriveBrowser(){
   document.querySelectorAll('[data-gdimg]').forEach(el=>{
     el.addEventListener('change', ()=>{
       const id = el.getAttribute('data-gdimg');
-      if(b.selected[id]){ delete b.selected[id]; } else { b.selected[id] = {id, name: el.getAttribute('data-gdimgname')}; }
+      if(b.selected[id]){ delete b.selected[id]; }
+      else {
+        const im = b.images.find(x=>x.id===id);
+        b.selected[id] = {id, name: el.getAttribute('data-gdimgname'), modifiedTime: im ? im.modifiedTime : null};
+      }
       refreshGdriveBrowserPortal();
     });
   });
   document.getElementById('gdriveSelectAllHere')?.addEventListener('change', (e)=>{
     const check = e.target.checked;
     b.images.forEach(im=>{
-      if(check){ b.selected[im.id] = {id:im.id, name:im.name}; } else { delete b.selected[im.id]; }
+      if(check){ b.selected[im.id] = {id:im.id, name:im.name, modifiedTime: im.modifiedTime||null}; } else { delete b.selected[im.id]; }
     });
     refreshGdriveBrowserPortal();
   });
@@ -13358,30 +13600,47 @@ function bindGdriveBrowser(){
 // needed here (unlike the grid, which now uses small thumbnails), so this downloads several files in
 // parallel instead of serially. onProgress(done, total), when given, is called after each file finishes
 // (success or failure) so the caller can show live progress instead of a static "importing..." label.
+// Krissha, Image Pipeline spec: each file now goes through ftLoadWorkingImage() instead of the plain
+// fetch-and-object-URL this used to do — that's what gets every imported file resized to ≤2000px,
+// validated, decoded once, and cached (memory + IndexedDB) keyed by driveFileId_modifiedTime, so
+// Next/Previous/Run Frame later never re-hit Drive for the same file (see ftRedrawCanvas/ftDrawComposite,
+// which now prefer the already-decoded item._bitmap over re-loading item.previewUrl). A file that fails
+// still gets its own queue entry (status:'error') instead of silently vanishing, so it shows "โหลดรูปไม่
+// สำเร็จ" with its own Retry button in the Asset Queue — one bad file no longer costs her having to
+// re-run the whole picker to see what didn't make it in.
 async function gdriveImportPickedFiles(mode, files, onProgress){
   try{
     if(!gdriveProxyUrl()) throw new Error('NO_PROXY_URL');
-    const assets = [];
     let done = 0;
-    const CONCURRENCY = 4;
+    let okCount = 0, failCount = 0;
+    const CONCURRENCY = 4; // within the 4-6 range her spec asked for — never 20-50 at once
     let idx = 0;
     if(onProgress) onProgress(0, files.length);
     async function worker(){
       while(idx < files.length){
         const f = files[idx++];
+        const asset = {
+          id:'ft_drive_'+f.id, name:f.name, previewUrl:null, source:'Google Drive', selected:false,
+          driveFileId:f.id, modifiedTime:f.modifiedTime||null, status:'loading', fromWorkCache:true,
+        };
+        const wasAdded = ftAddToQueue(mode, [asset]);
         try{
-          const objUrl = await gdriveFetchImageViaProxy(f.id);
-          assets.push({id:'ft_drive_'+f.id, name:f.name, previewUrl:objUrl, source:'Google Drive', selected:true});
-        }catch(e){ /* skip failed file */ }
+          const work = await ftLoadWorkingImage(f.id, f.modifiedTime);
+          asset.previewUrl = work.blobUrl; asset._bitmap = work.bitmap;
+          asset.status = 'ready'; asset.selected = true;
+          if(wasAdded) okCount++;
+        }catch(e){
+          asset.status = 'error'; asset.error = (e&&e.message)||'LOAD_FAILED';
+          if(wasAdded) failCount++;
+        }
         done++;
         if(onProgress) onProgress(done, files.length);
       }
     }
     const workers = []; for(let i=0;i<CONCURRENCY;i++) workers.push(worker());
     await Promise.all(workers);
-    if(!assets.length){ toast('โหลดรูปที่เลือกไม่สำเร็จเลยสักไฟล์ ลองใหม่อีกครั้ง'); return false; }
-    const added = ftAddToQueue(mode, assets);
-    toast(added ? `โหลดจาก Drive แล้ว ${added} รูป` : 'ไม่มีรูปใหม่ (ซ้ำกับ Queue เดิม)');
+    if(okCount===0){ toast('โหลดรูปที่เลือกไม่สำเร็จเลยสักไฟล์ ลองใหม่อีกครั้ง'); return false; }
+    toast(failCount ? `โหลดจาก Drive แล้ว ${okCount} รูป (พลาด ${failCount} รูป — กด "ลองใหม่" ใน Queue ได้)` : `โหลดจาก Drive แล้ว ${okCount} รูป`);
     return true;
   }catch(e){
     const msg = e && e.message;
@@ -13579,7 +13838,11 @@ function ftDrawComposite(ctx, w, h, opts){
   }
 
   const tr = item.transform || {scale:100,x:0,y:0};
-  const img = item._img || (item.previewUrl ? ftEnsureImage(item.previewUrl) : null);
+  // Prefer the already-decoded bitmap from the Image Pipeline cache (ftLoadWorkingImage) over asking
+  // ftEnsureImage to load-from-scratch again — this is what makes Next/Previous/Run Frame draw from
+  // cache instead of ever re-decoding, let alone re-fetching (Krissha spec requirement: no new Drive
+  // requests once an item is cached).
+  const img = item._img || item._bitmap || (item.previewUrl ? ftEnsureImage(item.previewUrl) : null);
 
   if(img){
     const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
@@ -13767,11 +14030,24 @@ function renderFtImportSection(mode){
         <input type="text" class="ft-input ft-search" id="ftAssetSearch" placeholder="ค้นหาใน Queue..." value="${escapeFtHtml(st.searchKw)}">
         <div class="ft-assets">
           ${filteredQueue.length ? filteredQueue.map(a=>`
-            <label class="ft-asset ${a.selected?'selected':''}">
-              <input type="checkbox" data-ftassetcheck="${a.id}" ${a.selected?'checked':''}>
-              <div class="ft-athumb">${a.previewUrl?`<img src="${a.previewUrl}" alt="">`:'🖼️'}</div>
-              <div class="ft-acopy"><strong>${escapeFtHtml(a.name)}</strong><p>${escapeFtHtml(a.source||'')}</p></div>
-              <span class="ft-stag">${escapeFtHtml(a.source||'')}</span>
+            <label class="ft-asset ${a.selected?'selected':''}" ${a.status==='error'?'style="border-color:#fca5a5;background:#fef2f2"':''}>
+              <input type="checkbox" data-ftassetcheck="${a.id}" ${a.selected?'checked':''} ${a.status==='error'?'disabled':''}>
+              <div class="ft-athumb">${
+                a.status==='loading' ? '⏳' :
+                a.status==='error' ? '⚠️' :
+                a.previewUrl ? `<img src="${a.previewUrl}" alt="">` : '🖼️'
+              }</div>
+              <div class="ft-acopy">
+                <strong>${escapeFtHtml(a.name)}</strong>
+                <p>${
+                  a.status==='loading' ? 'กำลังเตรียมรูป...' :
+                  a.status==='error' ? '<span style="color:#dc2626">โหลดรูปไม่สำเร็จ — Preview unavailable</span>' :
+                  escapeFtHtml(a.source||'')
+                }</p>
+              </div>
+              ${a.status==='error'
+                ? `<button type="button" class="ft-mini-btn" data-ftassetretry="${a.id}" onclick="event.preventDefault();event.stopPropagation()">ลองใหม่</button>`
+                : `<span class="ft-stag">${escapeFtHtml(a.source||'')}</span>`}
             </label>`).join('') : `<div class="ft-asset-empty">ยังไม่มีรูปใน Queue — โหลดจาก Drive / ค้นหาสินค้า / อัปโหลดจากเครื่อง</div>`}
         </div>
         <div class="ft-input-row" style="margin-top:8px;gap:8px;display:flex">
@@ -14021,7 +14297,9 @@ function bindFtManual(){
       e.stopPropagation();
       const idx = parseInt(el.getAttribute('data-ftmanualremove'),10);
       const it = m.items[idx];
-      if(it && it.previewUrl){ delete FT_IMG_CACHE[it.previewUrl]; URL.revokeObjectURL(it.previewUrl); }
+      // Same fromWorkCache guard as ftClearQueue above — a Drive-sourced item's object URL is owned by
+      // the Image Pipeline's cache, not this one item, so removing the item must not revoke it.
+      if(it && it.previewUrl && !it.fromWorkCache){ delete FT_IMG_CACHE[it.previewUrl]; URL.revokeObjectURL(it.previewUrl); }
       m.items.splice(idx,1);
       if(m.currentIndex >= m.items.length) m.currentIndex = Math.max(0, m.items.length-1);
       render();
@@ -14225,23 +14503,51 @@ function bindFtImportSection(mode){
     st.queue.forEach(a=>{ a.selected = e.target.checked; });
     render();
   });
+  // Requirement (Krissha spec): "per-image retry must work without touching other images" — re-runs
+  // the Image Pipeline for just this one file (same cache-first ftLoadWorkingImage everything else
+  // uses), never re-fetches or resets the rest of the queue.
+  document.querySelectorAll('[data-ftassetretry]').forEach(el=>{
+    el.addEventListener('click', async (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      const id = el.getAttribute('data-ftassetretry');
+      const a = st.queue.find(x=>x.id===id);
+      if(!a || !a.driveFileId) return;
+      a.status = 'loading'; a.error = null;
+      render();
+      try{
+        const work = await ftLoadWorkingImage(a.driveFileId, a.modifiedTime);
+        a.previewUrl = work.blobUrl; a._bitmap = work.bitmap; a.status = 'ready'; a.selected = true; a.fromWorkCache = true;
+      }catch(err){
+        a.status = 'error'; a.error = (err&&err.message)||'LOAD_FAILED';
+        toast('โหลดรูปนี้ไม่สำเร็จอีกครั้ง ลองเช็คอินเทอร์เน็ตหรือไฟล์ต้นทางใน Drive');
+      }
+      render();
+    });
+  });
   document.getElementById('ftAssetSearch')?.addEventListener('input', (e)=>{
     st.searchKw = e.target.value;
     render();
   });
   document.getElementById('ftClearQueue')?.addEventListener('click', ()=>{
-    // Local uploads AND Google Drive downloads both carry real blob object URLs that need revoking
-    // (Drive/Product-search demo entries with an empty previewUrl have nothing to revoke).
-    st.queue.forEach(a=>{ if((a.source==='Local'||a.source==='Google Drive') && a.previewUrl){ delete FT_IMG_CACHE[a.previewUrl]; URL.revokeObjectURL(a.previewUrl); } });
+    // Local uploads carry a one-off blob URL that's safe to revoke here. Google Drive downloads that
+    // went through the Image Pipeline (a.fromWorkCache) do NOT get revoked — their object URL is owned
+    // by FT_WORK_CACHE for the rest of the session (another queue entry, or a re-import of the same
+    // file, may still be pointing at the exact same cached URL), so revoking it here would be exactly
+    // the premature-revoke bug her spec calls out ("some images download fine but preview never shows").
+    st.queue.forEach(a=>{ if(a.source==='Local' && a.previewUrl){ delete FT_IMG_CACHE[a.previewUrl]; URL.revokeObjectURL(a.previewUrl); } });
     st.queue = [];
     render();
   });
   document.getElementById('ftImportSelected')?.addEventListener('click', ()=>{
-    const selected = st.queue.filter(a=>a.selected);
+    const selected = st.queue.filter(a=>a.selected && a.status!=='error');
     if(!selected.length){ toast('กรุณาเลือกรูปอย่างน้อย 1 รูปก่อนนำเข้า'); return; }
     st.items = selected.map(a=>({
       id: a.id, name: a.name, previewUrl: a.previewUrl, source: a.source,
       transform: {scale:100,x:0,y:0}, _img:null,
+      // Carried through from the Image Pipeline (ftLoadWorkingImage) so the working canvas never has to
+      // re-load what Import already decoded — see ftRedrawCanvas/ftDrawComposite.
+      _bitmap: a._bitmap || null, driveFileId: a.driveFileId || null, modifiedTime: a.modifiedTime || null,
+      fromWorkCache: !!a.fromWorkCache,
     }));
     st.currentIndex = 0;
     toast(`นำเข้า ${selected.length} รูปเรียบร้อย`);
@@ -14383,8 +14689,11 @@ function ftRedrawCanvas(){
   const st = ftStateFor(mode);
   const current = st.items[st.currentIndex] || null;
 
-  if(current && !current._img && current.previewUrl){
-    current._img = ftEnsureImage(current.previewUrl);
+  if(current && !current._img){
+    // Same cache-first preference as ftDrawComposite above — an item imported through the Drive
+    // pipeline already carries its decoded bitmap, so this is a plain cache read, never a new load.
+    if(current._bitmap) current._img = current._bitmap;
+    else if(current.previewUrl) current._img = ftEnsureImage(current.previewUrl);
   }
   if(mode==='csv' && current && current.frameUrl){
     ftEnsureImage(current.frameUrl);
