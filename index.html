@@ -12840,6 +12840,11 @@ let FT_IMG_CACHE = {};
 // 6 Month Waranty / ALL SKUs in SHOP / All Waranty / No Waranty without navigating down from My Drive each
 // time. She can still navigate elsewhere in the browser if she ever needs a different folder.
 const GDRIVE_DEFAULT_FOLDER_ID = '1wDODqsNR7bMWSKj1W8RZMmQOr4JGujWu';
+// null = not checked yet this session, true/false = cached once loadGdriveBrowserThumbnails() finds out
+// whether the deployed Apps Script proxy answers ?action=thumb (a redeploy after this app update) or not
+// (still the older deployment). Checked once per session instead of once per file — see
+// loadGdriveBrowserThumbnails() for why that matters.
+let GDRIVE_THUMB_SUPPORTED = null;
 function gdriveProxyUrl(){
   return (STATE.gdriveConfig && STATE.gdriveConfig.proxyUrl) || '';
 }
@@ -12952,18 +12957,39 @@ async function loadGdriveBrowserFolder(folderId){
 // Thumbnails go through gdriveFetchThumbnailViaProxy (real, small Drive thumbnails — see that function's
 // comment for why: fetching full-size files here was both slow and, for Krissha's biggest product PNGs
 // (13-14MB), outright failing). Thumbnails are tiny, so a higher concurrency than the full-download path
-// is safe and meaningfully faster for folders with many images.
+// is safe and meaningfully faster for folders with many images — but ONLY once we know the deployed Apps
+// Script actually supports ?action=thumb. An older deployment answers UNKNOWN_ACTION for every single
+// image, which used to mean every tile wasted a doomed thumb attempt before falling back to a full-size
+// fetch — and piling 6-at-a-time full-size fallback fetches on top of each other (worse than the old
+// CONCURRENCY=3 full-file-only path) is what actually broke most of the grid for Krissha. So: probe once
+// per session (GDRIVE_THUMB_SUPPORTED, declared above near GDRIVE_DEFAULT_FOLDER_ID) instead of once per
+// file, and use the lower, previously-safe concurrency whenever thumbnails aren't available yet.
 async function loadGdriveBrowserThumbnails(b){
   const batch = b.images.slice();
-  const CONCURRENCY = 6;
+  if(!batch.length) return;
+  if(GDRIVE_THUMB_SUPPORTED === null){
+    try{
+      batch[0].thumbUrl = await gdriveFetchThumbnailViaProxy(batch[0].id);
+      GDRIVE_THUMB_SUPPORTED = true;
+    }catch(e){
+      GDRIVE_THUMB_SUPPORTED = false;
+    }
+    if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
+  }
+  const CONCURRENCY = GDRIVE_THUMB_SUPPORTED ? 6 : 3;
   let idx = 0;
   async function worker(){
     while(idx < batch.length){
       const im = batch[idx++];
       if(STATE.gdriveBrowser !== b) return; // browser closed/replaced mid-flight
+      if(im.thumbUrl) continue; // already filled in by the one-time probe above
       try{
-        im.thumbUrl = await gdriveFetchThumbnailViaProxy(im.id);
-      }catch(e){ im.thumbFailed = true; }
+        im.thumbUrl = GDRIVE_THUMB_SUPPORTED ? await gdriveFetchThumbnailViaProxy(im.id) : await gdriveFetchImageViaProxy(im.id);
+      }catch(e){
+        try{
+          im.thumbUrl = await gdriveFetchImageViaProxy(im.id);
+        }catch(e2){ im.thumbFailed = true; }
+      }
       if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
     }
   }
