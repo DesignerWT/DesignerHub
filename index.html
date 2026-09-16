@@ -2072,10 +2072,12 @@ let STATE = {
   usersUI:{editingId:null, search:'', roleFilter:'ALL'}, deptUI:{editingId:null}, designerUI:{editingId:null},
   briefAutosaveState:'idle', briefAutosaveAt:null, editingDraftId:null,
   poWs:{briefsSearch:'', briefsStatus:'ALL', briefsSort:'latest'},
-  // Completed Jobs (Designer/Lead) — Krissha, follow-up to "แล้วจะดูงานเก่ายังไง แบบ DATA อ่ะ": same
-  // search/sort shape as poWs above, own bucket since a Designer and a PO can browse independently in
-  // the same session (e.g. Krissha unlocking Admin Mode doesn't touch this).
-  myCompletedUI:{search:'', sort:'latest'},
+  // Completed History / "ประวัติงาน" (Designer/Lead) — Krissha, follow-up to "แล้วจะดูงานเก่ายังไง แบบ
+  // DATA อ่ะ" then the fuller dev prompt "ปรับหน้า 'งานของฉัน' ให้เห็นงานที่เสร็จแล้วชัดเจน": own bucket
+  // since a Designer and a PO can browse independently in the same session. filters/expanded persist for
+  // the whole session (not reset on navigating into a task and back — dev spec requirement #5) since
+  // STATE itself isn't torn down between renders.
+  myCompletedUI:{search:'', sort:'latest', filters:{project:'ALL', workType:'ALL', platform:'ALL', role:'ALL', year:'ALL', month:'ALL'}, expanded:{}},
   projectFilter:"ALL",
   cal:{month:new Date().getMonth(), year:new Date().getFullYear(), selectedDate:null},
   detailTaskId:null, notifOpen:false, linkFormOpenId:null, userMenuOpen:false,
@@ -3343,7 +3345,7 @@ function renderSidebar(){
     </div>`;
   }
   const groups = [
-    {grp:'Working Process', items:[['brief','Brief & Intake'],['board','Process Board'],['dashboard','Team Dashboard'],['backdated','Backdated Task'],['myCompleted','Completed Jobs']]},
+    {grp:'Working Process', items:[['brief','Brief & Intake'],['board','Process Board'],['dashboard','Team Dashboard'],['backdated','Backdated Task'],['myCompleted','ประวัติงาน']]},
     {grp:'Resources', items:[['assets','Assets Center']]},
     {grp:'Brand Standard', items:[['ci','CI Reference Center'],['banners','Standard Banner'],['pdp','PDP Pattern']]},
     {grp:'Team', items:[['leave','Leave Calendar'],['performance','Performance']]},
@@ -4035,30 +4037,34 @@ function renderMyWorkTimelineInternalOnly(person, dateStr){
    Process Board/Task Detail page always agree by construction. */
 // One column per review_status bucket. "รอตรวจ" groups the two Lead-review sub-states — a Designer looking
 // at her own queue needs to know someone else has the ball, not exactly which of the two review passes.
+// Krissha, dev prompt "ปรับหน้า 'งานของฉัน' ให้เห็นงานที่เสร็จแล้วชัดเจน" §1: Kanban หลักแสดงเฉพาะงาน Active
+// เท่านั้น — "เสร็จสิ้น" used to be a 5th column here but that's exactly the "งาน Completed จำนวนมากมาแสดงรวม
+// ใน Kanban...ทำให้บอร์ดยาวและรก" problem the spec calls out, so it's removed from this list entirely; the
+// full completed history now lives in its own section below the board (see renderWorkspace) and its own page
+// (renderMyCompletedJobs) instead of as a Kanban column.
 const MYWORK_KANBAN_COLUMNS = [
   {key:'new',            label:'งานใหม่',  statuses:['new']},
   {key:'in_progress',    label:'กำลังทำ',  statuses:['in_progress']},
   {key:'waiting_review', label:'รอตรวจ',   statuses:['pending_review','pending_client_review']},
   {key:'revision',       label:'แก้ไข',    statuses:['revision']},
-  {key:'completed',      label:'เสร็จสิ้น', statuses:['delivered']},
 ];
 function myWorkKanbanColKey(t){
   return (MYWORK_KANBAN_COLUMNS.find(c=>c.statuses.includes(t.review_status))||{}).key || null;
 }
-// §6 Drag & Drop Permission: the only six moves that exist, each mapped to the SAME handleAction() case the
-// Task Detail page's own buttons already call (start/submitReview/requestRevision), plus two new cases with no
-// existing single-click equivalent: kanbanComplete (Waiting Review -> Completed in one step) and undoStart, the
-// one deliberate backward move — added for "เผลอย้ายการ์ดผิด จากงานใหม่ เป็น กำลังทำ" (Krissha, request): drag
-// the card back to "งานใหม่" (or use its ↺ button) and it's confirm-gated + clears the Timer, see handleAction.
-// Anything else not listed here — any other drop backward, any drop out of "เสร็จสิ้น" (Completed is a Final
-// State — §5), or skipping a column — is still refused.
+// §6 Drag & Drop Permission: the moves that exist, each mapped to the SAME handleAction() case the Task
+// Detail page's own buttons already call (start/submitReview/requestRevision), plus undoStart, the one
+// deliberate backward move — added for "เผลอย้ายการ์ดผิด จากงานใหม่ เป็น กำลังทำ" (Krissha, request): drag the
+// card back to "งานใหม่" (or use its ↺ button) and it's confirm-gated + clears the Timer, see handleAction.
+// Anything else not listed here — any drop backward beyond that, or skipping a column — is still refused.
+// waiting_review>completed (the old drag-straight-to-"เสร็จสิ้น" shortcut) was removed along with the column
+// itself above — completing a task now goes through the normal Task Detail approve/complete action
+// (handleAction's clientApprove flow), same as it already did for every path except that one Kanban drag.
 const MYWORK_KANBAN_MOVES = {
   'new>in_progress':            {act:'start',           who:'assignee'},
   'in_progress>new':            {act:'undoStart',        who:'assignee'},
   'in_progress>waiting_review': {act:'submitReview',     who:'assignee'},
   'revision>waiting_review':    {act:'submitReview',     who:'assignee'},
   'waiting_review>revision':    {act:'requestRevision',  who:'lead'},
-  'waiting_review>completed':   {act:'kanbanComplete',   who:'lead'},
 };
 function formatElapsedTime(ms){
   if(!ms || ms<0) ms=0;
@@ -4120,17 +4126,12 @@ function myWorkKanbanCardHTML(t, colKey){
   </div>`;
 }
 function renderMyWorkKanban(me){
-  const today = todayISO();
-  const mine = STATE.tasks.filter(t=>t.assigned_user_name===me && !['rejected','closed_max_revision'].includes(t.review_status));
+  // Delivered tasks no longer get a column here at all (dev prompt §1) — "เสร็จวันนี้" still shows as its
+  // own stat card above, and the full history (today's finishes included) lives in the Completed History
+  // section right below this board / its own page (renderMyCompletedJobs).
+  const mine = STATE.tasks.filter(t=>t.assigned_user_name===me && !['rejected','closed_max_revision','delivered'].includes(t.review_status));
   const byCol = {}; MYWORK_KANBAN_COLUMNS.forEach(c=>byCol[c.key]=[]);
   mine.forEach(t=>{
-    if(t.review_status==='delivered'){
-      // "เสร็จวันนี้" is a working view of TODAY's finishes, not the full archive — that already lives on
-      // "Completed Jobs" (sidebar). An ever-growing Completed column would make the board itself become the
-      // "ดูแน่น" (dense/cluttered) problem all over again.
-      if(t.completed_at && t.completed_at.slice(0,10)===today) byCol.completed.push(t);
-      return;
-    }
     const key = myWorkKanbanColKey(t);
     if(key) byCol[key].push(t);
   });
@@ -4152,7 +4153,10 @@ function renderMyWorkKanban(me){
 function myWorkKanbanTryMove(taskId, targetColKey){
   const t = STATE.tasks.find(x=>x.task_id===taskId);
   if(!t) return;
-  const fromColKey = t.review_status==='delivered' ? 'completed' : myWorkKanbanColKey(t);
+  // A delivered task is never rendered as a card on this board anymore (§1 above), so there's nothing to
+  // drag it FROM — fromColKey just comes up null and the guard below quietly no-ops, same as any other
+  // card that can't be found.
+  const fromColKey = myWorkKanbanColKey(t);
   if(!fromColKey || fromColKey===targetColKey) return;
   const move = MYWORK_KANBAN_MOVES[`${fromColKey}>${targetColKey}`];
   const fromLabel = (MYWORK_KANBAN_COLUMNS.find(c=>c.key===fromColKey)||{}).label || fromColKey;
@@ -4164,6 +4168,66 @@ function myWorkKanbanTryMove(taskId, targetColKey){
   if(move.who==='lead' && !isLeadUser){ toast('เฉพาะ Lead Designer เท่านั้นที่ตรวจ/ปิดงานได้'); return; }
   handleAction(move.act, taskId);
 }
+
+/* ---------- Completed History shared helpers — Krissha, dev prompt "ปรับหน้า 'งานของฉัน' ให้เห็นงานที่
+   เสร็จแล้วชัดเจน" ----------
+   Used both by the "งานที่เสร็จแล้ว" preview table on My Workspace (renderWorkspace, latest 5-10) and the
+   full grouped/searchable/filterable Completed History page (renderMyCompletedJobs) — one set of rules for
+   "what counts, what date, what row looks like" so the two views can never quietly disagree. */
+// §9: the completion date is completedAt (or, for a Backdated task — which never passes through the live
+// close-task action and so never gets a completed_at — the real completion date actually recorded on it),
+// NEVER createdAt. Same rule renderMyCompletedJobs used before this dev prompt, just hoisted out so the
+// Workspace preview can share it too.
+function deliveredDateOf(t){
+  return t.actual_delivery_date || (t.completed_at ? t.completed_at.slice(0,10) : '') || t.prefer_delivery_date || '';
+}
+const TH_MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+// Year/Month grouping uses the Thai Buddhist calendar (พ.ศ. = ค.ศ. + 543), matching every date already
+// shown elsewhere in this app (fmtDate() renders th-TH, which is Buddhist by default) — a task completed
+// in September 2026 groups under "2569 · กันยายน", not "2026 · September".
+function myCompletedGroupInfo(dateStr){
+  const gYear = parseInt(String(dateStr||'').slice(0,4),10);
+  const month = parseInt(String(dateStr||'').slice(5,7),10);
+  if(!gYear || !month) return {bYear:0, month:0, monthLabel:'—'};
+  return {bYear: gYear+543, month, monthLabel: TH_MONTHS_FULL[month-1]||'—'};
+}
+// §8: "งานของฉัน" only ever shows tasks the CURRENT account genuinely has an assignment on. This app's
+// real roles today are Designer (assigned_user_name) and Brief Owner/PO (project_owner_email) — there's no
+// separate Reviewer/Custom Role field yet, so those two are the complete set; a task can show both at once
+// if the same person happened to be both the brief owner and the assigned designer on it.
+function myRoleOnTask(t, me){
+  const myEmail = STATE.auth.user?.email || '';
+  const roles = [];
+  if(t.assigned_user_name===me) roles.push('Designer');
+  if(t.project_owner_email && (t.project_owner_email===myEmail || t.project_owner_email===me)) roles.push('Brief Owner');
+  return roles;
+}
+function myCompletedAllTasks(me){
+  const myEmail = STATE.auth.user?.email || '';
+  return STATE.tasks.filter(t=>t.review_status==='delivered' && (t.assigned_user_name===me || (t.project_owner_email && (t.project_owner_email===myEmail || t.project_owner_email===me))));
+}
+function myCompletedSearchHay(t){
+  return `${taskDisplayName(t)} ${t.task_id||''} ${t.project_name||''} ${t.task_type||''} ${t.task_category||''} ${(t.platform||[]).join(' ')}`.toLowerCase();
+}
+// §2's exact column set: วันที่เสร็จ | ชื่องาน | Project | ประเภทงาน | Platform | Role | Final Folder |
+// Action. Whole row opens Task Detail (data-opentask, picked up automatically by bindEvents' existing
+// delegated binding); the Folder link stops propagation so opening it in a new tab doesn't ALSO navigate
+// into Task Detail in this one — the "ดูงาน →" button deliberately has no handler of its own, a click on
+// it just bubbles up to the row's own data-opentask the same as clicking anywhere else in the row.
+function myCompletedRowHTML(t, me){
+  const roles = myRoleOnTask(t, me);
+  return `<tr data-opentask="${t.task_id}">
+    <td style="white-space:nowrap">${fmtDate(deliveredDateOf(t))}</td>
+    <td><strong>${taskDisplayName(t)}</strong><div class="hint mono" style="margin-top:1px">${t.task_id}</div>${t.is_backdated ? `<span class="chip" style="color:#a15c00;font-weight:700;margin-top:2px;display:inline-block">⏱ Backdated</span>` : ''}</td>
+    <td>${t.project_name||'—'}</td>
+    <td>${t.task_type||t.task_category||'—'}</td>
+    <td>${(t.platform||[]).length ? t.platform.join(', ') : '—'}</td>
+    <td class="hint">${roles.length ? roles.join(' / ') : '—'}</td>
+    <td style="white-space:nowrap">${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 เปิด Folder</a>` : '—'}</td>
+    <td style="white-space:nowrap"><button type="button" class="btn btn-sm btn-ghost">ดูงาน →</button></td>
+  </tr>`;
+}
+
 function renderWorkspace(){
   const me = STATE.auth.identity;
   const role = (PEOPLE[me]||{}).role || 'Designer';
@@ -4181,6 +4245,11 @@ function renderWorkspace(){
   const waitingReviewCount = mine.filter(t=>['pending_review','pending_client_review'].includes(t.review_status)).length;
   const revisionCount = mine.filter(t=>t.review_status==='revision').length;
   const completedTodayCount = mine.filter(t=>t.review_status==='delivered' && t.completed_at && t.completed_at.slice(0,10)===today).length;
+  // §2/§7 — the ever-visible "งานที่เสร็จแล้ว" preview below the Active Kanban: latest 5-10 completed jobs
+  // (ALL-time, not just today — that's what makes it useful when "เสร็จวันนี้" reads 0) plus the button into
+  // the full History page. myCompletedAllTasks() already scopes strictly to this account (§8).
+  const myCompletedAll = myCompletedAllTasks(me).slice().sort((a,b)=>deliveredDateOf(b).localeCompare(deliveredDateOf(a)));
+  const myCompletedPreview = myCompletedAll.slice(0, 10);
 
   const monday = mondayOfWeek(today);
   const weekDays = ['จ','อ','พ','พฤ','ศ'];
@@ -4213,27 +4282,41 @@ function renderWorkspace(){
     <div class="ws-stat-card"><div class="lbl">กำลังทำ</div><div class="num">${inProgressCount}</div></div>
     <div class="ws-stat-card"><div class="lbl">รอตรวจ</div><div class="num">${waitingReviewCount}</div></div>
     <div class="ws-stat-card"><div class="lbl">แก้ไข</div><div class="num">${revisionCount}</div></div>
-    <div class="ws-stat-card"><div class="lbl">เสร็จวันนี้</div><div class="num ok">${completedTodayCount}</div></div>
+    <!-- §6: relabeled "เสร็จสิ้น" → "เสร็จวันนี้" already (so 0 reads as "none TODAY", never "no completed
+         work exists") — now also clickable straight into the full Completed History page. -->
+    <div class="ws-stat-card" id="myWorkStatCompletedCard" style="cursor:pointer" title="ดูประวัติงานที่เสร็จแล้วทั้งหมด"><div class="lbl">เสร็จวันนี้</div><div class="num ok">${completedTodayCount}</div></div>
   </div>
 
   ${renderMyWorkTimeline(me, today)}
 
-  <!-- DEV SPEC — My Work Kanban + Time Tracking + Capacity Logic: "งานของฉัน" is now a 5-column Kanban
-       (งานใหม่ → กำลังทำ → รอตรวจ → แก้ไข → เสร็จสิ้น) instead of one flat list, so a Designer sees at a
-       glance which stage every one of her tasks is stuck in. Columns are just a view over the SAME
-       review_status values/workflow the rest of the app already uses (see MYWORK_KANBAN_COLUMNS) — no new
-       status field, so a card here and the same task's badge in Task Detail/Process Board can never disagree. -->
+  <!-- DEV SPEC — My Work Kanban + Time Tracking + Capacity Logic: "งานของฉัน" — Active work only
+       (งานใหม่ → กำลังทำ → รอตรวจ → แก้ไข). Columns are just a view over the SAME review_status
+       values/workflow the rest of the app already uses (see MYWORK_KANBAN_COLUMNS) — no new status field,
+       so a card here and the same task's badge in Task Detail/Process Board can never disagree. Completed
+       work has its own section right below instead of a 5th column here — see dev prompt §1. -->
   <div class="ws-tasklist">
-    <!-- Krissha, "แล้วทำไมมันไม่มาโชว์ในโปรไฟล์ส่วนตัว": the "เสร็จสิ้น" column here only ever shows
-         TODAY's completions by design (see MYWORK_KANBAN_COLUMNS/renderMyWorkKanban's own comment) — the
-         full history (including Backdated jobs, which never even get a completed_at) lives on the
-         separate "Completed Jobs" page instead. That page was easy to miss tucked under Graphic Design
-         Workflow's sidebar, so this link surfaces it directly from her own workspace/profile page too. -->
-    <div class="ws-tasklist-head" style="display:flex;align-items:center;justify-content:space-between">
-      <span>งานของฉัน</span>
-      <button type="button" class="btn btn-sm btn-ghost" id="myWorkSeeCompletedBtn" style="font-weight:400">ดูงานที่เสร็จแล้วทั้งหมด →</button>
-    </div>
+    <div class="ws-tasklist-head">งานของฉัน</div>
     ${renderMyWorkKanban(me)}
+  </div>
+
+  <!-- §1-§2/§7: "งานที่เสร็จแล้ว" — always visible right under the Active board (not hidden behind a small
+       button), latest 5-10 shown here as a compact table, full history one click away. Krissha, earlier
+       follow-up "แล้วทำไม่มันไม่มาโชว์ในโปไฟล์ส่วนตัว" — this replaces that first small link with a real,
+       un-missable section. -->
+  <div class="ws-tasklist">
+    <div class="ws-tasklist-head" style="display:flex;align-items:center;justify-content:space-between">
+      <span>งานที่เสร็จแล้ว</span>
+      <button type="button" class="btn btn-sm btn-primary" id="myWorkSeeCompletedBtn">ดูประวัติงานทั้งหมด →</button>
+    </div>
+    <div class="ws-tasklist-body">
+      ${myCompletedAll.length===0 ? `<div class="card placeholder"><div class="ico">📋</div>ยังไม่มีประวัติงานที่เสร็จแล้ว</div>` : `
+      <table class="po-briefs-table">
+        <thead><tr><th>วันที่เสร็จ</th><th>ชื่องาน</th><th>Project</th><th>ประเภทงาน</th><th>Platform</th><th>Role</th><th>Final Folder</th><th></th></tr></thead>
+        <tbody>${myCompletedPreview.map(t=>myCompletedRowHTML(t, me)).join('')}</tbody>
+      </table>
+      ${myCompletedAll.length>myCompletedPreview.length ? `<div class="hint" style="padding:10px 4px 2px">แสดง ${myCompletedPreview.length} จากทั้งหมด ${myCompletedAll.length} งาน — กด "ดูประวัติงานทั้งหมด" ด้านบนเพื่อดูทุกงาน</div>` : ''}
+      `}
+    </div>
   </div>
 
   <div class="ws-bottom">
@@ -4420,55 +4503,178 @@ function bindPOWorkspace(){
   document.querySelectorAll('[data-resumedraft]').forEach(el=>el.onclick=()=>resumeDraft(el.dataset.resumedraft));
   document.querySelectorAll('[data-rmdraft]').forEach(el=>el.onclick=(e)=>{ e.stopPropagation(); deleteDraft(el.dataset.rmdraft); });
 }
-// Completed Jobs (Designer/Lead) — Krissha, follow-up to "ทำไมงานที่เสร็จแล้วไม่ลิงก์มางานของฉัน" / "แล้วจะดูงานเก่า
-// ยังไง แบบ DATA อ่ะ": "งานของฉัน" Kanban's "เสร็จสิ้น" column deliberately only shows TODAY's completions
-// (keyed off completed_at, stamped only by the live "close task" action — see renderMyWorkKanban's own
-// comment) so it never grows unbounded. A Backdated task never gets a completed_at at all, since it's
-// entered directly as an already-finished historical record and never passes through that live action —
-// so it can never appear there, on any day. This page is the missing counterpart: every one of MY
-// delivered tasks (live-completed AND Backdated), searchable/sortable, each row opening straight into
-// Task Detail — same shape as the PO's own "Completed Jobs" page (renderPOBriefsList('completed')) so the
-// pattern is consistent across roles.
+// Completed History / "ประวัติงาน" (Designer/Lead) — Krissha, follow-up to "ทำไมงานที่เสร็จแล้วไม่ลิงก์มางาน
+// ของฉัน" / "แล้วจะดูงานเก่ายังไง แบบ DATA อ่ะ", then the fuller dev prompt "ปรับหน้า 'งานของฉัน' ให้เห็นงานที่
+// เสร็จแล้วชัดเจน": every one of MY delivered tasks (live-completed AND Backdated — see deliveredDateOf's
+// own comment above renderWorkspace), searchable + filterable + grouped Year > Month so months/years of
+// history never have to be scrolled through as one flat list. Reuses myCompletedAllTasks/myCompletedRowHTML
+// (defined above renderWorkspace) so this page and the "งานที่เสร็จแล้ว" preview on My Workspace can never
+// disagree about what counts or what a row looks like.
+function myCompletedFilterOptions(all){
+  const uniq = arr => Array.from(new Set(arr.filter(v=>v!==undefined && v!==null && v!=='')));
+  return {
+    projects: uniq(all.map(t=>t.project_name)).sort(),
+    types: uniq(all.map(t=>t.task_type||t.task_category)).sort(),
+    platforms: uniq(all.flatMap(t=>t.platform||[])).sort(),
+    years: uniq(all.map(t=>myCompletedGroupInfo(deliveredDateOf(t)).bYear)).sort((a,b)=>b-a),
+  };
+}
+// §3 default-expand rule (shared by render's accordion AND the toggle click handlers in
+// bindMyCompletedJobs, so a first click always flips whatever was actually showing): only the current
+// Buddhist year/month starts open, everything older starts collapsed, unless the user already touched
+// that group this session (ui.expanded remembers it) — or search/filters are active, in which case every
+// surviving group is forced open regardless (§4: "ต้อง Auto-Expand แม้ Collapse อยู่").
+function myCompletedYearDefaultOpen(y){ return String(y)===String(myCompletedGroupInfo(todayISO()).bYear); }
+function myCompletedMonthDefaultOpen(y,m){ const cur=myCompletedGroupInfo(todayISO()); return String(y)===String(cur.bYear) && Number(m)===cur.month; }
+function myCompletedIsExpanded(ui, key, defaultOpen){
+  return Object.prototype.hasOwnProperty.call(ui.expanded, key) ? ui.expanded[key] : defaultOpen;
+}
 function renderMyCompletedJobs(){
   const me = STATE.auth.identity;
   const ui = STATE.myCompletedUI;
-  let mine = STATE.tasks.filter(t=>t.assigned_user_name===me && t.review_status==='delivered');
-  if(ui.search.trim()) mine = mine.filter(t=>taskDisplayName(t).toLowerCase().includes(ui.search.trim().toLowerCase()));
-  const deliveredDateOf = t => t.actual_delivery_date || (t.completed_at ? t.completed_at.slice(0,10) : '') || t.prefer_delivery_date || '';
-  mine = mine.slice().sort((a,b)=>{
-    const da = deliveredDateOf(a), db = deliveredDateOf(b);
-    return ui.sort==='oldest' ? da.localeCompare(db) : db.localeCompare(da);
+  const f = ui.filters;
+  const all = myCompletedAllTasks(me);
+  const opts = myCompletedFilterOptions(all);
+  const searchQ = ui.search.trim().toLowerCase();
+
+  let filtered = all.filter(t=>{
+    if(searchQ && !myCompletedSearchHay(t).includes(searchQ)) return false;
+    if(f.project!=='ALL' && t.project_name!==f.project) return false;
+    if(f.workType!=='ALL' && (t.task_type||t.task_category)!==f.workType) return false;
+    if(f.platform!=='ALL' && !(t.platform||[]).includes(f.platform)) return false;
+    if(f.role!=='ALL' && !myRoleOnTask(t, me).includes(f.role)) return false;
+    const g = myCompletedGroupInfo(deliveredDateOf(t));
+    if(f.year!=='ALL' && String(g.bYear)!==f.year) return false;
+    if(f.month!=='ALL' && String(g.month)!==f.month) return false;
+    return true;
   });
+  filtered.sort((a,b)=>deliveredDateOf(b).localeCompare(deliveredDateOf(a))); // latest-completed first — §3
+
+  const activeChips = [];
+  if(f.project!=='ALL') activeChips.push({k:'project', label:`Project: ${f.project}`});
+  if(f.workType!=='ALL') activeChips.push({k:'workType', label:`ประเภทงาน: ${f.workType}`});
+  if(f.platform!=='ALL') activeChips.push({k:'platform', label:`Platform: ${f.platform}`});
+  if(f.role!=='ALL') activeChips.push({k:'role', label:`Role: ${f.role}`});
+  if(f.year!=='ALL') activeChips.push({k:'year', label:`ปี: ${f.year}`});
+  if(f.month!=='ALL') activeChips.push({k:'month', label:`เดือน: ${TH_MONTHS_FULL[Number(f.month)-1]||f.month}`});
+  const hasActive = !!(searchQ || activeChips.length);
+
+  // Group Year > Month
+  const byYear = {};
+  filtered.forEach(t=>{
+    const g = myCompletedGroupInfo(deliveredDateOf(t));
+    byYear[g.bYear] = byYear[g.bYear] || {count:0, months:{}};
+    byYear[g.bYear].count++;
+    byYear[g.bYear].months[g.month] = byYear[g.bYear].months[g.month] || {label:g.monthLabel, count:0, tasks:[]};
+    byYear[g.bYear].months[g.month].count++;
+    byYear[g.bYear].months[g.month].tasks.push(t);
+  });
+  const yearKeys = Object.keys(byYear).sort((a,b)=>b-a);
+
+  const filterSelect = (id, current, options, allLabel) => `
+    <select id="${id}">
+      <option value="ALL">${allLabel}</option>
+      ${options.map(o=>`<option value="${escAttr(String(o))}" ${String(current)===String(o)?'selected':''}>${escAttr(String(o))}</option>`).join('')}
+    </select>`;
+
   return `
-  <h1 class="pagetitle">Completed Jobs</h1>
-  <p class="pagesub">งานที่ส่งมอบเสร็จสมบูรณ์แล้วของคุณทั้งหมด (รวมงาน Backdated) — เห็นเฉพาะของคุณเท่านั้น</p>
+  <h1 class="pagetitle">ประวัติงาน</h1>
+  <p class="pagesub">งานที่คุณเคยมีส่วนเกี่ยวข้อง (Designer/Brief Owner) และเสร็จสมบูรณ์แล้วทั้งหมด — เห็นเฉพาะของคุณเท่านั้น</p>
+
   <div class="board-toolbar">
-    <div style="min-width:220px"><label>Search</label><input id="myCompletedSearch" value="${escAttr(ui.search)}" placeholder="ค้นหาชื่องาน..."></div>
-    <div style="min-width:160px"><label>Sort</label>
-      <select id="myCompletedSort">
-        <option value="latest" ${ui.sort==='latest'?'selected':''}>ล่าสุดก่อน</option>
-        <option value="oldest" ${ui.sort==='oldest'?'selected':''}>เก่าสุดก่อน</option>
+    <div style="min-width:240px;flex:1"><label>ค้นหา</label><input id="myCompletedSearch" value="${escAttr(ui.search)}" placeholder="ชื่องาน / Task ID / Project / คีย์เวิร์ด..."></div>
+    <div style="min-width:150px"><label>Project</label>${filterSelect('myCompletedFilterProject', f.project, opts.projects, 'ทุก Project')}</div>
+    <div style="min-width:150px"><label>ประเภทงาน</label>${filterSelect('myCompletedFilterType', f.workType, opts.types, 'ทุกประเภท')}</div>
+    <div style="min-width:150px"><label>Platform</label>${filterSelect('myCompletedFilterPlatform', f.platform, opts.platforms, 'ทุก Platform')}</div>
+    <div style="min-width:130px"><label>Role</label>${filterSelect('myCompletedFilterRole', f.role, ['Designer','Brief Owner'], 'ทุก Role')}</div>
+    <div style="min-width:110px"><label>ปี</label>${filterSelect('myCompletedFilterYear', f.year, opts.years, 'ทุกปี')}</div>
+    <div style="min-width:140px"><label>เดือน</label>
+      <select id="myCompletedFilterMonth">
+        <option value="ALL">ทุกเดือน</option>
+        ${TH_MONTHS_FULL.map((lbl,i)=>`<option value="${i+1}" ${f.month===String(i+1)?'selected':''}>${lbl}</option>`).join('')}
       </select></div>
-    <div class="chip" style="padding:8px 12px;font-size:12px">${mine.length} รายการ</div>
+    <button type="button" class="btn btn-sm btn-ghost" id="myCompletedClearFilters" style="align-self:center">ล้างตัวกรอง</button>
   </div>
-  ${mine.length===0 ? `<div class="card placeholder"><div class="ico">📋</div>ยังไม่มีงานที่ส่งมอบเสร็จแล้ว</div>` : `
-  <table class="po-briefs-table">
-    <thead><tr><th>Task</th><th>Category</th><th>Delivered Date</th><th>Brief Owner</th><th></th></tr></thead>
-    <tbody>
-      ${mine.map(t=>`<tr data-opentask="${t.task_id}">
-          <td><strong>${taskDisplayName(t)}</strong><div class="hint mono" style="margin-top:1px">${t.task_id}</div>${t.is_backdated ? `<span class="chip" style="color:#a15c00;font-weight:700;margin-top:2px;display:inline-block">⏱ Backdated</span>` : ''}</td>
-          <td>${t.task_type||t.task_category||'—'}</td>
-          <td>${fmtDate(deliveredDateOf(t))}</td>
-          <td class="hint">${findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '—'}</td>
-          <td style="white-space:nowrap">${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 Folder ↗</a>` : ''}</td>
-        </tr>`).join('')}
-    </tbody>
-  </table>`}
+
+  ${activeChips.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-8px 0 14px">
+    ${activeChips.map(c=>`<span class="chip" style="cursor:pointer" data-clearchip="${c.k}">${escapeFtHtml(c.label)} ✕</span>`).join('')}
+    <span class="chip" style="cursor:pointer;background:transparent;color:var(--ink-faint)" id="myCompletedClearFilters2">ล้างทั้งหมด</span>
+  </div>` : ''}
+
+  <div class="hint" style="margin:-4px 0 14px">พบ ${filtered.length} งาน</div>
+
+  ${filtered.length===0 ? `
+    <div class="card placeholder"><div class="ico">📋</div>${hasActive ? `ไม่พบงานที่ตรงกับการค้นหา<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="myCompletedClearSearch">ล้างการค้นหา</button></div>` : 'ยังไม่มีประวัติงานที่เสร็จแล้ว'}</div>
+  ` : yearKeys.map(y=>{
+    const yOpen = hasActive || myCompletedIsExpanded(ui, 'y'+y, myCompletedYearDefaultOpen(y));
+    const monthKeys = Object.keys(byYear[y].months).sort((a,b)=>b-a);
+    return `
+    <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden">
+      <div data-yeartoggle="${y}" style="cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;font-weight:700;background:#F8FAFC">
+        <span>${yOpen?'▼':'▶'} ${y}</span><span class="hint">${byYear[y].count} งาน</span>
+      </div>
+      ${yOpen ? monthKeys.map(m=>{
+        const md = byYear[y].months[m];
+        const mOpen = hasActive || myCompletedIsExpanded(ui, 'm'+y+'-'+m, myCompletedMonthDefaultOpen(y,m));
+        return `
+        <div>
+          <div data-monthtoggle="${y}-${m}" style="cursor:pointer;padding:10px 16px 10px 28px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);font-weight:600;font-size:13px">
+            <span>${mOpen?'▼':'▶'} ${md.label}</span><span class="hint">${md.count} งาน</span>
+          </div>
+          ${mOpen ? `<table class="po-briefs-table" style="border-radius:0;border-left:none;border-right:none;box-shadow:none;margin:0">
+            <thead><tr><th>วันที่เสร็จ</th><th>ชื่องาน</th><th>Project</th><th>ประเภทงาน</th><th>Platform</th><th>Role</th><th>Final Folder</th><th></th></tr></thead>
+            <tbody>${md.tasks.map(t=>myCompletedRowHTML(t, me)).join('')}</tbody>
+          </table>` : ''}
+        </div>`;
+      }).join('') : ''}
+    </div>`;
+  }).join('')}
   `;
 }
 function bindMyCompletedJobs(){
-  document.getElementById('myCompletedSearch')?.addEventListener('input', e=>{ STATE.myCompletedUI.search=e.target.value; render(); });
-  document.getElementById('myCompletedSort')?.addEventListener('change', e=>{ STATE.myCompletedUI.sort=e.target.value; render(); });
+  const ui = STATE.myCompletedUI;
+  document.getElementById('myCompletedSearch')?.addEventListener('input', e=>{
+    const val = e.target.value;
+    clearTimeout(window._myCompletedSearchDebounce);
+    // §4: live search, ~300ms debounce after typing stops
+    window._myCompletedSearchDebounce = setTimeout(()=>{ ui.search = val; render(); }, 300);
+  });
+  document.getElementById('myCompletedFilterProject')?.addEventListener('change', e=>{ ui.filters.project = e.target.value; render(); });
+  document.getElementById('myCompletedFilterType')?.addEventListener('change', e=>{ ui.filters.workType = e.target.value; render(); });
+  document.getElementById('myCompletedFilterPlatform')?.addEventListener('change', e=>{ ui.filters.platform = e.target.value; render(); });
+  document.getElementById('myCompletedFilterRole')?.addEventListener('change', e=>{ ui.filters.role = e.target.value; render(); });
+  document.getElementById('myCompletedFilterYear')?.addEventListener('change', e=>{ ui.filters.year = e.target.value; render(); });
+  document.getElementById('myCompletedFilterMonth')?.addEventListener('change', e=>{ ui.filters.month = e.target.value; render(); });
+  const clearAllFilters = ()=>{ ui.filters={project:'ALL', workType:'ALL', platform:'ALL', role:'ALL', year:'ALL', month:'ALL'}; render(); };
+  document.getElementById('myCompletedClearFilters')?.addEventListener('click', clearAllFilters);
+  document.getElementById('myCompletedClearFilters2')?.addEventListener('click', ()=>{ ui.search=''; clearAllFilters(); });
+  document.getElementById('myCompletedClearSearch')?.addEventListener('click', ()=>{ ui.search=''; clearAllFilters(); });
+  document.querySelectorAll('[data-clearchip]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const k = el.getAttribute('data-clearchip');
+      ui.filters[k] = 'ALL';
+      render();
+    });
+  });
+  document.querySelectorAll('[data-yeartoggle]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const y = el.getAttribute('data-yeartoggle');
+      const key = 'y'+y;
+      const wasOpen = myCompletedIsExpanded(ui, key, myCompletedYearDefaultOpen(y));
+      ui.expanded[key] = !wasOpen;
+      render();
+    });
+  });
+  document.querySelectorAll('[data-monthtoggle]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const ym = el.getAttribute('data-monthtoggle');
+      const [y,m] = ym.split('-');
+      const key = 'm'+ym;
+      const wasOpen = myCompletedIsExpanded(ui, key, myCompletedMonthDefaultOpen(y,m));
+      ui.expanded[key] = !wasOpen;
+      render();
+    });
+  });
 }
 
 /* ---------- Brief & Intake Form (v3 layout) ---------- */
@@ -10928,6 +11134,10 @@ function bindEvents(){
   // Designer/Lead: Completed Jobs (no-op on pages where these elements don't exist)
   bindMyCompletedJobs();
   document.getElementById('myWorkSeeCompletedBtn')?.addEventListener('click', ()=>{
+    STATE.tab='workflow'; STATE.sideSection='myCompleted'; render();
+  });
+  // §6: the "เสร็จวันนี้" stat card is now also a shortcut into the full Completed History page.
+  document.getElementById('myWorkStatCompletedCard')?.addEventListener('click', ()=>{
     STATE.tab='workflow'; STATE.sideSection='myCompleted'; render();
   });
   // Admin: User / Department / Designer Management (no-ops on pages where these elements don't exist)
