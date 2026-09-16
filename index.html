@@ -77,6 +77,15 @@ body{
 }
 .avatar{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));
   color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.usermenu-drop{position:absolute;top:46px;right:18px;width:220px;background:#fff;border-radius:16px;box-shadow:var(--shadow-md);
+  border:1px solid var(--line);overflow:hidden;z-index:50}
+.usermenu-head{padding:12px 14px;border-bottom:1px solid var(--line)}
+.usermenu-head .n{font-weight:700;font-size:13px}
+.usermenu-head .r{color:var(--ink-soft);font-size:11px;margin-top:2px}
+.usermenu-item{display:block;width:100%;text-align:left;border:none;background:transparent;padding:10px 14px;
+  font-size:12px;font-weight:600;color:var(--ink);cursor:pointer}
+.usermenu-item:hover{background:rgba(99,102,241,.07)}
+.usermenu-item.danger{color:var(--crit-tx)}
 
 .body-row{display:flex;flex:1;min-height:0}
 .sidebar{
@@ -1594,6 +1603,7 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
        own inline script would be were this not a single-file page, so it's ready before any Drive
        button click could run. -->
   <script src="https://accounts.google.com/gsi/client" defer></script>
+  <script src="https://apis.google.com/js/api.js" defer></script>
   <script>
     // If something already defined window.storage before this script ran (an automated test
     // harness's own stub via Playwright's addInitScript, or any other embedding host), leave it
@@ -2039,7 +2049,7 @@ let STATE = {
   poWs:{briefsSearch:'', briefsStatus:'ALL', briefsSort:'latest'},
   projectFilter:"ALL",
   cal:{month:new Date().getMonth(), year:new Date().getFullYear(), selectedDate:null},
-  detailTaskId:null, notifOpen:false, linkFormOpenId:null,
+  detailTaskId:null, notifOpen:false, linkFormOpenId:null, userMenuOpen:false,
   // Read-only Visual Brief viewer state for the full-page Task Workspace (replaces the old Task Detail
   // modal — Dev Requirement "Redesign Task Detail / Visual Brief Workspace"). Reset to these defaults
   // every time a different task is opened (see the [data-opentask] binding in bindEvents()).
@@ -2087,7 +2097,7 @@ let STATE = {
       exportFormat:'jpg', exportSize:1000, exportLimit:'none',
     },
     whitebg:{
-      sourceTab:'drive', driveUrl:'', driveReference:'', productSearch:'', productReference:'',
+      sourceTab:'drive', driveUrl:'', driveReference:'', driveFolderId:'', driveFolderName:'', productSearch:'', productReference:'',
       queue:[], searchKw:'', items:[], currentIndex:0, showGuide:true,
     },
     csv:{
@@ -2328,8 +2338,8 @@ async function loadData(){
   // "โหลดจาก Drive" actually list/download real files (see renderAdminPanel()'s "Google Drive
   // Integration" card + gdriveGetAccessToken()). Shared across every user, same storage pattern as
   // BRIEF_TEMPLATES above — never per-browser.
-  try{ const r = await window.storage.get('wt_gdrive_config', true); STATE.gdriveConfig = r ? JSON.parse(r.value) : {clientId:''}; }
-  catch(e){ STATE.gdriveConfig = {clientId:''}; }
+  try{ const r = await window.storage.get('wt_gdrive_config', true); STATE.gdriveConfig = r ? JSON.parse(r.value) : {clientId:'', apiKey:''}; }
+  catch(e){ STATE.gdriveConfig = {clientId:'', apiKey:''}; }
   // Designer/Lead Designer Login: remember which of the 3 accounts was last used ON THIS BROWSER (never
   // the password) so the login screen can jump straight to the Password step for it. Only honored if that
   // account is still an active Designer/Lead — an inactive/removed account falls back to the picker.
@@ -2686,6 +2696,30 @@ function renderAccessDenied(){
     <button type="button" class="btn btn-ghost" style="width:100%" id="accessDeniedSignout">Sign out</button>
   </div></div>`;
 }
+// ---------- Session persistence (Krissha, bug report) ----------
+// Login used to live only in-memory (STATE.auth), so refreshing the page always dropped back to the
+// login screen even though nothing about the account had actually changed. This is deliberately plain
+// browser localStorage (per-browser, never synced through window.storage/Firestore) — a login session
+// must NOT be shared across every browser hitting the shared backend, only remembered on the one device
+// that logged in. Only the email is stored, never a password; findUserByEmail() re-validates it (and
+// the account's active/deleted status) against the real user list on every restore.
+const WT_SESSION_KEY = 'wt_session_email';
+function saveSessionEmail(email){ try{ localStorage.setItem(WT_SESSION_KEY, email); }catch(e){} }
+function clearSavedSession(){ try{ localStorage.removeItem(WT_SESSION_KEY); }catch(e){} }
+function restoreSession(){
+  let email = null;
+  try{ email = localStorage.getItem(WT_SESSION_KEY); }catch(e){ return; }
+  if(!email) return;
+  const user = findUserByEmail(email);
+  if(!user || user.status!=='active'){ clearSavedSession(); return; }
+  const isDesignerLike = user.role==='designer' || user.role==='lead';
+  const identity = isDesignerLike ? user.name : user.email;
+  const authRole = isDesignerLike ? 'designer' : user.role;
+  STATE.auth = {loggedIn:true, role:authRole, identity, isAdminUnlocked:user.role==='admin'||!!user.is_admin, user};
+  if(user.role==='po'){ STATE.tab='workflow'; STATE.sideSection='poHome'; }
+  else if(user.role==='admin'){ STATE.tab='workflow'; STATE.sideSection='users'; }
+  else { STATE.tab='workspace'; STATE.sideSection='board'; }
+}
 // Single source of truth for "who is logged in" — every role goes through here, matched against
 // Admin-managed User Management (STATE.users). This is also where a real backend would sit after a real
 // Google OAuth exchange: verify the company email, then load name/department/role/status from the DB.
@@ -2722,6 +2756,7 @@ function completeLogin(email, opts){
   // (on STATE.auth.user) still records the real "Lead Designer" identity/User-Management role for display.
   const authRole = isDesignerLike ? 'designer' : user.role;
   STATE.auth = {loggedIn:true, role:authRole, identity, isAdminUnlocked:user.role==='admin'||!!user.is_admin, user};
+  saveSessionEmail(user.email);
   STATE.accessDenied = false; STATE.accessDeniedEmail = null; STATE.googleChooserOpen = false;
   STATE.adminModeActive = false; STATE.adminModePanelOpen = false;
   if(user.role==='po'){ STATE.tab='workflow'; STATE.sideSection='poHome'; }
@@ -2806,6 +2841,7 @@ function bindLogin(){
   document.getElementById('accessDeniedSignout')?.addEventListener('click', ()=>{
     STATE.accessDenied=false; STATE.accessDeniedEmail=null;
     STATE.auth = {loggedIn:false, role:null, identity:null, isAdminUnlocked:false, user:null};
+    clearSavedSession();
     render();
   });
 }
@@ -3140,14 +3176,26 @@ function renderTopNav(){
       ? `<button type="button" class="btn btn-sm btn-ghost" id="exitAdminModeBtn">Admin Mode — Exit</button>`
       : `<button type="button" class="btn btn-sm btn-ghost" id="adminModeBtn">Admin Mode</button>`) : ''}
     <div class="iconbtn" id="notifBell" style="width:auto;padding:0 10px;font-size:12px;font-weight:700">Alerts${unread>0?`<span class="dot-badge">${unread}</span>`:''}</div>
-    <div class="userpill" id="logoutBtn" title="ออกจากระบบ">
+    <div class="userpill" id="userMenuBtn" title="เมนูผู้ใช้">
       <div class="avatar">${(displayName||'?')[0].toUpperCase()}</div>
       <span>${displayName}${isPO && STATE.auth.user?.department ? ` · ${STATE.auth.user.department}` : ''}</span>
-      
+
     </div>
     ${STATE.notifOpen ? renderNotifDropdown() : ''}
+    ${STATE.userMenuOpen ? renderUserMenuDropdown() : ''}
   </div>
   ${STATE.adminModePanelOpen ? renderAdminModePanel() : ''}`;
+}
+function renderUserMenuDropdown(){
+  const displayName = STATE.auth.user?.name || STATE.auth.identity;
+  const roleLabel = STATE.auth.user?.department || STATE.auth.user?.role || '';
+  return `<div class="usermenu-drop">
+    <div class="usermenu-head">
+      <div class="n">${escapeFtHtml(displayName||'')}</div>
+      <div class="r">${escapeFtHtml(roleLabel)}</div>
+    </div>
+    <button type="button" class="usermenu-item danger" id="confirmLogoutBtn">ออกจากระบบ</button>
+  </div>`;
 }
 function renderNotifDropdown(){
   const list = myNotifs();
@@ -10557,19 +10605,23 @@ function renderAdminPanel(){
     <p class="hint" style="margin-bottom:10px">เชื่อมต่อปุ่ม "โหลดจาก Drive" ใน Frame Tool (White Background) ให้ดึงรูปจากโฟลเดอร์ Google Drive จริง — ตั้งค่าครั้งเดียว ใช้ได้กับทุกคนในระบบ</p>
     <div class="hint" style="margin-bottom:10px;line-height:1.7">
       วิธีตั้งค่า:<br>
-      1. เปิด <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console → APIs & Services → Credentials</a> (ใช้โปรเจกต์เดียวกับ Firebase ก็ได้ — gdworking-447dc)<br>
+      1. เปิด <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console → APIs & Services → Credentials</a><br>
       2. เปิดใช้งาน <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank">Google Drive API</a> ในโปรเจกต์นั้น<br>
-      3. สร้าง Credentials → OAuth Client ID → ประเภท "Web application"<br>
-      4. ใส่โดเมนที่ใช้เปิดระบบนี้จริงลงใน "Authorized JavaScript origins" (เช่น https://your-domain.com) — <strong>ต้องเปิดผ่านโดเมนจริง ไม่ใช่เปิดไฟล์ตรงๆ (file://) เพราะ Google จะปฏิเสธ</strong><br>
-      5. คัดลอก Client ID มาวางด้านล่าง แล้วกดบันทึก<br>
-      6. แต่ละคนที่จะใช้ "โหลดจาก Drive" ต้อง Login ด้วย Google Account ของตัวเอง (จะมีป๊อปอัปให้ Sign in ครั้งแรก) และบัญชีนั้นต้องถูกแชร์สิทธิ์เข้าถึงโฟลเดอร์ Drive ที่จะโหลดด้วย
+      3. สร้าง Credentials → OAuth Client ID → ประเภท "Web application" → ใส่โดเมนจริงลงใน "Authorized JavaScript origins" — <strong>ต้องเปิดผ่านโดเมนจริง ไม่ใช่เปิดไฟล์ตรงๆ (file://) เพราะ Google จะปฏิเสธ</strong> → คัดลอก Client ID มาวางด้านล่าง<br>
+      4. สร้าง Credentials อีกอัน → API Key (สำหรับเปิดหน้าต่างเลือกโฟลเดอร์ Drive) → คัดลอกมาวางด้านล่างด้วย — จะกดจำกัดสิทธิ์ API Key ให้ใช้ได้เฉพาะ Google Picker API ก็ได้ (แนะนำ เพื่อความปลอดภัย)<br>
+      5. กดบันทึก<br>
+      6. แต่ละคนที่จะใช้ "เลือกโฟลเดอร์จาก Drive" ต้อง Login ด้วย Google Account ของตัวเอง (จะมีป๊อปอัปให้ Sign in ครั้งแรก) และบัญชีนั้นต้องถูกแชร์สิทธิ์เข้าถึงโฟลเดอร์ Drive ที่จะโหลดด้วย
     </div>
     <form id="gdriveConfigForm">
       <div class="field">
         <label>OAuth Client ID</label>
         <input type="text" id="gdriveClientId" value="${escAttr(STATE.gdriveConfig?.clientId||'')}" placeholder="xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com">
       </div>
-      <button type="submit" class="btn btn-primary" style="width:100%">บันทึก Google Drive Client ID</button>
+      <div class="field" style="margin-top:10px">
+        <label>API Key (สำหรับหน้าต่างเลือกโฟลเดอร์)</label>
+        <input type="text" id="gdriveApiKey" value="${escAttr(STATE.gdriveConfig?.apiKey||'')}" placeholder="AIzaSy...">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:10px">บันทึก Google Drive Settings</button>
     </form>
   </div>
 
@@ -10632,12 +10684,21 @@ function renderAdminDataCleanupCard(){
 
 /* ============================= EVENTS ============================= */
 function bindEvents(){
-  document.getElementById('logoutBtn')?.addEventListener('click', ()=>{
+  // Clicking the name/avatar pill just opens a small menu now (see renderUserMenuDropdown) — it used to
+  // log out immediately on click, which is what Krissha reported: tapping her own name by accident (or
+  // trying to get to her workspace) signed her straight out. Logging out is now its own explicit button
+  // inside that menu (#confirmLogoutBtn below), so a click on the pill itself is never destructive.
+  document.getElementById('userMenuBtn')?.addEventListener('click', (e)=>{
+    e.stopPropagation(); STATE.userMenuOpen = !STATE.userMenuOpen;
+    render();
+  });
+  document.getElementById('confirmLogoutBtn')?.addEventListener('click', ()=>{
     STATE.auth = {loggedIn:false, role:null, identity:null, isAdminUnlocked:false, user:null};
-    STATE.detailTaskId=null; STATE.notifOpen=false; STATE.editingTaskId=null; STATE.editingDraftId=null;
+    STATE.detailTaskId=null; STATE.notifOpen=false; STATE.userMenuOpen=false; STATE.editingTaskId=null; STATE.editingDraftId=null;
     STATE.accessDenied=false; STATE.accessDeniedEmail=null; STATE.googleChooserOpen=false;
     STATE.adminModeActive=false; STATE.adminModePanelOpen=false;
     STATE.vbProductPicker=null; STATE.vbReferenceForm=null; clearOverlay();
+    clearSavedSession();
     render();
   });
   document.getElementById('notifBell')?.addEventListener('click', (e)=>{
@@ -11437,10 +11498,12 @@ function bindEvents(){
   document.getElementById('gdriveConfigForm')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const clientId = document.getElementById('gdriveClientId')?.value.trim() || '';
-    STATE.gdriveConfig = {clientId};
+    const apiKey = document.getElementById('gdriveApiKey')?.value.trim() || '';
+    STATE.gdriveConfig = {clientId, apiKey};
     await saveKey('wt_gdrive_config', STATE.gdriveConfig);
-    GDRIVE_ACCESS_TOKEN = null; GDRIVE_TOKEN_EXPIRES_AT = 0; // Client ID changed — old token (if any) is for a different app config
-    toast('✅ บันทึก Google Drive Client ID แล้ว');
+    GDRIVE_ACCESS_TOKEN = null; GDRIVE_TOKEN_EXPIRES_AT = 0; // Config changed — old token (if any) is for a different app config
+    GDRIVE_PICKER_LOADED = false; // force picker script to re-init with new API key
+    toast('✅ บันทึก Google Drive Settings แล้ว');
   });
 
   // calendar nav + pick — only for 'view' mode calendars (Team Dashboard / Workspace); the Brief form's
@@ -11457,6 +11520,7 @@ function bindEvents(){
 
   document.body.addEventListener('click', (e)=>{
     if(STATE.notifOpen && !e.target.closest('#notifBell') && !e.target.closest('.notifdrop')){ STATE.notifOpen=false; render(); }
+    if(STATE.userMenuOpen && !e.target.closest('#userMenuBtn') && !e.target.closest('.usermenu-drop')){ STATE.userMenuOpen=false; render(); }
     if(STATE.pui.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.pui.menuOpenFor=null; render(); }
     if(STATE.platUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.platUI.menuOpenFor=null; render(); }
     if(STATE.assetUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.assetUI.menuOpenFor=null; render(); }
@@ -12708,6 +12772,11 @@ let FT_IMG_CACHE = {};
    store a refresh token safely). */
 let GDRIVE_ACCESS_TOKEN = null;
 let GDRIVE_TOKEN_EXPIRES_AT = 0;
+// Krissha's "Automation Img" folder (drive.google.com/drive/u/0/folders/1wDODqsNR7bMWSKj1W8RZMmQOr4JGujWu) —
+// the Picker opens straight into this folder by default so she lands on 1 Year Waranty / 3 Years Waranty /
+// 6 Month Waranty / ALL SKUs in SHOP / All Waranty / No Waranty without navigating down from My Drive each
+// time. She can still navigate elsewhere in the picker if she ever needs a different folder.
+const GDRIVE_DEFAULT_FOLDER_ID = '1wDODqsNR7bMWSKj1W8RZMmQOr4JGujWu';
 function gdriveExtractFolderId(url){
   const s = String(url||'').trim();
   let m = s.match(/\/folders\/([a-zA-Z0-9_-]{10,})/);
@@ -12760,6 +12829,86 @@ async function gdriveFetchImageAsObjectUrl(fileId, token){
   if(!res.ok) throw new Error('DOWNLOAD_FAILED');
   const blob = await res.blob();
   return URL.createObjectURL(blob);
+}
+
+/* ---------- Google Picker (Krissha, follow-up request: "คลิกแล้วเลือกโฟลเดอร์นี้เท่านั้น" —
+   click once, pick the folder visually, no more pasting URLs). Needs a Picker-scoped API Key
+   (Admin Panel > Google Drive Integration) in addition to the OAuth Client ID already set up —
+   the API Key is a public, domain-restricted key (safe to ship client-side), NOT the OAuth
+   Client Secret, which this app never uses or stores. */
+let GDRIVE_PICKER_LOADED = false;
+function gdriveLoadPickerApi(){
+  return new Promise((resolve, reject)=>{
+    if(typeof gapi==='undefined'){ reject(new Error('GAPI_NOT_LOADED')); return; }
+    if(GDRIVE_PICKER_LOADED && typeof google!=='undefined' && google.picker){ resolve(); return; }
+    gapi.load('picker', { callback: ()=>{ GDRIVE_PICKER_LOADED = true; resolve(); }, onerror: ()=>reject(new Error('PICKER_LOAD_FAILED')) });
+  });
+}
+async function gdriveOpenFolderPicker(){
+  const apiKey = (STATE.gdriveConfig && STATE.gdriveConfig.apiKey) || '';
+  if(!apiKey) throw new Error('NO_API_KEY');
+  const token = await gdriveGetAccessToken();
+  await gdriveLoadPickerApi();
+  return new Promise((resolve, reject)=>{
+    try{
+      const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+        .setSelectFolderEnabled(true)
+        .setIncludeFolders(true)
+        .setMimeTypes('application/vnd.google-apps.folder')
+        .setParent(GDRIVE_DEFAULT_FOLDER_ID); // open straight into "Automation Img" instead of My Drive root
+      const picker = new google.picker.PickerBuilder()
+        .addView(view)
+        .setOAuthToken(token)
+        .setDeveloperKey(apiKey)
+        .setTitle('เลือกโฟลเดอร์ Google Drive')
+        .setCallback((data)=>{
+          if(data.action === google.picker.Action.PICKED){
+            const doc = data.docs && data.docs[0];
+            if(doc){ resolve({ id: doc.id, name: doc.name }); } else { reject(new Error('NO_SELECTION')); }
+          } else if(data.action === google.picker.Action.CANCEL){
+            reject(new Error('PICKER_CANCELLED'));
+          }
+        })
+        .build();
+      picker.setVisible(true);
+    }catch(e){ reject(e); }
+  });
+}
+// Shared list+download logic used by both the folder picker and the "โหลดซ้ำ" (reload) button —
+// factored out so there's exactly one place that walks a folder and fills the import queue.
+async function gdriveLoadFolderImages(folderId, folderName, btn){
+  const setBtnLabel = (t)=>{ if(btn) btn.textContent = t; };
+  if(btn) btn.disabled = true;
+  try{
+    setBtnLabel('กำลังเชื่อมต่อ Google...');
+    const token = await gdriveGetAccessToken();
+    setBtnLabel('กำลังค้นหารูปในโฟลเดอร์...');
+    const files = await gdriveListImages(folderId, token);
+    if(!files.length){ toast('ไม่พบไฟล์รูปภาพในโฟลเดอร์นี้'); return false; }
+    const assets = [];
+    for(let i=0;i<files.length;i++){
+      setBtnLabel(`กำลังโหลดรูป ${i+1}/${files.length}...`);
+      try{
+        const objUrl = await gdriveFetchImageAsObjectUrl(files[i].id, token);
+        assets.push({id:'ft_drive_'+files[i].id, name:files[i].name, previewUrl:objUrl, source:'Google Drive', selected:true});
+      }catch(e){ /* skip failed file */ }
+    }
+    if(!assets.length){ toast('โหลดรูปจากโฟลเดอร์นี้ไม่สำเร็จเลยสักไฟล์ ลองใหม่อีกครั้ง'); return false; }
+    const added = ftAddToQueue(assets);
+    toast(added ? `โหลดจาก "${folderName||'Drive'}" แล้ว ${added} รูป` : 'ไม่มีรูปใหม่ (ซ้ำกับ Queue เดิม)');
+    return true;
+  }catch(e){
+    const msg = e && e.message;
+    if(msg==='NO_CLIENT_ID') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+    else if(msg==='GIS_NOT_LOADED') toast('โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่');
+    else if(msg==='FOLDER_NOT_FOUND') toast('ไม่พบโฟลเดอร์นี้ — อาจถูกลบหรือย้ายแล้ว ลองเลือกโฟลเดอร์ใหม่');
+    else if(msg==='NO_ACCESS') toast('ไม่มีสิทธิ์เข้าถึงโฟลเดอร์นี้ — ตรวจสอบว่าแชร์โฟลเดอร์ให้บัญชี Google ที่ Login อยู่แล้ว');
+    else if(msg==='popup_closed_by_user' || msg==='access_denied') toast('ยกเลิกการเชื่อมต่อ Google');
+    else toast('เชื่อมต่อ Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
+    return false;
+  } finally {
+    if(btn){ btn.disabled = false; }
+  }
 }
 
 function escapeFtHtml(value){
@@ -13146,8 +13295,13 @@ function renderFtWhiteBG(){
           ${sourceTabs.map(t=>`<button class="ft-source-tab ${w.sourceTab===t.id?'active':''}" data-ftsource="${t.id}">${t.label}</button>`).join('')}
         </div>
         ${w.sourceTab==='drive' ? `
-          <div class="ft-input-row"><input type="text" class="ft-input" id="ftDriveUrl" placeholder="วางลิงก์ Google Drive Folder" value="${escapeFtHtml(w.driveUrl)}"></div>
-          <button class="ft-btn ft-btn-primary ft-btn-block" id="ftDriveLoad">โหลดจาก Drive</button>
+          <button class="ft-btn ft-btn-primary ft-btn-block" id="ftDrivePick">📁 เลือกโฟลเดอร์จาก Drive</button>
+          ${w.driveFolderName ? `
+            <div class="ft-hint" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span>โฟลเดอร์ล่าสุด: <strong>${escapeFtHtml(w.driveFolderName)}</strong></span>
+              <button class="ft-mini-btn" id="ftDriveReload">โหลดซ้ำ</button>
+            </div>
+          ` : ''}
         ` : w.sourceTab==='product' ? `
           <div class="ft-input-row"><input type="text" class="ft-input" id="ftProductSearch" placeholder="ค้นหา SKU / ชื่อสินค้า" value="${escapeFtHtml(w.productSearch)}"></div>
           <button class="ft-btn ft-btn-primary ft-btn-block" id="ftProductSearchBtn">ค้นหาในระบบสินค้า</button>
@@ -13584,49 +13738,43 @@ function bindFtWhiteBG(){
     el.addEventListener('click', ()=>{ w.sourceTab = el.getAttribute('data-ftsource'); render(); });
   });
 
-  document.getElementById('ftDriveLoad')?.addEventListener('click', async ()=>{
-    const url = document.getElementById('ftDriveUrl')?.value.trim() || '';
-    if(!url){ toast('กรุณาวางลิงก์ Google Drive Folder ก่อน'); return; }
-    const folderId = gdriveExtractFolderId(url);
-    if(!folderId){ toast('ลิงก์ Google Drive Folder ไม่ถูกต้อง — วางลิงก์โฟลเดอร์ (drive.google.com/.../folders/...) เท่านั้น'); return; }
+  document.getElementById('ftDrivePick')?.addEventListener('click', async ()=>{
     if(!(STATE.gdriveConfig && STATE.gdriveConfig.clientId)){
       toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
       return;
     }
-    w.driveUrl = url;
-    w.driveReference = url;
-    const btn = document.getElementById('ftDriveLoad');
-    const setBtnLabel = (t)=>{ if(btn) btn.textContent = t; };
+    if(!(STATE.gdriveConfig && STATE.gdriveConfig.apiKey)){
+      toast('ยังไม่ได้ตั้งค่า API Key สำหรับเลือกโฟลเดอร์ — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+      return;
+    }
+    const btn = document.getElementById('ftDrivePick');
     if(btn) btn.disabled = true;
-    setBtnLabel('กำลังเชื่อมต่อ Google...');
     try{
-      const token = await gdriveGetAccessToken();
-      setBtnLabel('กำลังค้นหารูปในโฟลเดอร์...');
-      const files = await gdriveListImages(folderId, token);
-      if(!files.length){ toast('ไม่พบไฟล์รูปภาพในโฟลเดอร์นี้'); return; }
-      const assets = [];
-      for(let i=0;i<files.length;i++){
-        setBtnLabel(`กำลังโหลดรูป ${i+1}/${files.length}...`);
-        try{
-          const objUrl = await gdriveFetchImageAsObjectUrl(files[i].id, token);
-          assets.push({id:'ft_drive_'+files[i].id, name:files[i].name, previewUrl:objUrl, source:'Google Drive', selected:true});
-        }catch(e){ /* one file failing to download shouldn't block the rest of the folder */ }
-      }
-      if(!assets.length){ toast('โหลดรูปจากโฟลเดอร์นี้ไม่สำเร็จเลยสักไฟล์ ลองใหม่อีกครั้ง'); return; }
-      const added = ftAddToQueue(assets);
-      toast(added ? `โหลดจาก Drive แล้ว ${added} รูป` : 'ไม่มีรูปใหม่ (ซ้ำกับ Queue เดิม)');
+      const folder = await gdriveOpenFolderPicker();
+      w.driveFolderId = folder.id;
+      w.driveFolderName = folder.name;
+      w.driveUrl = folder.id;
+      w.driveReference = folder.name;
+      await gdriveLoadFolderImages(folder.id, folder.name, btn);
     }catch(e){
       const msg = e && e.message;
-      if(msg==='NO_CLIENT_ID') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
-      else if(msg==='GIS_NOT_LOADED') toast('โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่');
-      else if(msg==='FOLDER_NOT_FOUND') toast('ไม่พบโฟลเดอร์นี้ — ตรวจสอบลิงก์อีกครั้ง');
-      else if(msg==='NO_ACCESS') toast('ไม่มีสิทธิ์เข้าถึงโฟลเดอร์นี้ — ตรวจสอบว่าแชร์โฟลเดอร์ให้บัญชี Google ที่ Login อยู่แล้ว');
+      if(msg==='NO_API_KEY') toast('ยังไม่ได้ตั้งค่า API Key สำหรับเลือกโฟลเดอร์ — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+      else if(msg==='NO_CLIENT_ID') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
+      else if(msg==='GIS_NOT_LOADED' || msg==='GAPI_NOT_LOADED' || msg==='PICKER_LOAD_FAILED') toast('โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่');
+      else if(msg==='PICKER_CANCELLED' || msg==='NO_SELECTION'){ /* user closed the picker without choosing — no toast needed */ }
       else if(msg==='popup_closed_by_user' || msg==='access_denied') toast('ยกเลิกการเชื่อมต่อ Google');
-      else toast('เชื่อมต่อ Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
+      else toast('เปิดตัวเลือกโฟลเดอร์ Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
     } finally {
       if(btn){ btn.disabled = false; }
       render();
     }
+  });
+
+  document.getElementById('ftDriveReload')?.addEventListener('click', async ()=>{
+    if(!w.driveFolderId){ toast('ยังไม่ได้เลือกโฟลเดอร์'); return; }
+    const btn = document.getElementById('ftDriveReload');
+    await gdriveLoadFolderImages(w.driveFolderId, w.driveFolderName, btn);
+    render();
   });
 
   document.getElementById('ftProductSearchBtn')?.addEventListener('click', ()=>{
@@ -13870,6 +14018,8 @@ function ftExportAll(mode){
 (async function boot(){
   document.getElementById('app').innerHTML = `<div class="placeholder" style="padding-top:80px"><div class="ico">⏳</div>กำลังโหลดระบบ...</div>`;
   await loadData();
+  restoreSession(); // re-signs the browser in from the last saved session (see "Session persistence" above) —
+                     // must run after loadData() since it needs STATE.users to validate the saved email against
   render();
 })();
 
