@@ -1616,15 +1616,14 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
   -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <!-- Frame Tool — Google Drive Import (Krissha, request): Google Identity Services' OAuth token
-       client, used to let a Designer sign in with their own Google account (one that already has
-       the company Drive folder shared with them) so "โหลดจาก Drive" in White Background mode can
-       list/download real images instead of the old 2-fake-file demo. See gdriveGetAccessToken()/
-       renderAdminPanel()'s "Google Drive Integration" card for the Admin-side Client ID setup this
-       depends on — it does nothing until Admin fills that in. Loaded with defer, same as the app's
-       own inline script would be were this not a single-file page, so it's ready before any Drive
-       button click could run. -->
-  <script src="https://accounts.google.com/gsi/client" defer></script>
+  <!-- Frame Tool — Google Drive Import (Krissha, request): originally used Google Identity Services'
+       OAuth token client for per-Designer Google sign-in, but Drive's own alt=media download endpoint
+       redirects to lh3.googleusercontent.com, which sends no CORS headers — so a browser fetch() of
+       real image bytes is blocked unconditionally, for every file, regardless of scope/origin/token.
+       Replaced with a small Google Apps Script Web App proxy (server-to-server, no CORS involved) —
+       see gdriveFetchImageViaProxy()/loadGdriveBrowserFolder() and renderAdminPanel()'s "Google Drive
+       Integration" card for the Admin-side Proxy URL setup this depends on. No GIS/OAuth script needed
+       anymore. -->
   <!-- Frame Tool — "Export ทั้งหมด / ZIP ทั้งหมด" (Krissha, bug report: "มันเซฟทีละรูป ไม่ซิปมา" — the
        button was already LABELED "ZIP ทั้งหมด" but only ever triggered one browser Save-As dialog per
        file). JSZip bundles every exported frame into a single .zip so it's one real download — see
@@ -2367,12 +2366,12 @@ async function loadData(){
   // above, not kept inside the ephemeral frameTool state tree.
   try{ const r = await window.storage.get('wt_ft_whitebg', true); STATE.ftWhiteBgAsset = r ? JSON.parse(r.value) : null; }
   catch(e){ STATE.ftWhiteBgAsset = null; }
-  // Frame Tool — Google Drive Import (Krissha, request): Admin-set OAuth Client ID that lets
-  // "โหลดจาก Drive" actually list/download real files (see renderAdminPanel()'s "Google Drive
-  // Integration" card + gdriveGetAccessToken()). Shared across every user, same storage pattern as
-  // BRIEF_TEMPLATES above — never per-browser.
-  try{ const r = await window.storage.get('wt_gdrive_config', true); STATE.gdriveConfig = r ? JSON.parse(r.value) : {clientId:'', apiKey:''}; }
-  catch(e){ STATE.gdriveConfig = {clientId:'', apiKey:''}; }
+  // Frame Tool — Google Drive Import (Krissha, request): Admin-set Apps Script Proxy URL that lets
+  // "โหลดจาก Drive" actually list/download real files without hitting Drive's CORS wall (see
+  // renderAdminPanel()'s "Google Drive Integration" card + gdriveFetchImageViaProxy()). Shared across
+  // every user, same storage pattern as BRIEF_TEMPLATES above — never per-browser.
+  try{ const r = await window.storage.get('wt_gdrive_config', true); STATE.gdriveConfig = r ? JSON.parse(r.value) : {proxyUrl:''}; }
+  catch(e){ STATE.gdriveConfig = {proxyUrl:''}; }
   // Designer/Lead Designer Login: remember which of the 3 accounts was last used ON THIS BROWSER (never
   // the password) so the login screen can jump straight to the Password step for it. Only honored if that
   // account is still an active Designer/Lead — an inactive/removed account falls back to the picker.
@@ -10675,19 +10674,19 @@ function renderAdminPanel(){
 
   <div class="card" style="margin-bottom:16px;max-width:640px">
     <div style="font-weight:700;margin-bottom:4px">Google Drive Integration</div>
-    <p class="hint" style="margin-bottom:10px">เชื่อมต่อปุ่ม "โหลดจาก Drive" ใน Frame Tool (White Background) ให้ดึงรูปจากโฟลเดอร์ Google Drive จริง — ตั้งค่าครั้งเดียว ใช้ได้กับทุกคนในระบบ</p>
+    <p class="hint" style="margin-bottom:10px">เชื่อมต่อปุ่ม "โหลดจาก Drive" ใน Frame Tool ให้ดึงรูปจากโฟลเดอร์ Google Drive จริง — ตั้งค่าครั้งเดียว ใช้ได้กับทุกคนในระบบ ไม่ต้อง Login Google ทีละคน</p>
     <div class="hint" style="margin-bottom:10px;line-height:1.7">
-      วิธีตั้งค่า:<br>
-      1. เปิด <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console → APIs & Services → Credentials</a><br>
-      2. เปิดใช้งาน <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank">Google Drive API</a> ในโปรเจกต์นั้น<br>
-      3. สร้าง Credentials → OAuth Client ID → ประเภท "Web application" → ใส่โดเมนจริงลงใน "Authorized JavaScript origins" — <strong>ต้องเปิดผ่านโดเมนจริง ไม่ใช่เปิดไฟล์ตรงๆ (file://) เพราะ Google จะปฏิเสธ</strong> → คัดลอก Client ID มาวางด้านล่าง<br>
-      4. กดบันทึก<br>
-      5. แต่ละคนที่จะใช้ "เลือกรูปจาก Drive" ต้อง Login ด้วย Google Account ของตัวเอง (จะมีป๊อปอัปให้ Sign in ครั้งแรก) และบัญชีนั้นต้องถูกแชร์สิทธิ์เข้าถึงโฟลเดอร์ Drive ที่จะโหลดด้วย
+      วิธีตั้งค่า (ทำครั้งเดียว ใช้บัญชี Google ที่มีสิทธิ์เข้าถึงโฟลเดอร์รูปภาพ):<br>
+      1. เปิด <a href="https://script.google.com/" target="_blank">script.google.com</a> → กด "โปรเจกต์ใหม่" (New project)<br>
+      2. ลบโค้ดเดิมในไฟล์ทั้งหมด แล้ววางโค้ด Apps Script ที่แอดมินส่งให้แทน<br>
+      3. กด "ทำให้ใช้งานได้" (Deploy) → "การทำให้ใช้งานได้ใหม่" (New deployment) → เลือกประเภท "เว็บแอป" (Web app)<br>
+      4. ตั้งค่า "Execute as" = Me และ "Who has access" = Anyone (หรือ Anyone with the link) แล้วกด Deploy — ครั้งแรกจะมีป๊อปอัปขอสิทธิ์เข้าถึง Drive ให้กด Authorize แล้วอนุญาต<br>
+      5. คัดลอก URL ที่ได้ (ลงท้ายด้วย /exec) มาวางในช่องด้านล่าง แล้วกดบันทึก
     </div>
     <form id="gdriveConfigForm">
       <div class="field">
-        <label>OAuth Client ID</label>
-        <input type="text" id="gdriveClientId" value="${escAttr(STATE.gdriveConfig?.clientId||'')}" placeholder="xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com">
+        <label>Drive Proxy URL (Apps Script Web App)</label>
+        <input type="text" id="gdriveProxyUrl" value="${escAttr(STATE.gdriveConfig?.proxyUrl||'')}" placeholder="https://script.google.com/macros/s/xxxxxxxxxxxxx/exec">
       </div>
       <button type="submit" class="btn btn-primary" style="width:100%;margin-top:10px">บันทึก Google Drive Settings</button>
     </form>
@@ -11557,12 +11556,9 @@ function bindEvents(){
   });
   document.getElementById('gdriveConfigForm')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
-    const clientId = document.getElementById('gdriveClientId')?.value.trim() || '';
-    // apiKey is kept (not cleared) if the field already held one from the old Picker-based flow — it's
-    // just unused now, no need to force Admins to blank it out.
-    STATE.gdriveConfig = {...(STATE.gdriveConfig||{}), clientId};
+    const proxyUrl = document.getElementById('gdriveProxyUrl')?.value.trim() || '';
+    STATE.gdriveConfig = {...(STATE.gdriveConfig||{}), proxyUrl};
     await saveKey('wt_gdrive_config', STATE.gdriveConfig);
-    GDRIVE_ACCESS_TOKEN = null; GDRIVE_TOKEN_EXPIRES_AT = 0; // Config changed — old token (if any) is for a different app config
     toast('✅ บันทึก Google Drive Settings แล้ว');
   });
 
@@ -12822,49 +12818,45 @@ async function handleAction(act, id){
 let FT_IMG_CACHE = {};
 
 /* ---------- Google Drive Import (Krissha, request) ----------
-   "โหลดจาก Drive" used to be a 2-fake-file demo (see git history) that never actually talked to
-   Google Drive. This wires it to the real Drive API v3, gated behind an Admin-set OAuth Client ID
-   (renderAdminPanel()'s "Google Drive Integration" card) — each Designer signs in with their own
-   Google account via Google Identity Services' token client (loaded in <head>), so access is scoped
-   to whatever that person's account can already see in Drive; nothing here grants broader access
-   than the signed-in user already has. Token is cached in-memory only (never persisted — a fresh
-   page load always re-prompts, same as any other client-side-only OAuth flow with no backend to
-   store a refresh token safely). */
-let GDRIVE_ACCESS_TOKEN = null;
-let GDRIVE_TOKEN_EXPIRES_AT = 0;
+   "โหลดจาก Drive" used to be a 2-fake-file demo (see git history), then a v1 wired to the real Drive
+   API v3 with each Designer signing in via their own Google OAuth token (Google Identity Services).
+   That v1 turned out to be fundamentally broken: Drive's own file-download endpoint
+   (googleapis.com/drive/v3/files/{id}?alt=media) redirects to lh3.googleusercontent.com, and that
+   final response carries no Access-Control-Allow-Origin header — so a browser fetch() of the actual
+   image bytes is blocked by CORS unconditionally, for every file, regardless of scope, origin, or
+   concurrency (confirmed via DevTools Console: "blocked by CORS policy... No 'Access-Control-Allow-
+   Origin' header is present"). Google does not offer a CORS-enabled way to read Drive file bytes
+   directly from browser JS.
+   Fix (v2): a tiny Google Apps Script Web App deployed by Admin acts as a server-side proxy —
+   Apps Script's own server talks to Drive (server-to-server, no CORS involved at all), and its
+   response comes back as plain JSON from OUR OWN request origin, which is always fetchable. This also
+   removes the need for every Designer to sign in with their own Google account — the script runs
+   under whichever Google account deployed it ("Execute as: Me"), so as long as that account can see
+   the folder, everyone using the app can browse/import from it with zero per-user Google login. See
+   renderAdminPanel()'s "Google Drive Integration" card for the Apps Script deployment + Proxy URL
+   setup this depends on. */
 // Krissha's "Automation Img" folder (drive.google.com/drive/u/0/folders/1wDODqsNR7bMWSKj1W8RZMmQOr4JGujWu) —
-// the Picker opens straight into this folder by default so she lands on 1 Year Waranty / 3 Years Waranty /
+// the browser opens straight into this folder by default so she lands on 1 Year Waranty / 3 Years Waranty /
 // 6 Month Waranty / ALL SKUs in SHOP / All Waranty / No Waranty without navigating down from My Drive each
-// time. She can still navigate elsewhere in the picker if she ever needs a different folder.
+// time. She can still navigate elsewhere in the browser if she ever needs a different folder.
 const GDRIVE_DEFAULT_FOLDER_ID = '1wDODqsNR7bMWSKj1W8RZMmQOr4JGujWu';
-function gdriveGetAccessToken(){
-  return new Promise((resolve, reject)=>{
-    const clientId = (STATE.gdriveConfig && STATE.gdriveConfig.clientId) || '';
-    if(!clientId){ reject(new Error('NO_CLIENT_ID')); return; }
-    if(typeof google==='undefined' || !google.accounts || !google.accounts.oauth2){ reject(new Error('GIS_NOT_LOADED')); return; }
-    if(GDRIVE_ACCESS_TOKEN && Date.now() < GDRIVE_TOKEN_EXPIRES_AT - 30000){ resolve(GDRIVE_ACCESS_TOKEN); return; }
-    try{
-      const tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
-        callback: (resp)=>{
-          if(!resp || resp.error){ reject(new Error((resp && resp.error) || 'TOKEN_ERROR')); return; }
-          GDRIVE_ACCESS_TOKEN = resp.access_token;
-          GDRIVE_TOKEN_EXPIRES_AT = Date.now() + (Number(resp.expires_in)||3600)*1000;
-          resolve(GDRIVE_ACCESS_TOKEN);
-        },
-        error_callback: (err)=>{ reject(new Error((err && err.type) || 'TOKEN_ERROR')); },
-      });
-      tokenClient.requestAccessToken({prompt: GDRIVE_ACCESS_TOKEN ? '' : 'consent'});
-    }catch(e){ reject(e); }
-  });
+function gdriveProxyUrl(){
+  return (STATE.gdriveConfig && STATE.gdriveConfig.proxyUrl) || '';
 }
-async function gdriveFetchImageAsObjectUrl(fileId, token){
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+// Fetches one file's bytes through the Apps Script proxy (?action=file&id=...), which returns
+// {ok:true, mimeType, base64}. Decoded client-side into a Blob → object URL, same shape the rest of
+// the Frame Tool import pipeline already expects from gdriveFetchImageAsObjectUrl() before it.
+async function gdriveFetchImageViaProxy(fileId){
+  const proxyUrl = gdriveProxyUrl();
+  if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
+  const res = await fetch(`${proxyUrl}?action=file&id=${encodeURIComponent(fileId)}`);
   if(!res.ok) throw new Error('DOWNLOAD_FAILED');
-  const blob = await res.blob();
+  const data = await res.json();
+  if(!data || !data.ok) throw new Error((data && data.error) || 'DOWNLOAD_FAILED');
+  const byteChars = atob(data.base64);
+  const bytes = new Uint8Array(byteChars.length);
+  for(let i=0;i<byteChars.length;i++){ bytes[i] = byteChars.charCodeAt(i); }
+  const blob = new Blob([bytes], {type: data.mimeType || 'image/jpeg'});
   return URL.createObjectURL(blob);
 }
 
@@ -12876,9 +12868,9 @@ async function gdriveFetchImageAsObjectUrl(fileId, token){
    the checkbox grid the Local/Asset-Queue tiles already have. So this replaces the Picker call with our
    OWN folder browser, built straight off the Drive v3 REST API (files.list to browse), rendered
    with the same tick-box language as the rest of the Import UI — selection state lives on OUR page now,
-   so Select All is just "check every box currently in view". This also means the Picker-only API Key
-   (Admin Panel > Google Drive Integration) is no longer needed for this flow — only the OAuth Client ID
-   + drive.readonly scope, both already set up. */
+   so Select All is just "check every box currently in view". Listing + downloading both go through the
+   Apps Script proxy set up above (gdriveProxyUrl()/gdriveFetchImageViaProxy()) — no OAuth, no Picker
+   API Key, nothing Google-specific loaded client-side at all anymore. */
 function ftDriveState(){ return STATE.gdriveBrowser; }
 function openGdriveBrowser(mode){
   closeGdriveBrowser();
@@ -12916,13 +12908,12 @@ async function loadGdriveBrowserFolder(folderId){
   b.loading = true; b.error = null; b.folders = []; b.images = [];
   refreshGdriveBrowserPortal();
   try{
-    const token = await gdriveGetAccessToken();
-    const q = encodeURIComponent(`'${folderId}' in parents and trashed=false`);
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,mimeType)&pageSize=200&orderBy=folder,name`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const proxyUrl = gdriveProxyUrl();
+    if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
+    const res = await fetch(`${proxyUrl}?action=list&folderId=${encodeURIComponent(folderId)}`);
     if(!res.ok) throw new Error('LIST_FAILED');
     const data = await res.json();
+    if(!data || !data.ok) throw new Error((data && data.error) || 'LIST_FAILED');
     if(STATE.gdriveBrowser !== b) return; // browser closed/reopened while this request was in flight
     const files = data.files || [];
     b.folders = files.filter(f=>f.mimeType==='application/vnd.google-apps.folder');
@@ -12930,7 +12921,7 @@ async function loadGdriveBrowserFolder(folderId){
     b.images = images.map(f=>({id:f.id, name:f.name, thumbUrl:null, thumbFailed:false}));
     b.loading = false;
     refreshGdriveBrowserPortal();
-    loadGdriveBrowserThumbnails(b, token); // background-fill thumbnails a few at a time, doesn't block the grid
+    loadGdriveBrowserThumbnails(b); // background-fill thumbnails a few at a time, doesn't block the grid
   }catch(e){
     if(STATE.gdriveBrowser !== b) return;
     b.loading = false;
@@ -12938,27 +12929,21 @@ async function loadGdriveBrowserFolder(folderId){
     refreshGdriveBrowserPortal();
   }
 }
-// Deliberately does NOT fetch im.thumbnailLink — that URL lives on a different Google domain
-// (lh3.googleusercontent.com, not googleapis.com) with its own auth rules, and attaching our OAuth
-// Bearer token to it fails uniformly (every tile fell back to the placeholder icon — Krissha
-// screenshot). gdriveFetchImageAsObjectUrl() below already works reliably for the exact same
-// googleapis.com + Bearer-token pattern (it's how "Import Selected" downloads the real files), so
-// thumbnails reuse that proven path instead — a little heavier per tile, but folders here are small.
-// v1 fired 4 of these at once and EVERY tile still failed (placeholder icon, every time), while
-// "Import Selected" — the exact same fetch, just one file at a time in a plain loop — always worked
-// (Krissha confirmed). That points at Google's per-second Drive API quota rejecting the burst of
-// simultaneous full-image requests, so this now loads thumbnails one at a time too, matching the
-// proven-working pattern exactly instead of guessing at a "safe" concurrency number.
-async function loadGdriveBrowserThumbnails(b, token){
+// Thumbnails go through the same Apps Script proxy as full downloads (gdriveFetchImageViaProxy) — the
+// old direct-fetch v1 always failed here (CORS-blocked lh3.googleusercontent.com redirect, see the
+// comment above), so there's no "proven working" concurrency number to match anymore. The proxy is a
+// plain server round-trip with no browser-side rate limit concern, so a small concurrency is safe and
+// noticeably faster than one-at-a-time for folders with many images.
+async function loadGdriveBrowserThumbnails(b){
   const batch = b.images.slice();
-  const CONCURRENCY = 1;
+  const CONCURRENCY = 3;
   let idx = 0;
   async function worker(){
     while(idx < batch.length){
       const im = batch[idx++];
       if(STATE.gdriveBrowser !== b) return; // browser closed/replaced mid-flight
       try{
-        im.thumbUrl = await gdriveFetchImageAsObjectUrl(im.id, token);
+        im.thumbUrl = await gdriveFetchImageViaProxy(im.id);
       }catch(e){ im.thumbFailed = true; }
       if(STATE.gdriveBrowser === b) refreshGdriveBrowserPortal();
     }
@@ -12973,11 +12958,8 @@ function renderGdriveBrowser(){
   const selectedHere = imgsHere.filter(im=>b.selected[im.id]).length;
   const allHereSelected = imgsHere.length>0 && selectedHere===imgsHere.length;
   const errMsg = {
-    NO_CLIENT_ID: 'ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration',
-    GIS_NOT_LOADED: 'โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่',
-    popup_closed_by_user: 'ยกเลิกการเชื่อมต่อ Google',
-    access_denied: 'ยกเลิกการเชื่อมต่อ Google',
-    LIST_FAILED: 'โหลดรายการไฟล์ไม่สำเร็จ (เช็คว่า Login ด้วยบัญชีที่มีสิทธิ์เข้าถึงโฟลเดอร์นี้แล้ว)',
+    NO_PROXY_URL: 'ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration',
+    LIST_FAILED: 'โหลดรายการไฟล์ไม่สำเร็จ (เช็คว่าโฟลเดอร์นี้ถูกแชร์กับบัญชีที่ใช้ Deploy Apps Script แล้ว)',
   }[b.error] || (b.error ? 'โหลดรายการไม่สำเร็จ ลองใหม่อีกครั้ง' : '');
   return `<div class="gdrive-browse-bg" id="gdriveBrowseBg">
     <div class="gdrive-browse-modal">
@@ -13072,12 +13054,12 @@ async function gdriveImportPickedFiles(mode, files, btn){
   const setBtnLabel = (t)=>{ if(btn) btn.textContent = t; };
   if(btn) btn.disabled = true;
   try{
-    const token = await gdriveGetAccessToken();
+    if(!gdriveProxyUrl()) throw new Error('NO_PROXY_URL');
     const assets = [];
     for(let i=0;i<files.length;i++){
       setBtnLabel(`กำลังโหลดรูป ${i+1}/${files.length}...`);
       try{
-        const objUrl = await gdriveFetchImageAsObjectUrl(files[i].id, token);
+        const objUrl = await gdriveFetchImageViaProxy(files[i].id);
         assets.push({id:'ft_drive_'+files[i].id, name:files[i].name, previewUrl:objUrl, source:'Google Drive', selected:true});
       }catch(e){ /* skip failed file */ }
     }
@@ -13087,9 +13069,7 @@ async function gdriveImportPickedFiles(mode, files, btn){
     return true;
   }catch(e){
     const msg = e && e.message;
-    if(msg==='NO_CLIENT_ID') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
-    else if(msg==='GIS_NOT_LOADED') toast('โหลดระบบ Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่');
-    else if(msg==='popup_closed_by_user' || msg==='access_denied') toast('ยกเลิกการเชื่อมต่อ Google');
+    if(msg==='NO_PROXY_URL') toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
     else toast('เชื่อมต่อ Google Drive ไม่สำเร็จ ลองใหม่อีกครั้ง');
     return false;
   } finally {
@@ -13885,7 +13865,7 @@ function bindFtImportSection(mode){
   });
 
   document.getElementById('ftDrivePick')?.addEventListener('click', ()=>{
-    if(!(STATE.gdriveConfig && STATE.gdriveConfig.clientId)){
+    if(!(STATE.gdriveConfig && STATE.gdriveConfig.proxyUrl)){
       toast('ยังไม่ได้ตั้งค่า Google Drive — แจ้ง Admin ไปที่ Admin Panel > Google Drive Integration');
       return;
     }
