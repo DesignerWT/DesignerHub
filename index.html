@@ -13374,7 +13374,19 @@ let GDRIVE_THUMB_SUPPORTED = null;
 // get made: each one pays its own network round trip + Apps Script invocation start-up, no matter how
 // small the payload. Fetching ~15 thumbnails per call instead of 1 cuts that call count by ~15x.
 let GDRIVE_BATCH_THUMB_SUPPORTED = null;
-const GDRIVE_THUMB_BATCH_SIZE = 15;
+// Krissha, bug report chased down via the Apps Script "การเรียกใช้"/Executions log (the real breakthrough
+// on this one): every single doGet call was showing "เสร็จสมบูรณ์" (succeeded) — zero errors, zero quota
+// messages — but one logged run took 25.4 SECONDS for a single ?action=thumbs batch. The old
+// getThumbnails() in DriveProxy.gs.txt fetched each file's thumbnail one at a time in a plain for-loop
+// inside that ONE invocation, so a bigger batch size directly meant a longer single call, close enough to
+// this client's timeout to lose the race sometimes.
+// First fix (kept the old server code): shrink the batch size to 6 so each call finishes comfortably.
+// Real fix (Krissha's largest folder is 170 images — 6/batch would still mean ~30 Apps Script calls):
+// getThumbnails() on the server was rewritten to fetch every file's thumbnail in the batch IN PARALLEL
+// (UrlFetchApp.fetchAll — see that function's own comment in DriveProxy.gs.txt), so its total time no
+// longer scales with how many files are in one call the way it used to. Batch size raised back up to 20
+// to take advantage of that — far fewer Apps Script calls overall for a big folder, each one still fast.
+const GDRIVE_THUMB_BATCH_SIZE = 20;
 function gdriveProxyUrl(){
   return (STATE.gdriveConfig && STATE.gdriveConfig.proxyUrl) || '';
 }
@@ -13502,7 +13514,11 @@ async function gdriveFetchThumbnailsBatch(ids){
   const proxyUrl = gdriveProxyUrl();
   if(!proxyUrl){ throw new Error('NO_PROXY_URL'); }
   const url = `${proxyUrl}?action=thumbs&ids=${encodeURIComponent(ids.join(','))}`;
-  const res = await gdriveFetchWithTimeout(url, 30000);
+  // 60s, not 30s — kept as extra safety margin even though the server-side parallel fetch (see
+  // GDRIVE_THUMB_BATCH_SIZE's comment) should make each call much faster now; a generous timeout costs
+  // nothing when things go well and just means one fewer way to fail if Drive itself is having a slow
+  // moment.
+  const res = await gdriveFetchWithTimeout(url, 60000);
   if(!res.ok) throw new Error('THUMBS_FAILED');
   const data = await res.json();
   if(!data || !data.ok) throw new Error((data && data.error) || 'THUMBS_FAILED');
@@ -13786,8 +13802,10 @@ async function loadGdriveBrowserThumbnails(b){
   const remaining = batch.filter(im=>!im.thumbUrl && !im.thumbFailed);
   const chunks = [];
   for(let i=0;i<remaining.length;i+=GDRIVE_THUMB_BATCH_SIZE) chunks.push(remaining.slice(i, i+GDRIVE_THUMB_BATCH_SIZE));
-  // 3 batches in flight at once ≈ up to 45 images loading per round instead of 3-4 — Apps Script's
-  // per-script concurrent-execution ceiling (well above this) is what bounds how high this can safely go.
+  // 3 batches in flight at once ≈ up to 60 images loading per round (GDRIVE_THUMB_BATCH_SIZE=20 × 3) —
+  // safe to be this much bigger than before now that each individual batch call is itself parallelized
+  // server-side (see GDRIVE_THUMB_BATCH_SIZE's own comment), instead of paying for slowness with a smaller
+  // batch size like the first fix did.
   const CONCURRENCY = 3;
   let idx = 0;
   async function worker(){
