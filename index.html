@@ -14040,7 +14040,14 @@ async function gdriveImportPickedFiles(mode, files, onProgress){
     if(!gdriveProxyUrl()) throw new Error('NO_PROXY_URL');
     let done = 0;
     let okCount = 0, failCount = 0;
-    const CONCURRENCY = 4; // within the 4-6 range her spec asked for — never 20-50 at once
+    // Krissha, "มันเร็วกว่านี้ได้มั้ย" at 170-file scale: this loop downloads the FULL-quality file for
+    // every image (unlike the picker grid, which only ever needs a tiny thumbnail) — a real several-MB
+    // file per image is just inherently heavier than a thumbnail. Raised past the original 4-6 spec
+    // range to 15 concurrent (her choice, weighed against the alternative of shrinking downloads via
+    // Drive's own compressed thumbnail rendition, which would risk flattening/losing transparency on PNG
+    // product cutouts — not worth that trade). Apps Script's per-user simultaneous-execution quota is
+    // ~30, so 15 still leaves real headroom; if it ever causes new failures, drop this back down.
+    const CONCURRENCY = 15;
     let idx = 0;
     if(onProgress) onProgress(0, files.length);
     async function worker(){
