@@ -1628,10 +1628,23 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 .ft-mini-btn{height:24px;padding:0 7px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink-soft);font-size:10px;cursor:pointer}
 .ft-mini-btn:hover{color:var(--ink);border-color:#CBD5E1}
 .ft-workspace{position:relative;display:grid;grid-template-rows:minmax(0,1fr) 64px;min-width:0;background:radial-gradient(circle at 50% 45%,rgba(99,102,241,.05),transparent 40%),var(--bg-light)}
+/* §DEV FIX — P0 BLOCKER: Platform Run's workspace has a 3rd row (the Ready/Issues/All quick-filter
+   pills, above the canvas) that .ft-workspace's base 2-row grid (minmax(0,1fr) 64px) was never sized
+   for — with 3 children in a 2-row explicit grid, the canvas silently lands in the 64px track meant for
+   the nav bar, squeezing Live Preview down to a sliver, while the real nav bar spills into an implicit
+   auto row below it. This 3-row variant (pills auto-height, canvas takes the remaining space, nav bar
+   fixed 64px) is applied only when the pills are actually rendered — see renderFtWorkspace. */
+.ft-workspace.platform-workspace{grid-template-rows:auto minmax(0,1fr) 64px}
 .ft-canvas-wrap{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:34px}
 .ft-preview-label{position:absolute;top:14px;left:16px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:rgba(255,255,255,.85);color:var(--ink-faint);font-size:10px;font-weight:750;letter-spacing:.12em;z-index:2}
 .ft-canvas{width:min(56vh,620px);max-width:100%;aspect-ratio:1;border:1px solid var(--line);border-radius:12px;box-shadow:0 24px 60px rgba(15,23,42,.14);display:block;background:#fff;cursor:grab}
 .ft-canvas:active{cursor:grabbing}
+/* §DEV FIX — PRODUCT AREA GUIDE MUST MOVE LIVE BUT MUST NOT EXPORT: the guide is a physically separate
+   canvas (#ftGuideOverlay) stacked exactly on top of #ftCanvas via this wrapper — never the same canvas
+   that gets exported — so it is structurally impossible for the guide to end up in an exported file. */
+.ft-canvas-stack{position:relative;width:min(56vh,620px);max-width:100%;aspect-ratio:1}
+.ft-canvas-stack .ft-canvas{position:absolute;inset:0;width:100%;height:100%;margin:0}
+.ft-guide-overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .ft-canvas-meta{position:absolute;left:16px;bottom:14px;color:var(--ink-faint);font-size:10px;z-index:2}
 .ft-navbar{display:flex;align-items:center;justify-content:center;gap:12px;padding:9px 16px;border-top:1px solid var(--line);background:rgba(255,255,255,.92);position:relative}
 .ft-navbtn{height:32px;padding:0 12px;border:1px solid var(--line);border-radius:8px;background:#F1F5F9;color:var(--ink-soft);font-size:10px;cursor:pointer}
@@ -2228,7 +2241,7 @@ let STATE = {
       queue:[], searchKw:'',
       items:[], currentIndex:0,
       global:{scale:100,x:0,y:0},
-      exportFormat:'jpg', exportSize:1000, exportLimit:'none',
+      exportFormat:'jpg', exportSize:2000, exportLimit:'none',
     },
     whitebg:{
       sourceTab:'drive', driveUrl:'', driveReference:'', productSearch:'', productReference:'',
@@ -2251,7 +2264,7 @@ let STATE = {
       extraLinks:[],
       queue:[], searchKw:'',
       items:[], currentIndex:0,
-      exportFormat:'jpg', exportSize:1000, exportLimit:'none',
+      exportFormat:'jpg', exportSize:2000, exportLimit:'none',
     },
     // Platform Run / SKU Automation (DEV PROMPT — SKU Automation + Platform Product List + Frame Tool
     // Integration): a 4th Frame Tool mode, additive only — Manual/White Background/CSV above are
@@ -2270,7 +2283,7 @@ let STATE = {
       extraLinks:[],
       queue:[], searchKw:'',
       issuesOpen:false, runInProgress:false, runProgress:{done:0, total:0, failed:0}, lastRun:null,
-      previewCache:{}, exportFormat:'jpg', exportSize:1000, exportLimit:'none',
+      previewCache:{}, exportFormat:'jpg', exportSize:2000, exportLimit:'none',
       loadingDrive:false, driveLoadProgress:{done:0, total:0}, global:{scale:100, x:0, y:0},
       // §DEV FIX — PLATFORM RUN PREVIEW / READY DATASET: which set of matched SKUs the Preview Queue
       // (Next/Previous/keyboard) currently walks — 'ready' (default, same dataset as ZIP/Run) | 'issues'
@@ -3051,6 +3064,30 @@ async function loadData(){
   // above, not kept inside the ephemeral frameTool state tree.
   try{ const r = await window.storage.get('wt_ft_whitebg', true); STATE.ftWhiteBgAsset = r ? JSON.parse(r.value) : null; }
   catch(e){ STATE.ftWhiteBgAsset = null; }
+  // §BUG FIX — CSV + PLATFORM RUN STILL USE OLD PRODUCT AREA: ftFrameSettingsFor() only ever seeds a
+  // frameId's default the FIRST time it's touched — any frameId that was already touched-and-saved back
+  // when the per-mode default tiers (Platform Frame Standard / WBG Standard / Generic Standard, or the
+  // even older Safe Area system before that) were still in place is "Custom Frame Standard" territory
+  // (Resolution Priority tier 2, which always outranks tier 3 Global Standard) — so a CSV/Platform Run
+  // frameId saved back then keeps showing its OLD small box forever, even though every brand-new frameId
+  // already gets today's single Global Product Area Standard correctly. One-time migration, gated by its
+  // own separate marker key so it runs exactly once and never discards a Designer's genuine FUTURE
+  // customization: wipe every already-saved per-Frame Standard so every Frame (Manual/WBG/CSV/Platform
+  // Run, every Main/Warranty/Gift Frame) re-seeds from the current Global Product Area Standard — the
+  // same Guide already confirmed correct on White Background (Product Area 1840×1600 at x:80,y:200, Max
+  // Product 1500×1500, see ftGlobalFrameSettingsDefault).
+  try{
+    const migMarker = await window.storage.get('wt_ft_frame_settings_migrated_v_global2000', true);
+    if(!migMarker){
+      await saveKey('wt_ft_frame_settings', {});
+      await saveKey('wt_ft_frame_settings_migrated_v_global2000', true);
+    }
+  }catch(e){ /* best-effort — the load right below still runs regardless */ }
+  // §DEV FINAL — REDESIGN PRODUCT AREA §8: per-Frame Product Area/Max Width/Height Standards — same
+  // shared/persisted pattern as the White Background asset just above (never per-browser, never lost on
+  // refresh), keyed by frameId (see ftFrameIdFor/ftFrameSettingsFor).
+  try{ const r = await window.storage.get('wt_ft_frame_settings', true); STATE.ftFrameSettings = r ? JSON.parse(r.value) : {}; }
+  catch(e){ STATE.ftFrameSettings = {}; }
   // Frame Tool — Google Drive Import (Krissha, request): Admin-set Apps Script Proxy URL that lets
   // "โหลดจาก Drive" actually list/download real files without hitting Drive's CORS wall (see
   // renderAdminPanel()'s "Google Drive Integration" card + gdriveFetchImageViaProxy()). Shared across
@@ -15183,49 +15220,188 @@ function ftEnsureImage(url){
   return null;
 }
 
-// §ADD SKU SAFE AREA / PRODUCT MARGINS — replaces the old hardcoded per-mode areaPct with a
-// user-adjustable safe area (Top/Right/Bottom/Left, px relative to a fixed reference canvas so it
-// scales correctly to whatever export size is actually chosen — ftDrawComposite already works in
-// fractions of the real w/h passed to it). This is Global/default for the CURRENT RUN only (never
-// written to SKU Master) — per-SKU Scale/X/Y overrides still layer on top of it exactly as before.
-// Shared by every Frame Tool mode that positions a product photo (Manual, White Background, CSV,
-// Platform Run) via ftSafeAreaOf(mode)/renderFtAdjustSection(mode)/bindFtAdjustSection(mode) below.
-const FT_SAFE_REF = 800;
-// §SKU SAFE AREA — FINAL SPEC §2: the default is the same on every mode — a centered area with a
-// bit more room at the bottom (many Frames carry a Warranty/Footer/Disclaimer band there) — never
-// 0/0/0/0, and never mode-specific any more (all 4 modes share one default so switching modes never
-// surprises anyone with a different starting margin).
-function ftSafeAreaDefault(){
-  return {top:80, right:80, bottom:140, left:80};
-}
-function ftSafeAreaOf(mode){
-  const st = ftStateFor(mode);
-  if(!st.safeArea) st.safeArea = ftSafeAreaDefault();
-  return st.safeArea;
-}
-// §DEV FIX — P0 BLOCKER: ftAreaPctFromSafeArea() called a bare clamp() that was never defined anywhere
-// in the file (the only other `clamp(` hits in this file are the unrelated CSS clamp() function inside
-// stylesheet strings) — a ReferenceError thrown here, inside ftOptsFor → ftRedrawCanvas, on every single
-// canvas redraw, in every mode (Manual/White Background/CSV/Platform Run all share this one Safe Area
-// helper). Frame Tool's own clamp helper, scoped under its ft-prefix convention so it can never collide
-// with (or be confused for) the CSS function of the same name.
+// §DEV FIX — P0 BLOCKER: Frame Tool's own clamp helper (the old Safe Area code called a bare clamp()
+// that was never defined anywhere in this file — a ReferenceError on every canvas redraw). Scoped under
+// the ft- prefix so it can never collide with the unrelated CSS clamp() function.
 function ftClamp(value, min, max){
   const n = Number(value);
   const safe = Number.isFinite(n) ? n : min;
   return Math.min(max, Math.max(min, safe));
 }
-// §SKU SAFE AREA — FINAL SPEC §4: safeX/safeY/safeWidth/safeHeight, with Margin >= 0 and
-// left+right < canvasWidth / top+bottom < canvasHeight always enforced by clamping back to a
-// minimum 10% of the canvas on each axis — a bad/dragged-too-far margin only ever shrinks the
-// Product layer, it can never collapse the Safe Area to zero or take the Frame down with it (§11).
-function ftAreaPctFromSafeArea(sa){
-  const ref = FT_SAFE_REF;
-  let left = ftClamp(sa?.left||0, 0, ref), right = ftClamp(sa?.right||0, 0, ref);
-  let top = ftClamp(sa?.top||0, 0, ref), bottom = ftClamp(sa?.bottom||0, 0, ref);
-  let w = ref-left-right, h = ref-top-bottom;
-  if(w < ref*0.1){ const over=(ref*0.1-w)/2; left=Math.max(0,left-over); right=Math.max(0,right-over); w=ref-left-right; }
-  if(h < ref*0.1){ const over=(ref*0.1-h)/2; top=Math.max(0,top-over); bottom=Math.max(0,bottom-over); h=ref-top-bottom; }
-  return {x:left/ref, y:top/ref, w:w/ref, h:h/ref};
+// §DEV FINAL — FIX FRAME TOOL + REDESIGN PRODUCT AREA: replaces the old Safe Area (Top/Right/Bottom/Left
+// margins, one set per MODE, session-only) with PRODUCT AREA + MAX PRODUCT WIDTH/HEIGHT, saved per FRAME
+// (§8) — every Platform Frame image (Main, each Warranty Frame Profile, each Gift Frame) keeps its own
+// settings, because different campaigns really do have different artwork areas (§8 examples: Lazada 9.9
+// 1080×1270 vs Shopee Campaign A 1150×1200). Frame Standard: every Platform Frame image is a
+// 2000×2000 canvas (§1) — Product Area/Max Width/Height are always expressed in that same 2000-scale
+// px space so they read the same regardless of what actual canvas size ftDrawComposite is drawing onto
+// (800 live preview, 2000 export, 220 thumbnail — same resolution-independent fraction approach the old
+// Safe Area math already used, just re-based from an 800 reference to the real 2000 Frame Standard).
+const FT_CANVAS_SIZE = 2000;
+// §FINAL UPDATE — USE THE SAME PRODUCT AREA GUIDE ACROSS ALL FRAME SYSTEMS: one Frame Config shape
+// {canvas:{width,height} (canvasWidth/canvasHeight below — same info), productArea{x,y,width,height},
+// productLimit{maxWidth,maxHeight}, alignX, alignY, keepAspectRatio, allowUpscale} read identically by
+// every mode's renderer (ftDrawComposite/ftDrawGuideOverlay via ftProductBoxGeometry) — never a per-mode
+// calculation, AND now there is exactly ONE default seed value too — the three separate named tiers this
+// used to have (Platform Frame Standard / WBG Standard / Generic Standard, each with its own numbers)
+// are retired in favor of a single Global Product Area Standard, taken from what was White Background's
+// current guide (x:80,y:200,width:1840,height:1600 / maxWidth:1500,maxHeight:1500) — "ยกไกด์ที่เห็นอยู่
+// ใน White Background เป็น Global Standard ของ Frame Tool ทุกระบบ" — so Manual/WBG/CSV/Platform Run (and
+// every Main/Warranty/Gift Frame within it) all start from the exact same size/position by default.
+// Resolution Priority (unchanged in spirit, just two tiers instead of four now):
+//   1. Current Run Override      — Platform Run's temporary per-Run Max W/H (st.runOverride), session-only.
+//   2. Custom Frame Standard     — once a frameId's settings have been touched even once, whatever is in
+//                                  STATE.ftFrameSettings[frameId] IS that Frame's own Saved Standard and
+//                                  is used forever after (ftFrameSettingsFor() only ever seeds a brand-new
+//                                  frameId, never re-defaults an existing one) — "Save as Frame Standard"
+//                                  for a Campaign with real special artwork still works exactly as before.
+//   3. Global Product Area Standard — ftGlobalFrameSettingsDefault() below — what every frameId that has
+//                                  NEVER been touched gets, regardless of which mode it belongs to.
+function ftGlobalProductAreaDefault(){
+  return {x:80, y:200, width:1840, height:1600};
+}
+function ftGlobalProductLimitDefault(){
+  return {maxWidth:1500, maxHeight:1500};
+}
+function ftGlobalFrameSettingsDefault(){
+  return {
+    canvasWidth: FT_CANVAS_SIZE, canvasHeight: FT_CANVAS_SIZE,
+    productArea: ftGlobalProductAreaDefault(),
+    productLimit: ftGlobalProductLimitDefault(),
+    alignX: 'center', alignY: 'center',
+    keepAspect: true, allowUpscale: false,
+  };
+}
+// Every mode/frameId seeds from the same Global Standard now — no more per-mode branching here (that
+// WAS the "Manual Area Logic / WBG Area Logic / CSV Area Logic / Platform Area Logic" split the spec
+// explicitly forbids). frameId is kept as the parameter for API compatibility with every existing call
+// site (ftFrameSettingsFor, the Preset/Reset UI, ftDrawGuideOverlay, …), even though this particular
+// function no longer branches on it.
+function ftFrameSettingsDefaultFor(frameId){
+  return ftGlobalFrameSettingsDefault();
+}
+// §8/§19 Save Standard per Frame: STATE.ftFrameSettings is keyed by a stable frameId (see ftFrameIdFor) —
+// Admin/shared persisted data (loaded/saved via storage.get/saveKey, same pattern as ftWhiteBgAsset),
+// never ephemeral session state, so a Designer's Product Area setup for "Lazada 9.9 Main Frame" is still
+// there next session and for every other Designer on the team. A frameId is seeded from its default tier
+// ONLY the first time it's touched — after that, whatever is in STATE.ftFrameSettings[frameId] IS the
+// Frame's own Saved Standard, and every read after that point is tier "2. Selected/Resolved Frame
+// Standard" per §Resolution-Priority, never re-defaulted.
+function ftFrameSettingsFor(frameId){
+  if(!STATE.ftFrameSettings) STATE.ftFrameSettings = {};
+  if(!STATE.ftFrameSettings[frameId]) STATE.ftFrameSettings[frameId] = ftFrameSettingsDefaultFor(frameId);
+  return STATE.ftFrameSettings[frameId];
+}
+async function saveFtFrameSettings(){
+  await saveKey('wt_ft_frame_settings', STATE.ftFrameSettings);
+}
+// Resolves which Frame's settings a given mode/item should read+edit — the ONE routing function every
+// mode shares (§2: no manualSafeArea()/wbgSafeArea()/csvSafeArea()/platformSafeArea() split logic).
+// White Background has exactly one Frame, so its id is fixed. Manual routes per the actually-uploaded
+// Frame image (§6: "ถ้า Frame มี Saved Standard → โหลด Standard ของ Frame นั้น") — a Designer switching
+// which Frame file they've loaded into Manual switches which Standard they're editing, same as CSV/
+// Platform already do. CSV routes per-row by warranty-frame filename. Platform Run routes by the SKU's
+// actually-resolved Frame (Main / a specific Warranty Frame Profile / a specific Gift Frame — see
+// ftResolveFrameForProduct/skuComputeRunStatus, whose `profile.id` is already a stable
+// 'main' | frameProfileId | 'gift_<id>', covering §9-§12 Main/Warranty/Gift/Single Frame/Warranty Routing
+// automatically) — items must carry `.frameId` (stamped wherever a Platform preview/export item is
+// built, see renderFtPlatform/ftPlatformGeneratePreview/RunAll/RetryFailed) so a Warranty-routed SKU
+// never edits/reads the Main Frame's Product Area by mistake, and vice versa.
+function ftFrameIdFor(mode, st, item){
+  if(mode==='manual') return 'manual:' + ftNorm((st && st.frameName) || 'default');
+  if(mode==='whitebg') return 'whitebg';
+  if(mode==='csv') return 'csv:' + ftNorm((item && item.frameName) || 'default');
+  if(mode==='platform'){
+    if(item && item.frameId) return item.frameId;
+    return 'platform:' + (st.platformId||'none') + ':main';
+  }
+  return mode;
+}
+// §DEV FIX — RUN OVERRIDE (§9): resolves the actual layout opts ftDrawComposite needs (Product Area as a
+// fraction box + Max Width/Height as a fraction pair + alignment + upscale rule), applying a Platform
+// Run's temporary st.runOverride (Max Width/Height only, session-only) on top of the Frame's saved
+// Standard WITHOUT ever mutating that saved Standard — "การ Override นี้ ห้ามแก้ Master Frame".
+function ftProductLayoutOptsFor(mode, st, item){
+  const frameId = ftFrameIdFor(mode, st, item);
+  const fs = ftFrameSettingsFor(frameId);
+  let maxWidth = fs.productLimit.maxWidth, maxHeight = fs.productLimit.maxHeight;
+  if(mode==='platform' && st.runOverride){
+    if(st.runOverride.maxWidth) maxWidth = st.runOverride.maxWidth;
+    if(st.runOverride.maxHeight) maxHeight = st.runOverride.maxHeight;
+  }
+  const ref = fs.canvasWidth || FT_CANVAS_SIZE, refH = fs.canvasHeight || FT_CANVAS_SIZE;
+  return {
+    areaPct: {
+      x: ftClamp(fs.productArea.x, 0, ref)/ref, y: ftClamp(fs.productArea.y, 0, refH)/refH,
+      w: ftClamp(fs.productArea.width, 1, ref)/ref, h: ftClamp(fs.productArea.height, 1, refH)/refH,
+    },
+    productLimitPct: { maxW: Math.max(1, maxWidth)/ref, maxH: Math.max(1, maxHeight)/refH },
+    align: { x: fs.alignX||'center', y: fs.alignY||'center' },
+    allowUpscale: !!fs.allowUpscale,
+  };
+}
+// §DEV FIX — PRODUCT AREA GUIDE MUST MOVE LIVE BUT MUST NOT EXPORT: single geometry function shared by
+// BOTH the real product placement (ftDrawComposite, below) AND the Editor-only Guide Overlay
+// (ftDrawGuideOverlay) — the guide is computed from the exact same numbers that place the actual product,
+// so it can never drift out of sync with where the product really renders (Acceptance #5: "สินค้าที่
+// render ต้องอยู่ตรงกับกรอบ guide จริง"). `ax,ay,aw,ah` = Product Area (the allowed placement region,
+// §2). `gx,gy,gw,gh` = the guide/cap box — sized to Max Product Width/Height (never bigger than the
+// Product Area itself) and positioned per Horizontal/Vertical alignment (§4-§5) — this is what reacts
+// live to Max Width/Max Height/Position/Advanced Product Area, and what the real product is centered
+// and fit inside (before its own aspect ratio letterboxes it smaller on one axis, and before any
+// per-SKU Scale/X/Y offset layers on top).
+function ftProductBoxGeometry(w, h, opts){
+  const area = opts.areaPct || {x:0.1,y:0.1,w:0.8,h:0.8};
+  const ax = area.x*w, ay = area.y*h, aw = area.w*w, ah = area.h*h;
+  const limit = opts.productLimitPct || area;
+  const maxW = (limit.maxW!=null ? limit.maxW*w : aw);
+  const maxH = (limit.maxH!=null ? limit.maxH*h : ah);
+  const alignX = (opts.align && opts.align.x) || 'center';
+  const alignY = (opts.align && opts.align.y) || 'center';
+  const gw = Math.min(maxW, aw), gh = Math.min(maxH, ah);
+  const gcx = alignX==='left' ? ax+gw/2 : alignX==='right' ? ax+aw-gw/2 : ax+aw/2;
+  const gcy = alignY==='top' ? ay+gh/2 : alignY==='bottom' ? ay+ah-gh/2 : ay+ah/2;
+  return {ax, ay, aw, ah, maxW, maxH, alignX, alignY, gx: gcx-gw/2, gy: gcy-gh/2, gw, gh};
+}
+
+// §FIX — GUIDE MUST FOLLOW ACTUAL PRODUCT: the ONE place that computes "where does the real product
+// actually sit right now" — AFTER contain-fit, Allow-Upscale cap, per-SKU Scale/X/Y transform, and the
+// Product-Area clamp are all applied. ftDrawComposite (below) draws from this, and ftDrawGuideOverlay's
+// new "Active Product Guide" box draws from this exact same call — so the two can never show a different
+// position/size than each other (Krissha: "Guide Overlay ต้องวาดจาก productBounds ชุดเดียวกัน").
+// Returns null when there is no item, OR when the item's image object exists but hasn't finished
+// decoding yet (nothing meaningful to show this frame — matches ftDrawComposite's prior behavior of
+// drawing nothing rather than guessing a box that would jump once the real size is known). Otherwise
+// returns {x, y, width, height, kind} in the same px units as ftProductBoxGeometry, where kind is
+// 'image' (a real product photo) or 'placeholder' (Missing/Check Required/Hold/Needs Setup box).
+function ftComputeProductBounds(w, h, opts, item){
+  if(!item) return null;
+  const {ax, ay, aw, ah, gx, gy, gw, gh} = ftProductBoxGeometry(w, h, opts);
+  const tr = item.transform || {scale:100, x:0, y:0};
+  const img = item._img || item._bitmap || (item.previewUrl ? ftEnsureImage(item.previewUrl) : null);
+  const iw = img && (img.naturalWidth || img.width);
+  const ih = img && (img.naturalHeight || img.height);
+  if(img && !(iw && ih)) return null;
+  if(img){
+    let fit = Math.min(gw/iw, gh/ih);
+    if(!opts.allowUpscale) fit = Math.min(fit, 1);
+    let dw = iw*fit, dh = ih*fit;
+    dw *= (tr.scale||100)/100;
+    dh *= (tr.scale||100)/100;
+    const baseCx = gx + gw/2;
+    const baseCy = gy + gh/2;
+    const clampCenter = (base, size, boxStart, boxSize)=>{
+      if(size >= boxSize) return boxStart + boxSize/2;
+      return Math.min(Math.max(base, boxStart+size/2), boxStart+boxSize-size/2);
+    };
+    const cx = clampCenter(baseCx + (tr.x||0)/100*aw, dw, ax, aw);
+    const cy = clampCenter(baseCy + (tr.y||0)/100*ah, dh, ay, ah);
+    return {x: cx-dw/2, y: cy-dh/2, width: dw, height: dh, kind: 'image'};
+  }
+  const pw = aw*((tr.scale||100)/100)*0.7, ph = ah*((tr.scale||100)/100)*0.7;
+  const cx = ax + aw/2 + (tr.x||0)/100*aw;
+  const cy = ay + ah/2 + (tr.y||0)/100*ah;
+  return {x: cx-pw/2, y: cy-ph/2, width: pw, height: ph, kind: 'placeholder'};
 }
 
 // Shared compositing routine — used identically for the live on-screen preview canvas AND the
@@ -15283,59 +15459,45 @@ function ftDrawComposite(ctx, w, h, opts){
     }
   }
 
-  const area = opts.areaPct || {x:0.1,y:0.1,w:0.8,h:0.8};
-  const ax = area.x*w, ay = area.y*h, aw = area.w*w, ah = area.h*h;
-
-  if(opts.showGuide){
-    ctx.strokeStyle = 'rgba(63,133,246,0.55)';
-    ctx.setLineDash([6,5]);
-    ctx.lineWidth = 2;
-    ctx.strokeRect(ax,ay,aw,ah);
-    ctx.setLineDash([]);
-    ctx.lineWidth = 1;
-  }
-
+  // §DEV FIX — PRODUCT AREA GUIDE MUST MOVE LIVE BUT MUST NOT EXPORT: ftDrawComposite is the ONE function
+  // both the live canvas AND every export path (ftComposeDataUrl/ftPlatformComposeDataUrl) call — so it
+  // must never draw the Product Area guide itself (that's ftDrawGuideOverlay's job, on its own separate
+  // canvas, see below). This keeps "never export the guide" true by construction, not by remembering to
+  // force a flag off on every export call site.
   const item = opts.productItem;
   if(!item){
-    ctx.fillStyle = '#64748B';
-    ctx.font = `${Math.round(w*0.026)}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.fillText('นำเข้ารูปสินค้า', w/2, ay+ah/2);
+    // The "นำเข้ารูปสินค้า" hint is Editor-only preview chrome — it now lives entirely in
+    // ftDrawGuideOverlay (drawn on the separate guide canvas), never here, so there is no text-drawing
+    // code left in the function every export path shares.
     return;
   }
 
-  const tr = item.transform || {scale:100,x:0,y:0};
-  // Prefer the already-decoded bitmap from the Image Pipeline cache (ftLoadWorkingImage) over asking
-  // ftEnsureImage to load-from-scratch again — this is what makes Next/Previous/Run Frame draw from
-  // cache instead of ever re-decoding, let alone re-fetching (Krissha spec requirement: no new Drive
-  // requests once an item is cached).
-  const img = item._img || item._bitmap || (item.previewUrl ? ftEnsureImage(item.previewUrl) : null);
+  // §FIX — PRODUCT GUIDE MUST FOLLOW ACTUAL PRODUCT: bounds (contain-fit + Allow-Upscale cap + per-SKU
+  // Scale/X/Y transform + Product-Area clamp, §4-§5, §11 "ห้าม...หลุดออกนอก Product Area") are computed
+  // once by the shared ftComputeProductBounds — the exact same call ftDrawGuideOverlay's new "Active
+  // Product Guide" box makes, so the real render and the live guide can never drift apart.
+  const bounds = ftComputeProductBounds(w, h, opts, item);
+  if(!bounds) return;
 
-  if(img){
-    const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-    if(iw && ih){
-      const fit = Math.min(aw/iw, ah/ih);
-      let dw = iw*fit, dh = ih*fit;
-      dw *= (tr.scale||100)/100;
-      dh *= (tr.scale||100)/100;
-      const cx = ax + aw/2 + (tr.x||0)/100*aw;
-      const cy = ay + ah/2 + (tr.y||0)/100*ah;
-      ctx.drawImage(img, cx-dw/2, cy-dh/2, dw, dh);
-    }
+  if(bounds.kind==='image'){
+    // Prefer the already-decoded bitmap from the Image Pipeline cache (ftLoadWorkingImage) over asking
+    // ftEnsureImage to load-from-scratch again — this is what makes Next/Previous/Run Frame draw from
+    // cache instead of ever re-decoding, let alone re-fetching (Krissha spec requirement: no new Drive
+    // requests once an item is cached).
+    const img = item._img || item._bitmap || (item.previewUrl ? ftEnsureImage(item.previewUrl) : null);
+    ctx.drawImage(img, bounds.x, bounds.y, bounds.width, bounds.height);
   } else {
     // Demo/placeholder asset (Drive/Product-search results with no real image data) — or, for Platform
     // Run specifically, a SKU whose Platform Image filename didn't match any file in the loaded folder
     // (§BUG FIX — PLATFORM RUN SKU EXISTS BUT LIVE PREVIEW IS BLANK: item.status==='MISSING'). Either way
     // the Frame drawn above (opts.bgImg) stays fully visible — only this product layer is a placeholder,
     // never a blank canvas.
-    const pw = aw*((tr.scale||100)/100)*0.7, ph = ah*((tr.scale||100)/100)*0.7;
-    const cx = ax + aw/2 + (tr.x||0)/100*aw;
-    const cy = ay + ah/2 + (tr.y||0)/100*ah;
+    const cx = bounds.x + bounds.width/2, cy = bounds.y + bounds.height/2;
     ctx.fillStyle = '#eef1f6';
     ctx.strokeStyle = '#d7dee7';
     ctx.lineWidth = 1.5;
-    ctx.fillRect(cx-pw/2, cy-ph/2, pw, ph);
-    ctx.strokeRect(cx-pw/2, cy-ph/2, pw, ph);
+    ctx.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+    ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
     ctx.fillStyle = '#8f99a8';
     ctx.textAlign = 'center';
     // §DEV FIX — PLATFORM RUN PREVIEW / READY DATASET §6: an Issues/All-filtered item can be any of
@@ -15382,6 +15544,14 @@ function ftPlatformTransformFor(st, productId){
     st.transforms[productId] = st.global ? {...st.global} : {scale:100, x:0, y:0};
   }
   return st.transforms[productId];
+}
+// §DEV FINAL — REDESIGN PRODUCT AREA §8: derives the stable per-Frame settings key for a computed match
+// — `m.result.profile.id` is already 'main' | a Warranty Frame Profile id | 'gift_<id>' (see
+// ftResolveFrameForProduct), so combined with platformId this uniquely and stably identifies exactly
+// which Frame image this SKU draws with, matching ftFrameIdFor's platform-mode contract.
+function ftPlatformFrameIdFor(st, m){
+  const profileId = (m && m.result && m.result.profile && m.result.profile.id) || 'main';
+  return 'platform:' + (st.platformId||'none') + ':' + profileId;
 }
 // §DEV FIX — OUTPUT-LEVEL BUGS (P0-4): true when there's imported/matched/Run work in progress for the
 // CURRENT Platform that switching away would silently discard.
@@ -16431,7 +16601,7 @@ function renderFtManual(){
         </div>
       </div>
 
-      ${renderFtAdjustSection('manual')}
+      <div data-ft-adjust="manual">${renderFtAdjustSection('manual')}</div>
 
       <div class="ft-sec">
         <div class="ft-sec-title">Export</div>
@@ -16588,18 +16758,29 @@ function renderFtImportSection(mode){
         </div>
       </div>`;
 }
-// §ADD SKU SAFE AREA / PRODUCT MARGINS — one shared Adjust component (Scale/X/Y + SKU Safe Area +
-// Fit to Safe Area/Center/Reset + Apply to All) reused by every mode that positions a product photo
-// (Manual, White Background, CSV, Platform Run) via ftStateFor(mode)/ftSafeAreaOf(mode), same pattern
-// as renderFtImportSection above. Safe Area is Global/default for the current Run only (never written
-// to SKU Master) — per-SKU Scale/X/Y overrides still layer on top of it exactly as before.
+// §DEV FINAL — REDESIGN PRODUCT AREA §6/§7: "SKU Safe Area" (Top/Right/Bottom/Left, session-only, shared
+// across every SKU) is fully retired — replaced by PRODUCT AREA (Max Product Width/Height as the primary,
+// Designer-facing controls; X/Y/Area Width/Height tucked into a collapsed "Advanced" section, §7) saved
+// PER FRAME (§8, ftFrameSettingsFor/saveFtFrameSettings) instead of per-Run. Per-SKU Scale/X/Y (Adjust)
+// is unchanged — it still layers on top of the Product Area's auto contain-fit + alignment, see
+// ftDrawComposite.
 function renderFtAdjustSection(mode){
   const st = ftStateFor(mode);
   const items = st.items||[];
   const current = items[st.currentIndex] || null;
   const tr = current ? current.transform : (st.global || (st.global = {scale:100,x:0,y:0}));
-  const sa = ftSafeAreaOf(mode);
   const noSelection = !current && !(mode==='manual'||mode==='platform');
+  const frameId = ftFrameIdFor(mode, st, current);
+  const fs = ftFrameSettingsFor(frameId);
+  const pa = fs.productArea;
+  const isStandard = JSON.stringify(fs) === JSON.stringify(ftFrameSettingsDefaultFor(frameId));
+  const showRunOverride = mode==='platform' && !!st.platformId;
+  const ov = st.runOverride;
+  // §FINAL UPDATE — USE THE SAME PRODUCT AREA GUIDE ACROSS ALL FRAME SYSTEMS: one Global Product Area
+  // Standard name/label everywhere now — Manual/WBG/CSV/Platform Run all read the exact same text here,
+  // instead of a per-mode "WBG Standard"/"Generic Standard"/"Platform Frame Standard" split.
+  const standardLabel = 'Global Product Area Standard';
+  const resetLabel = '↺ Reset to Global Standard';
   return `
       <div class="ft-sec">
         <div class="ft-sec-title">${current ? 'Adjust' : 'Adjust All'}</div>
@@ -16609,21 +16790,79 @@ function renderFtAdjustSection(mode){
           <div class="ft-slider-row"><span class="ft-slbl">X</span><input type="range" id="ftAdjX" min="-100" max="100" value="${tr.x}" ${noSelection?'disabled':''}><span class="ft-sval" id="ftAdjXVal">${ftSigned(tr.x)}</span></div>
           <div class="ft-slider-row"><span class="ft-slbl">Y</span><input type="range" id="ftAdjY" min="-100" max="100" value="${tr.y}" ${noSelection?'disabled':''}><span class="ft-sval" id="ftAdjYVal">${ftSigned(tr.y)}</span></div>
           <button class="ft-btn ft-btn-secondary ft-btn-block" id="ftAdjApplyAll" ${items.length?'':'disabled'} style="margin-top:6px">✦ ใช้กับทุกรูป</button>
-          <div style="margin-top:12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748B">SKU Safe Area</div>
-          <div class="ft-hint" style="margin:2px 0 6px">พื้นที่สูงสุดที่ Product Image ควรอยู่ — เป็นค่า Default ของ Run นี้ ไม่บันทึกลง SKU Master · ลากกรอบเส้นประบน Preview ได้โดยตรง</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px">
-            <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">Top<input type="number" min="0" max="${FT_SAFE_REF}" id="ftSafeTop" value="${Math.round(sa.top)}" class="ft-input"></label>
-            <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">Right<input type="number" min="0" max="${FT_SAFE_REF}" id="ftSafeRight" value="${Math.round(sa.right)}" class="ft-input"></label>
-            <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">Bottom<input type="number" min="0" max="${FT_SAFE_REF}" id="ftSafeBottom" value="${Math.round(sa.bottom)}" class="ft-input"></label>
-            <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">Left<input type="number" min="0" max="${FT_SAFE_REF}" id="ftSafeLeft" value="${Math.round(sa.left)}" class="ft-input"></label>
-          </div>
           <div style="display:flex;gap:6px;margin-top:8px">
-            <button type="button" class="ft-btn ft-btn-secondary" id="ftAdjFit" style="flex:1" ${noSelection?'disabled':''}>Fit to Safe Area</button>
+            <button type="button" class="ft-btn ft-btn-secondary" id="ftAdjFit" style="flex:1" ${noSelection?'disabled':''}>Fit</button>
             <button type="button" class="ft-btn ft-btn-secondary" id="ftAdjCenter" style="flex:1" ${noSelection?'disabled':''}>Center</button>
             <button type="button" class="ft-btn ft-btn-secondary" id="ftAdjReset" style="flex:1">Reset</button>
           </div>
         </div>
-      </div>`;
+      </div>
+      <div class="ft-sec">
+        <div class="ft-sec-title">PRODUCT AREA</div>
+        <div class="ft-hint" style="margin:-4px 0 8px">ขนาดสูงสุดของสินค้าในเฟรมนี้ — บันทึกลง Frame นี้โดยตรง (Save Standard per Frame) ไม่ใช่ค่าเฉพาะ Run</div>
+        <div class="ft-gbox">
+          <label style="font-size:11px;display:flex;flex-direction:column;gap:2px;margin-bottom:8px">Preset
+            <select id="ftPaPreset" class="ftp-select">
+              <option value="standard" ${isStandard?'selected':''}>${standardLabel}</option>
+              <option value="custom" ${isStandard?'':'selected'}>กำหนดเอง (Custom)</option>
+            </select>
+          </label>
+          <div style="display:flex;align-items:center;gap:8px;margin:8px 0">
+            <span class="ft-slbl" style="min-width:78px;flex:none">Max Width</span>
+            <input type="range" id="ftPaMaxWSlider" min="10" max="${FT_CANVAS_SIZE}" value="${Math.round(fs.productLimit.maxWidth)}" style="flex:1;min-width:0">
+            <input type="number" id="ftPaMaxW" min="10" max="${FT_CANVAS_SIZE}" value="${Math.round(fs.productLimit.maxWidth)}" class="ft-input" style="width:64px;flex:none">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin:8px 0">
+            <span class="ft-slbl" style="min-width:78px;flex:none">Max Height</span>
+            <input type="range" id="ftPaMaxHSlider" min="10" max="${FT_CANVAS_SIZE}" value="${Math.round(fs.productLimit.maxHeight)}" style="flex:1;min-width:0">
+            <input type="number" id="ftPaMaxH" min="10" max="${FT_CANVAS_SIZE}" value="${Math.round(fs.productLimit.maxHeight)}" class="ft-input" style="width:64px;flex:none">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-top:4px">
+            <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">แนวนอน (Horizontal)
+              <select id="ftPaAlignX" class="ftp-select">
+                <option value="left" ${fs.alignX==='left'?'selected':''}>Left</option>
+                <option value="center" ${fs.alignX==='center'?'selected':''}>Center</option>
+                <option value="right" ${fs.alignX==='right'?'selected':''}>Right</option>
+              </select>
+            </label>
+            <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">แนวตั้ง (Vertical)
+              <select id="ftPaAlignY" class="ftp-select">
+                <option value="top" ${fs.alignY==='top'?'selected':''}>Top</option>
+                <option value="center" ${fs.alignY==='center'?'selected':''}>Center</option>
+                <option value="bottom" ${fs.alignY==='bottom'?'selected':''}>Bottom</option>
+              </select>
+            </label>
+          </div>
+          <label class="ft-checkline" style="margin-top:8px"><input type="checkbox" id="ftPaKeepAspect" checked disabled> รักษาสัดส่วนภาพ (Keep aspect ratio)</label>
+          <label class="ft-checkline" style="margin-top:6px"><input type="checkbox" id="ftPaAllowUpscale" ${fs.allowUpscale?'checked':''}> อนุญาตขยายเกินขนาดจริง (Allow upscale)</label>
+          <label class="ft-checkline" style="margin-top:6px"><input type="checkbox" id="ftPaShowMaxGuide" ${st.showMaxSizeGuide?'checked':''}> แสดงกรอบ Max Size Guide (Show Max Size Guide)</label>
+          <div class="ft-hint" style="margin-top:4px">ปกติซ่อนไว้ — กรอบสีน้ำเงินทึบที่เห็นบน Preview คือ Active Product Guide ซึ่งครอบสินค้าจริงเสมอ</div>
+          <button type="button" class="ft-btn ft-btn-secondary ft-btn-block" id="ftPaReset" style="margin-top:8px">${resetLabel}</button>
+        </div>
+        <div style="margin-top:8px">
+          <button type="button" id="ftPaAdvToggle" style="background:none;border:none;padding:0;font-size:11px;font-weight:700;color:#64748B;cursor:pointer">▸ Advanced Product Area</button>
+          <div id="ftPaAdvBody" style="display:none;margin-top:8px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px">
+              <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">X<input type="number" min="0" max="${FT_CANVAS_SIZE}" id="ftPaX" value="${Math.round(pa.x)}" class="ft-input"></label>
+              <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">Y<input type="number" min="0" max="${FT_CANVAS_SIZE}" id="ftPaY" value="${Math.round(pa.y)}" class="ft-input"></label>
+              <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">Area Width<input type="number" min="10" max="${FT_CANVAS_SIZE}" id="ftPaW" value="${Math.round(pa.width)}" class="ft-input"></label>
+              <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">Area Height<input type="number" min="10" max="${FT_CANVAS_SIZE}" id="ftPaH" value="${Math.round(pa.height)}" class="ft-input"></label>
+            </div>
+            <div class="ft-hint">พื้นที่ที่อนุญาตให้วางสินค้า (Canvas ${FT_CANVAS_SIZE}×${FT_CANVAS_SIZE}px) — ปรับเฉพาะกรณีพิเศษเท่านั้น ไม่ใช่ตัวควบคุมหลัก</div>
+          </div>
+        </div>
+      </div>
+      ${showRunOverride ? `
+      <div class="ft-sec">
+        <div class="ft-sec-title">Run Override</div>
+        <label class="ft-checkline"><input type="checkbox" id="ftPaOvToggle" ${ov?'checked':''}> ปรับเฉพาะ Run นี้ (Customize This Run)</label>
+        <div class="ft-hint" style="margin:4px 0 8px">ไม่แก้ไข Frame Standard ที่บันทึกไว้ — ใช้ชั่วคราวสำหรับ Run นี้เท่านั้น</div>
+        ${ov ? `
+        <label style="font-size:11px;display:flex;flex-direction:column;gap:2px;margin-bottom:6px">Max Width<input type="number" min="10" max="${FT_CANVAS_SIZE}" id="ftPaOvMaxW" value="${Math.round(ov.maxWidth||fs.productLimit.maxWidth)}" class="ft-input"></label>
+        <label style="font-size:11px;display:flex;flex-direction:column;gap:2px">Max Height<input type="number" min="10" max="${FT_CANVAS_SIZE}" id="ftPaOvMaxH" value="${Math.round(ov.maxHeight||fs.productLimit.maxHeight)}" class="ft-input"></label>
+        <button type="button" class="ft-btn ft-btn-secondary ft-btn-block" id="ftPaOvReset" style="margin-top:6px">↺ Reset Override</button>
+        ` : ''}
+      </div>` : ''}`;
 }
 function renderFtWhiteBG(){
   const w = ftWbgState();
@@ -16654,7 +16893,7 @@ function renderFtWhiteBG(){
 
       <div data-ft-import="whitebg">${renderFtImportSection('whitebg')}</div>
 
-      ${renderFtAdjustSection('whitebg')}
+      <div data-ft-adjust="whitebg">${renderFtAdjustSection('whitebg')}</div>
     </div>
     ${renderFtWorkspace('whitebg')}
   </div>`;
@@ -16664,9 +16903,10 @@ function renderFtWorkspace(mode, extra){
   const st = mode==='manual' ? ftManualState() : mode==='csv' ? ftCsvState() : mode==='platform' ? ftPlatformState() : ftWbgState();
   const items = st.items;
   const current = items[st.currentIndex] || null;
+  const showQuickFilters = mode==='platform' && extra && st.platformId;
   return `
-    <div class="ft-workspace">
-      ${mode==='platform' && extra && st.platformId ? `
+    <div class="ft-workspace${showQuickFilters ? ' platform-workspace' : ''}">
+      ${showQuickFilters ? `
       <!-- §DEV FIX — PLATFORM RUN PREVIEW / READY DATASET §4: Ready is the default/normal Preview
            dataset (same as ZIP/Run); Issues/All are inspection-only switches — they never change what
            ZIP All or Run actually process. -->
@@ -16677,7 +16917,10 @@ function renderFtWorkspace(mode, extra){
       </div>` : ''}
       <div class="ft-canvas-wrap">
         <div class="ft-preview-label">Live Preview</div>
-        <canvas id="ftCanvas" class="ft-canvas" width="800" height="800" data-ftmode="${mode}"></canvas>
+        <div class="ft-canvas-stack">
+          <canvas id="ftCanvas" class="ft-canvas" width="800" height="800" data-ftmode="${mode}"></canvas>
+          <canvas id="ftGuideOverlay" class="ft-guide-overlay" width="800" height="800"></canvas>
+        </div>
         <div class="ft-canvas-meta">${current ? escapeFtHtml(current.name) : (items.length ? '' : mode==='platform' && st.previewFilter==='ready' ? 'ยังไม่มี SKU ที่ Ready — เช็คแท็บ Issues หรือ Import รูปเพิ่ม' : 'ยังไม่มีรูปสินค้า')}</div>
       </div>
       <div class="ft-navbar">
@@ -16758,7 +17001,7 @@ function renderFtCSV(){
         <button class="ft-btn ft-btn-primary ft-btn-block" id="ftCsvRun" style="margin-top:9px" ${c.rows.length?'':'disabled'}>▶ รัน (${matchedCount} รายการ)</button>
       </div>
 
-      ${renderFtAdjustSection('csv')}
+      <div data-ft-adjust="csv">${renderFtAdjustSection('csv')}</div>
 
       <div class="ft-sec">
         <div class="ft-sec-title">Export</div>
@@ -16850,56 +17093,15 @@ function ftCurrentTransform(mode){
 // same ±100 clamp the sliders already use via their min/max). The move/up listeners are attached to
 // `document` only for the duration of one drag gesture and removed on mouseup — never left stacking up
 // across renders, unlike a listener bound directly to `window` inside a function called on every render.
-// §ADD SKU SAFE AREA — a mousedown near one of the 4 dashed Safe Area edges drags that edge's px
-// margin directly (faster than typing numbers, per Krissha's request), and takes priority over the
-// existing "drag the product photo" gesture below; a mousedown anywhere else on the canvas still
-// moves the product exactly as before.
-const FT_EDGE_GRAB_PX = 10;
-function ftEdgeHitTest(mode, canvas, clientX, clientY){
-  const sa = ftSafeAreaOf(mode);
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
-  const cx = (clientX-rect.left)*scaleX, cy = (clientY-rect.top)*scaleY;
-  const area = ftAreaPctFromSafeArea(sa);
-  const ax = area.x*canvas.width, ay = area.y*canvas.height, aw = area.w*canvas.width, ah = area.h*canvas.height;
-  const tol = FT_EDGE_GRAB_PX * Math.max(scaleX, scaleY);
-  const withinX = cx >= ax-tol && cx <= ax+aw+tol;
-  const withinY = cy >= ay-tol && cy <= ay+ah+tol;
-  if(withinX && Math.abs(cy-ay) <= tol) return 'top';
-  if(withinX && Math.abs(cy-(ay+ah)) <= tol) return 'bottom';
-  if(withinY && Math.abs(cx-ax) <= tol) return 'left';
-  if(withinY && Math.abs(cx-(ax+aw)) <= tol) return 'right';
-  return null;
-}
+// §DEV FINAL — REDESIGN PRODUCT AREA: the old drag-the-Safe-Area-edge-to-resize gesture (ftEdgeHitTest/
+// FT_EDGE_GRAB_PX) is retired — the new spec only calls for numeric Advanced Product Area fields (§7),
+// not direct-drag resizing. The separate "drag the product photo to reposition" gesture below is
+// unchanged, except its mouseup now syncs the sidebar via refreshFtAdjustSection(mode) (scoped) instead
+// of root render() — dragging a product must never rebuild Import/Ready-Issues/Sidebar/Navigation (§12).
 function bindFtCanvasDrag(mode){
   const canvas = document.getElementById('ftCanvas');
   if(!canvas) return;
   canvas.addEventListener('mousedown', (e)=>{
-    const edge = ftEdgeHitTest(mode, canvas, e.clientX, e.clientY);
-    if(edge){
-      e.preventDefault();
-      const sa = ftSafeAreaOf(mode);
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
-      let movedEdge = false;
-      function onEdgeMove(ev){
-        movedEdge = true;
-        const cx = (ev.clientX-rect.left)*scaleX, cy = (ev.clientY-rect.top)*scaleY;
-        if(edge==='top') sa.top = Math.max(0, Math.min(FT_SAFE_REF, cy));
-        else if(edge==='bottom') sa.bottom = Math.max(0, Math.min(FT_SAFE_REF, FT_SAFE_REF-cy));
-        else if(edge==='left') sa.left = Math.max(0, Math.min(FT_SAFE_REF, cx));
-        else if(edge==='right') sa.right = Math.max(0, Math.min(FT_SAFE_REF, FT_SAFE_REF-cx));
-        ftRedrawCanvas();
-      }
-      function onEdgeUp(){
-        document.removeEventListener('mousemove', onEdgeMove);
-        document.removeEventListener('mouseup', onEdgeUp);
-        if(movedEdge) render(); // syncs the Top/Right/Bottom/Left number inputs with where the drag ended
-      }
-      document.addEventListener('mousemove', onEdgeMove);
-      document.addEventListener('mouseup', onEdgeUp);
-      return;
-    }
     const tr = ftCurrentTransform(mode);
     if(!tr) return;
     e.preventDefault();
@@ -16918,15 +17120,13 @@ function bindFtCanvasDrag(mode){
     function onUp(){
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
-      if(moved) render(); // syncs the X/Y slider positions + labels with where the drag ended
+      if(moved) refreshFtAdjustSection(mode); // syncs the X/Y slider positions + labels with where the drag ended
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
-  canvas.addEventListener('mousemove', (e)=>{
-    // Cursor affordance only (no drag in progress) — resize cursor near an edge, move cursor elsewhere.
-    const edge = ftEdgeHitTest(mode, canvas, e.clientX, e.clientY);
-    canvas.style.cursor = (edge==='top'||edge==='bottom') ? 'ns-resize' : (edge==='left'||edge==='right') ? 'ew-resize' : 'move';
+  canvas.addEventListener('mousemove', ()=>{
+    canvas.style.cursor = 'move';
   });
 }
 
@@ -17333,15 +17533,31 @@ function bindFtImportSection(mode){
     });
   });
 }
+// §DEV FINAL — REDESIGN PRODUCT AREA §1/§11/§12: scoped-refresh sibling of refreshFtImportSection —
+// targets the stable [data-ft-adjust="mode"] wrapper (see the 4 renderFtAdjustSection() call sites)
+// instead of root render(), which was flagged as "the main root cause of regression" for every Product
+// Area interaction (scroll-jump / Preview disappearing / Canvas collapse / Import reset / state loss).
+function refreshFtAdjustSection(mode){
+  const root = document.querySelector(`[data-ft-adjust="${mode}"]`);
+  if(!root){ render(); return; }
+  const scrollParent = root.closest('.ft-sidebar');
+  const sidebarTop = scrollParent ? scrollParent.scrollTop : null;
+  root.innerHTML = renderFtAdjustSection(mode);
+  bindFtAdjustSection(mode);
+  if(scrollParent && sidebarTop!=null) scrollParent.scrollTop = sidebarTop;
+  ftRedrawCanvas();
+}
 // Bind side of renderFtAdjustSection() above — shared by every mode using the Adjust (Scale/X/Y +
-// SKU Safe Area + Fit/Center/Reset + Apply to All) component (Manual, White Background, CSV,
-// Platform Run). Reads/writes via ftStateFor(mode)/ftSafeAreaOf(mode), same pattern as
+// Product Area + Fit/Center/Reset + Apply to All) component (Manual, White Background, CSV,
+// Platform Run). Reads/writes via ftStateFor(mode)/ftFrameSettingsFor(frameId), same pattern as
 // bindFtImportSection. Called once per mode's own bind function, after its other bindings.
 function bindFtAdjustSection(mode){
   const st = ftStateFor(mode);
   const items = st.items||[];
   const current = items[st.currentIndex] || null;
   const target = () => current ? current.transform : (st.global || (st.global = {scale:100,x:0,y:0}));
+  const frameId = ftFrameIdFor(mode, st, current);
+  const fs = ftFrameSettingsFor(frameId);
 
   document.getElementById('ftAdjScale')?.addEventListener('input', (e)=>{
     target().scale = parseFloat(e.target.value);
@@ -17369,41 +17585,138 @@ function bindFtAdjustSection(mode){
       it.transform = copy;
     });
     toast('ใช้ค่าปรับตำแหน่งกับทุกรูปแล้ว');
-    render();
+    refreshFtAdjustSection(mode);
   });
-
-  // SKU Safe Area — plain px inputs (relative to FT_SAFE_REF), live-redraw on every keystroke,
-  // full re-render on blur/change so the dashed preview + any disabled-state stays in sync.
-  const sa = ftSafeAreaOf(mode);
-  const bindSafe = (id, key)=>{
-    document.getElementById(id)?.addEventListener('input', e=>{
-      const v = parseFloat(e.target.value);
-      sa[key] = isFinite(v) ? Math.max(0, v) : 0;
-      ftRedrawCanvas();
-    });
-    document.getElementById(id)?.addEventListener('change', ()=>render());
-  };
-  bindSafe('ftSafeTop','top'); bindSafe('ftSafeRight','right'); bindSafe('ftSafeBottom','bottom'); bindSafe('ftSafeLeft','left');
 
   document.getElementById('ftAdjFit')?.addEventListener('click', ()=>{
-    // Fit to Safe Area = scale 100 (the app's own aspect-fit math already fits the image exactly
-    // inside the safe area at scale 100, see ftDrawComposite), centered, no crop, no stretch.
+    // Fit = scale 100 (the app's own contain-fit math already fits the image exactly inside Max
+    // Product Width/Height at scale 100, see ftDrawComposite), centered per the Product Area's
+    // alignment, no crop, no stretch.
     const tr = target(); tr.scale = 100; tr.x = 0; tr.y = 0;
-    toast('Fit รูปให้พอดี Safe Area แล้ว');
-    render();
+    toast('Fit รูปให้พอดี Product Area แล้ว');
+    refreshFtAdjustSection(mode);
   });
   document.getElementById('ftAdjCenter')?.addEventListener('click', ()=>{
-    // Center = center within the Safe Area (not the whole canvas) — keeps the current scale.
+    // Center = center within the Product Area (not the whole canvas) — keeps the current scale.
     const tr = target(); tr.x = 0; tr.y = 0;
-    toast('จัดกึ่งกลาง Safe Area แล้ว');
-    render();
+    toast('จัดกึ่งกลาง Product Area แล้ว');
+    refreshFtAdjustSection(mode);
   });
   document.getElementById('ftAdjReset')?.addEventListener('click', ()=>{
     const tr = target(); tr.scale = 100; tr.x = 0; tr.y = 0;
-    Object.assign(sa, ftSafeAreaDefault());
-    toast('รีเซ็ตค่าปรับและ Safe Area แล้ว');
-    render();
+    toast('รีเซ็ตค่าปรับแล้ว');
+    refreshFtAdjustSection(mode);
   });
+
+  // §DEV FINAL — PRODUCT AREA (§2-§8): every control below writes straight into this Frame's own
+  // persisted ftFrameSettingsFor(frameId) entry — ftRedrawCanvas() on every keystroke, never render()
+  // (§11 "the main root cause of regression"), and saveFtFrameSettings() only on change/blur so a drag
+  // doesn't spam storage writes. Rebinding via refreshFtAdjustSection (not render()) keeps Import/
+  // Ready-Issues/Sidebar/Navigation/Frame Routing untouched per §12.
+  const syncMaxWFields = (v)=>{
+    const el1 = document.getElementById('ftPaMaxW'); if(el1) el1.value = Math.round(v);
+    const el2 = document.getElementById('ftPaMaxWSlider'); if(el2) el2.value = Math.round(v);
+  };
+  const syncMaxHFields = (v)=>{
+    const el1 = document.getElementById('ftPaMaxH'); if(el1) el1.value = Math.round(v);
+    const el2 = document.getElementById('ftPaMaxHSlider'); if(el2) el2.value = Math.round(v);
+  };
+  const onMaxWInput = (e)=>{
+    const v = ftClamp(parseFloat(e.target.value), 10, FT_CANVAS_SIZE);
+    fs.productLimit.maxWidth = v; syncMaxWFields(v); ftRedrawCanvas();
+  };
+  const onMaxHInput = (e)=>{
+    const v = ftClamp(parseFloat(e.target.value), 10, FT_CANVAS_SIZE);
+    fs.productLimit.maxHeight = v; syncMaxHFields(v); ftRedrawCanvas();
+  };
+  document.getElementById('ftPaMaxW')?.addEventListener('input', onMaxWInput);
+  document.getElementById('ftPaMaxWSlider')?.addEventListener('input', onMaxWInput);
+  document.getElementById('ftPaMaxH')?.addEventListener('input', onMaxHInput);
+  document.getElementById('ftPaMaxHSlider')?.addEventListener('input', onMaxHInput);
+  ['ftPaMaxW','ftPaMaxWSlider','ftPaMaxH','ftPaMaxHSlider'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('change', ()=> saveFtFrameSettings());
+  });
+
+  document.getElementById('ftPaAlignX')?.addEventListener('change', (e)=>{
+    fs.alignX = e.target.value; ftRedrawCanvas(); saveFtFrameSettings();
+  });
+  document.getElementById('ftPaAlignY')?.addEventListener('change', (e)=>{
+    fs.alignY = e.target.value; ftRedrawCanvas(); saveFtFrameSettings();
+  });
+  document.getElementById('ftPaAllowUpscale')?.addEventListener('change', (e)=>{
+    fs.allowUpscale = e.target.checked; ftRedrawCanvas(); saveFtFrameSettings();
+  });
+  // §FIX — PRODUCT GUIDE MUST FOLLOW ACTUAL PRODUCT: a personal editor display preference, session-only
+  // per mode (st.showMaxSizeGuide) — never written into ftFrameSettingsFor()/saveFtFrameSettings(), since
+  // it's not part of the Frame Standard, just whether THIS Designer wants the (now de-emphasized) Max
+  // Size cap box visible while adjusting Max Width/Height.
+  document.getElementById('ftPaShowMaxGuide')?.addEventListener('change', (e)=>{
+    st.showMaxSizeGuide = e.target.checked;
+    ftRedrawCanvas();
+  });
+  // §FINAL UPDATE — USE THE SAME PRODUCT AREA GUIDE ACROSS ALL FRAME SYSTEMS: resets THIS frame back to
+  // the one Global Product Area Standard — same toast text everywhere, no per-mode wording split.
+  const resetToastMsg = 'รีเซ็ตเป็น Global Product Area Standard แล้ว';
+  document.getElementById('ftPaPreset')?.addEventListener('change', (e)=>{
+    if(e.target.value==='standard'){
+      Object.assign(fs, ftFrameSettingsDefaultFor(frameId));
+      toast(resetToastMsg);
+      saveFtFrameSettings();
+      refreshFtAdjustSection(mode);
+    }
+  });
+  document.getElementById('ftPaReset')?.addEventListener('click', ()=>{
+    Object.assign(fs, ftFrameSettingsDefaultFor(frameId));
+    toast(resetToastMsg);
+    saveFtFrameSettings();
+    refreshFtAdjustSection(mode);
+  });
+
+  document.getElementById('ftPaAdvToggle')?.addEventListener('click', ()=>{
+    const body = document.getElementById('ftPaAdvBody');
+    const btn = document.getElementById('ftPaAdvToggle');
+    if(!body || !btn) return;
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    btn.textContent = (open ? '▸' : '▾') + ' Advanced Product Area';
+  });
+  const bindAdv = (id, key, min)=>{
+    document.getElementById(id)?.addEventListener('input', (e)=>{
+      const v = ftClamp(parseFloat(e.target.value), min, FT_CANVAS_SIZE);
+      fs.productArea[key] = v;
+      ftRedrawCanvas();
+    });
+    document.getElementById(id)?.addEventListener('change', ()=> saveFtFrameSettings());
+  };
+  bindAdv('ftPaX','x',0); bindAdv('ftPaY','y',0); bindAdv('ftPaW','width',10); bindAdv('ftPaH','height',10);
+
+  // §9 Run Override — Platform Run only, session-only (st.runOverride), NEVER writes into
+  // ftFrameSettingsFor()/saveFtFrameSettings() — "การ Override นี้ ห้ามแก้ Master Frame".
+  if(mode==='platform'){
+    document.getElementById('ftPaOvToggle')?.addEventListener('change', (e)=>{
+      st.runOverride = e.target.checked
+        ? { maxWidth: fs.productLimit.maxWidth, maxHeight: fs.productLimit.maxHeight }
+        : null;
+      ftRedrawCanvas();
+      refreshFtAdjustSection(mode);
+    });
+    document.getElementById('ftPaOvMaxW')?.addEventListener('input', (e)=>{
+      if(!st.runOverride) st.runOverride = {};
+      st.runOverride.maxWidth = ftClamp(parseFloat(e.target.value), 10, FT_CANVAS_SIZE);
+      ftRedrawCanvas();
+    });
+    document.getElementById('ftPaOvMaxH')?.addEventListener('input', (e)=>{
+      if(!st.runOverride) st.runOverride = {};
+      st.runOverride.maxHeight = ftClamp(parseFloat(e.target.value), 10, FT_CANVAS_SIZE);
+      ftRedrawCanvas();
+    });
+    document.getElementById('ftPaOvReset')?.addEventListener('click', ()=>{
+      st.runOverride = null;
+      toast('รีเซ็ต Run Override แล้ว');
+      ftRedrawCanvas();
+      refreshFtAdjustSection(mode);
+    });
+  }
 }
 
 function bindFtWhiteBG(){
@@ -17495,8 +17808,9 @@ function ftPlatformComposeDataUrl(item, frameUrl, sizePx, format){
   const ctx = off.getContext('2d');
   const st = ftPlatformState();
   const composeItem = frameUrl && !item.frameUrl ? {...item, frameUrl} : item;
+  // ftDrawComposite never draws the Product Area guide itself any more (see ftDrawGuideOverlay) — this
+  // offscreen export canvas is guaranteed guide-free by construction, nothing to force off here.
   const opts = ftOptsFor('platform', st, composeItem);
-  opts.showGuide = false;
   ftDrawComposite(ctx, sizePx, sizePx, opts);
   if(format==='png') return off.toDataURL('image/png');
   return off.toDataURL('image/jpeg', 0.92);
@@ -17608,6 +17922,10 @@ function renderFtPlatform(){
       status: m.result.status,
       previewUrl: ready ? m.result.file.url : '',
       frameUrl: (m.result.profile && m.result.profile.frameUrl) || '',
+      // §DEV FINAL — REDESIGN PRODUCT AREA §8: which Frame's own Product Area/Max W/H Standard this SKU
+      // actually draws with — Main / a specific Warranty Frame Profile / a specific Gift Frame each keep
+      // separate settings, so this must follow the SKU's real resolved routing, never default to Main.
+      frameId: ftPlatformFrameIdFor(st, m),
       transform: ftPlatformTransformFor(st, m.product.id),
       _bitmap: ready ? m.result.file._bitmap : undefined, // set only for Drive-loaded files (ftpLoadCampaignImages) — undefined for local-folder files, which fall back to ftEnsureImage(previewUrl) like before
     };
@@ -17730,7 +18048,7 @@ function renderFtPlatform(){
         <div class="ftp-routelist">${renderFtPlatformRoutingSummary(groups)}</div>
       </div>
 
-      ${renderFtAdjustSection('platform')}
+      <div data-ft-adjust="platform">${renderFtAdjustSection('platform')}</div>
 
       <div class="ft-sec">
         <div class="ft-sec-title">Export</div>
@@ -17857,7 +18175,7 @@ async function ftPlatformGeneratePreview(){
       await ftLoadImagePromise(m.result.file.url);
       // §DEV FIX P0-1/P1-10: the product's actual saved Scale/X/Y — never a hardcoded default — so the
       // 220px sample looks exactly like what Run All will actually produce for this SKU.
-      const item = {name:m.result.file.name, previewUrl:m.result.file.url, _bitmap:m.result.file._bitmap, transform: ftPlatformTransformFor(st, m.product.id)};
+      const item = {name:m.result.file.name, previewUrl:m.result.file.url, _bitmap:m.result.file._bitmap, frameId: ftPlatformFrameIdFor(st, m), transform: ftPlatformTransformFor(st, m.product.id)};
       st.previewCache[m.product.id] = ftPlatformComposeDataUrl(item, m.result.profile.frameUrl, 220, 'jpg');
     }catch(e){
       // §DEV FIX P0-2: decode failure → no placeholder cached for this SKU; leave previewCache empty so
@@ -17911,7 +18229,7 @@ async function ftPlatformRunAll(){
       await ftLoadImagePromise(m.result.file.url);
       // §DEV FIX P0-1/P1-9/P1-10: the Designer's actual saved Scale/X/Y for this SKU — the single source
       // of truth shared with Live Preview/Preview Sample/Retry Failed — never a hardcoded default.
-      const item = {name:m.result.file.name, previewUrl:m.result.file.url, _bitmap:m.result.file._bitmap, transform: ftPlatformTransformFor(st, m.product.id)};
+      const item = {name:m.result.file.name, previewUrl:m.result.file.url, _bitmap:m.result.file._bitmap, frameId: ftPlatformFrameIdFor(st, m), transform: ftPlatformTransformFor(st, m.product.id)};
       const dataUrl = ftPlatformComposeDataUrl(item, m.result.profile.frameUrl, st.exportSize, st.exportFormat);
       files.push({productId:m.product.id, sku:m.product.primarySku, name:m.result.file.name, dataUrl, status:'DONE'});
     }catch(e){
@@ -17984,7 +18302,7 @@ async function ftPlatformRetryFailed(){
       await ftLoadImagePromise(m.result.file.url);
       // §DEV FIX P0-1/P1-10: same saved-transform lookup as Preview/Run All — Retry must never fall back
       // to a hardcoded default either, or a retried SKU would silently reposition itself.
-      const item = {name:m.result.file.name, previewUrl:m.result.file.url, _bitmap:m.result.file._bitmap, transform: ftPlatformTransformFor(st, m.product.id)};
+      const item = {name:m.result.file.name, previewUrl:m.result.file.url, _bitmap:m.result.file._bitmap, frameId: ftPlatformFrameIdFor(st, m), transform: ftPlatformTransformFor(st, m.product.id)};
       f.dataUrl = ftPlatformComposeDataUrl(item, m.result.profile.frameUrl, st.exportSize, st.exportFormat);
       f.status = 'DONE'; f.error = null;
     }catch(e){
@@ -18298,13 +18616,17 @@ function ftStateFor(mode){
 // Builds the ftDrawComposite() opts for a given mode + item; shared by the live preview canvas
 // and the offscreen export canvas so both always render identically.
 function ftOptsFor(mode, st, item){
+  // §DEV FINAL — REDESIGN PRODUCT AREA: one call resolves Product Area + Max Width/Height + alignment +
+  // upscale rule for whichever Frame this item actually belongs to (per-Frame settings, §8) — every
+  // caller of ftOptsFor (Live Preview, Preview Sample, Run All, Retry Failed, every Export path) shares
+  // this, so they all composite pixel-identically, same as the P0-1 fix earlier this round.
+  const layout = ftProductLayoutOptsFor(mode, st, item);
   if(mode==='manual'){
     return {
       mode:'manual',
       bgImg: st.frameUrl ? ftEnsureImage(st.frameUrl) : null,
       productItem: item,
-      areaPct: ftAreaPctFromSafeArea(ftSafeAreaOf(mode)),
-      showGuide: true,
+      ...layout,
       brandmark: false,
     };
   }
@@ -18317,8 +18639,7 @@ function ftOptsFor(mode, st, item){
       mode:'csv',
       bgImg: item && item.frameUrl ? ftEnsureImage(item.frameUrl) : null,
       productItem: item,
-      areaPct: ftAreaPctFromSafeArea(ftSafeAreaOf(mode)),
-      showGuide: true,
+      ...layout,
       brandmark: false,
       // Platform Run has no per-row CSV to point back to, so its own no-Frame placeholder reads correctly.
       noFrameLabel: mode==='platform' ? 'ยังไม่มี Frame ให้แสดง — ตั้งค่า Main/Warranty/Gift Frame ในแถบซ้าย' : undefined,
@@ -18329,8 +18650,7 @@ function ftOptsFor(mode, st, item){
     mode:'whitebg',
     bgImg: wbg && wbg.url ? ftEnsureImage(wbg.url) : null,
     productItem: item,
-    areaPct: ftAreaPctFromSafeArea(ftSafeAreaOf(mode)),
-    showGuide: true,
+    ...layout,
     brandmark: true,
   };
 }
@@ -18354,18 +18674,87 @@ function ftRedrawCanvas(){
   }
 
   ftDrawComposite(ctx, canvas.width, canvas.height, ftOptsFor(mode, st, current));
+  // §DEV FIX — PRODUCT AREA GUIDE MUST MOVE LIVE BUT MUST NOT EXPORT: every caller of ftRedrawCanvas()
+  // (Product Area sliders/inputs, per-SKU drag/Adjust, Next/Previous, Import finishing, …) gets the guide
+  // kept in sync automatically from this one place — no call site anywhere needs to remember a second
+  // "and also redraw the guide" call. flow is exactly: update state → ftRedrawCanvas() → (guide follows).
+  ftRedrawGuideOverlay();
+}
+// Draws ONLY the Product Area guide (dashed border) + the "no product yet" hint, onto the entirely
+// separate #ftGuideOverlay canvas stacked on top of #ftCanvas (see .ft-canvas-stack CSS) — never onto
+// #ftCanvas itself and never onto an export canvas, so the guide is structurally impossible to export.
+// Uses the exact same ftProductBoxGeometry() as the real product placement in ftDrawComposite, so it can
+// never drift from where the product actually renders (Acceptance #5).
+function ftDrawGuideOverlay(mode){
+  const canvas = document.getElementById('ftGuideOverlay');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const st = ftStateFor(mode);
+  const current = st.items[st.currentIndex] || null;
+  const opts = ftProductLayoutOptsFor(mode, st, current);
+  const {ax, ay, aw, ah, gx, gy, gw, gh} = ftProductBoxGeometry(w, h, opts);
+  // Outer dashed box = Product Area itself (the allowed placement region, §2) — de-emphasized (lighter,
+  // thinner) now that the Active Product Guide below is the box a Designer actually watches while
+  // adjusting Size/X/Y (Krissha, bug report: the old static inner box stayed centered after the product
+  // had been offset, so it looked like nothing was tracking the real product — see below).
+  ctx.strokeStyle = 'rgba(63,133,246,0.35)';
+  ctx.setLineDash([6,5]);
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(ax, ay, aw, ah);
+
+  // §FIX — PRODUCT GUIDE MUST FOLLOW ACTUAL PRODUCT: the Max Product Size cap box (gx,gy,gw,gh) is now
+  // hidden by default — it never incorporated per-SKU Scale/X/Y, so it used to sit centered in the
+  // Product Area even after the real product had visibly moved, which is exactly the confusing state
+  // Krissha's screenshots showed. It's shown only when the Designer explicitly turns on "Show Max Size
+  // Guide" (st.showMaxSizeGuide, a personal editor display preference — not part of the saved Frame
+  // Standard, see renderFtAdjustSection/bindFtAdjustSection).
+  if(st.showMaxSizeGuide && (gw < aw - 0.5 || gh < ah - 0.5)){
+    ctx.strokeStyle = 'rgba(100,116,139,0.65)';
+    ctx.setLineDash([3,3]);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(gx, gy, gw, gh);
+  }
+
+  // NEW — Active Product Guide: a solid, Figma/Canva-style selection box drawn from ftComputeProductBounds
+  // — the EXACT SAME bounds ftDrawComposite uses to draw the real product on #ftCanvas — so this box always
+  // tracks the actual on-canvas product position/size (including Scale/X/Y and the Product-Area clamp) in
+  // realtime, and never stays centered after the product has been offset ("ห้ามให้ Product Guide อยู่
+  // Center ค้างไว้หลังจาก Product ถูก Offset"). Reuses ftRedrawCanvas()'s existing call to
+  // ftRedrawGuideOverlay() at the end of every redraw, so every Scale/X/Y slider's `input` handler already
+  // keeps this in lockstep with the product with zero extra wiring.
+  const bounds = ftComputeProductBounds(w, h, opts, current);
+  if(bounds){
+    ctx.strokeStyle = '#2563EB';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+  }
+
+  ctx.setLineDash([]);
+  ctx.lineWidth = 1;
+  if(!current){
+    ctx.fillStyle = '#64748B';
+    ctx.font = `${Math.round(w*0.026)}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText('นำเข้ารูปสินค้า', w/2, ay+ah/2);
+  }
+}
+function ftRedrawGuideOverlay(){
+  const canvas = document.getElementById('ftCanvas');
+  if(!canvas) return;
+  ftDrawGuideOverlay(canvas.getAttribute('data-ftmode'));
 }
 
 function ftComposeDataUrl(mode, item, sizePx, format, limitKey){
   const off = document.createElement('canvas');
   off.width = sizePx; off.height = sizePx;
   const ctx = off.getContext('2d');
-  // The dashed blue guide box (opts.showGuide, White Background mode's "แสดงเส้นกรอบพื้นที่สินค้า"
-  // toggle) is a live-preview positioning aid only — it must never be baked into the exported file, so
-  // it's forced off here regardless of the on-screen toggle state (Krissha, bug report: "มีกรอบฟ้าๆ ตอน
-  // Export").
+  // ftDrawComposite never draws the Product Area guide itself any more (see ftDrawGuideOverlay) — this
+  // offscreen export canvas is guaranteed guide-free by construction (Krissha, earlier bug report:
+  // "มีกรอบฟ้าๆ ตอน Export" — now structurally impossible, not just flagged off).
   const opts = ftOptsFor(mode, ftStateFor(mode), item);
-  opts.showGuide = false;
   ftDrawComposite(ctx, sizePx, sizePx, opts);
 
   if(format==='png'){
