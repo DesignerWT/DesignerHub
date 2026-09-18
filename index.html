@@ -2167,6 +2167,13 @@ let STATE = {
   // already-assigned task, with a required Reason — never through the PO's Brief Form. See
   // renderEditQuantityModal()/bindEditQuantityModal() and the 'editqty' handleAction branch.
   editQuantityUI:{taskId:null, error:''},
+  // Designer Preflight (Final Workflow Update §5): gates the first-ever "start" transition — Designer
+  // reviews/corrects Brief Scope before the Timer can start. See renderPreflightModal()/bindPreflightModal().
+  preflightUI:{taskId:null, artwork:1, resize:0, error:''},
+  // Adjust Scope (Final Workflow Update §7): the only way to change Artwork/Resize once Production has
+  // started — a reasoned Scope Change transaction, never a direct overwrite. See
+  // renderAdjustScopeModal()/bindAdjustScopeModal().
+  adjustScopeUI:{taskId:null, type:'artwork', action:'add', qty:1, reason:'', requestedBy:'Brief Owner', error:''},
   // Assign/Reassign Designer (Master Dev Spec Phase F): Lead Designer only, workload-aware dropdown +
   // required Reason. See canReassign()/renderReassignModal()/bindReassignModal().
   reassignUI:{taskId:null, error:''},
@@ -2237,7 +2244,7 @@ let STATE = {
       sourceTab:'drive', driveUrl:'', driveReference:'', productSearch:'', productReference:'',
       // §DEV FIX P1-8: extra reference/working-file links the Designer pastes in via "เพิ่มลิงก์อ้างอิง" —
       // {label, url, addedAt} — previously that button only showed a toast and threw the link away.
-      extraLinks:[],
+      extraLinks:[], extraLinkDraft:'', extraLinkError:'',
       queue:[], searchKw:'',
       items:[], currentIndex:0,
       global:{scale:100,x:0,y:0},
@@ -2247,7 +2254,7 @@ let STATE = {
       sourceTab:'drive', driveUrl:'', driveReference:'', productSearch:'', productReference:'',
       // §DEV FIX P1-8: extra reference/working-file links the Designer pastes in via "เพิ่มลิงก์อ้างอิง" —
       // {label, url, addedAt} — previously that button only showed a toast and threw the link away.
-      extraLinks:[],
+      extraLinks:[], extraLinkDraft:'', extraLinkError:'',
       queue:[], searchKw:'', items:[], currentIndex:0, showGuide:true,
     },
     // §Standardize IMPORT PRODUCT IMAGES — csv/platform below now carry the same shared source-tab
@@ -2261,7 +2268,7 @@ let STATE = {
       sourceTab:'drive', driveUrl:'', driveReference:'', productSearch:'', productReference:'',
       // §DEV FIX P1-8: extra reference/working-file links the Designer pastes in via "เพิ่มลิงก์อ้างอิง" —
       // {label, url, addedAt} — previously that button only showed a toast and threw the link away.
-      extraLinks:[],
+      extraLinks:[], extraLinkDraft:'', extraLinkError:'',
       queue:[], searchKw:'',
       items:[], currentIndex:0,
       exportFormat:'jpg', exportSize:2000, exportLimit:'none',
@@ -2280,7 +2287,7 @@ let STATE = {
       sourceTab:'drive', driveUrl:'', driveReference:'', productSearch:'', productReference:'',
       // §DEV FIX P1-8: extra reference/working-file links the Designer pastes in via "เพิ่มลิงก์อ้างอิง" —
       // {label, url, addedAt} — previously that button only showed a toast and threw the link away.
-      extraLinks:[],
+      extraLinks:[], extraLinkDraft:'', extraLinkError:'',
       queue:[], searchKw:'',
       issuesOpen:false, runInProgress:false, runProgress:{done:0, total:0, failed:0}, lastRun:null,
       previewCache:{}, exportFormat:'jpg', exportSize:2000, exportLimit:'none',
@@ -2951,14 +2958,14 @@ const DYNAMIC_FIELD_DEFS = [
   {key:'department', label:'Department'},
   {key:'platform', label:'Platform'},
   {key:'task_type', label:'Artwork Type'},
-  {key:'deliverables', label:'No. of Deliverables'},
+  {key:'deliverables', label:'จำนวน Artwork หลัก'},
   {key:'priority', label:'Priority'},
   {key:'prefer_delivery_date', label:'Requested Delivery'},
 ];
 // Fields that, when changed on an already-submitted Brief, must be flagged as "Important Changes"
 // and trigger a notification to the assigned Designer (Dev Brief §21).
 const IMPORTANT_CHANGE_FIELDS = [
-  {key:'deliverables', label:'Deliverables', fmt:v=>String(v??'—')},
+  {key:'deliverables', label:'จำนวน Artwork หลัก', fmt:v=>String(v??'—')},
   {key:'resize_quantity', label:'Resize Quantity', fmt:v=>String(v||0)},
   {key:'platform', label:'Platform', fmt:v=>Array.isArray(v)&&v.length?v.join(', '):'—'},
   {key:'task_type', label:'Artwork Type', fmt:v=>v||'—'},
@@ -3301,6 +3308,86 @@ function appliedPoints(t){
   const rate = REVISE_RATES[t.revise_status] ?? 0;
   const base = t.base_points || 0;
   return t.revise_status && t.revise_status!=="None" ? Math.round(base*rate*100)/100 : base;
+}
+// ===================== ARTWORK SCOPE MODEL (Dev Master Request — Final Workflow Update §3-14) =====================
+// Replaces "แก้ Quantity ได้ตลอด" with: before Production starts, scope is corrected via Designer
+// Preflight (confirmed_scope); once Production has started, scope only ever moves through a Scope
+// Change Transaction ledger (t.scope.changes[]) — never a silent direct-edit overwrite. t.deliverables /
+// t.resize_quantity remain the CURRENT SCOPE for backward compatibility (every existing
+// pointsForTask()/dayLoadFor()/validation call site keeps reading them unchanged) but are now always a
+// synced mirror of taskScope(t)'s derived Current Scope, never edited directly once a task exists.
+function taskScope(t){
+  if(!t.scope){
+    t.scope = {
+      brief: {artwork_count: Number(t.original_deliverables ?? t.deliverables) || 1, resize_count: Number(t.original_resize_quantity ?? t.resize_quantity) || 0},
+      confirmed: null,
+      changes: [],
+    };
+  }
+  if(!Array.isArray(t.scope.changes)) t.scope.changes = [];
+  return t.scope;
+}
+function scopeChangeSum(changes, type){
+  return (changes||[]).filter(c=>c.type===type).reduce((s,c)=>s+(Number(c.delta)||0), 0);
+}
+// Current Scope = Confirmed Scope (or Brief Scope, if Preflight hasn't happened yet) + every recorded
+// Scope Change delta — a DERIVED value (§07.3), never stored as its own source of truth.
+function currentScopeFor(t){
+  const sc = taskScope(t);
+  const base = sc.confirmed || sc.brief;
+  return {
+    artwork_count: Math.max(0, (Number(base.artwork_count)||0) + scopeChangeSum(sc.changes,'artwork')),
+    resize_count: Math.max(0, (Number(base.resize_count)||0) + scopeChangeSum(sc.changes,'resize')),
+  };
+}
+// §07.3/§14: keeps the legacy deliverables/resize_quantity fields (every Point/Capacity/validation call
+// site) equal to the Current Scope, and recalculates base_points through the SAME engine
+// (pointsForTask/resizePoints) every other task on the board uses — never a bespoke Scope-Change formula.
+function syncScopeToLegacyFieldsAndRecalcPoints(t){
+  const cur = currentScopeFor(t);
+  t.deliverables = cur.artwork_count || 1;
+  t.resize_quantity = cur.resize_count || 0;
+  const cat = MASTER_TABLE[t.task_category]; const def = cat ? cat.types[t.task_type] : null;
+  const newBase = (def && def.custom ? (Number(t.customPoints)||0) : pointsForTask(t)) + resizePoints(t.resize_quantity);
+  t.base_points = Math.round(newBase*100)/100;
+}
+function estimatedOutputFor(scopeLike){ return (Number(scopeLike.artwork_count)||0) + (Number(scopeLike.resize_count)||0); }
+// §04/§07.4: keeps the real Artwork Card count (t.artworks[]) equal to the Current Scope's artwork_count.
+// Growing never renumbers/removes an existing card (cards created earlier keep their AW number, which is
+// purely positional — AW01/AW02.../artworkSeqLabel). Shrinking never deletes a card that already has real
+// work on it (§07.5) — it's marked Cancelled / Removed from Scope instead, and stays visible in Scope
+// History; only a still-empty, never-touched trailing card is safe to actually drop.
+function syncArtworkCardsToScope(t, scopeChangeId, reason){
+  if(!Array.isArray(t.artworks)) t.artworks = [];
+  const activeCount = t.artworks.filter(a=>a.status!=='cancelled').length;
+  const target = currentScopeFor(t).artwork_count;
+  if(target > activeCount){
+    for(let i=0;i<target-activeCount;i++){
+      const idx = t.artworks.length;
+      const aw = newArtwork('AW'+artworkSeqLabel(idx));
+      aw.created_from_scope_change_id = scopeChangeId || null;
+      aw.created_at = nowIso();
+      aw.created_by = STATE.auth.user?.name || STATE.auth.identity;
+      t.artworks.push(aw);
+    }
+  } else if(target < activeCount){
+    let toRemove = activeCount - target;
+    // Remove from the end first; an untouched (never-worked-on) trailing card is dropped outright, a
+    // card that already has real content is Cancelled instead so its history/attachments are never lost.
+    for(let i=t.artworks.length-1; i>=0 && toRemove>0; i--){
+      const aw = t.artworks[i];
+      if(aw.status==='cancelled') continue;
+      const untouched = !aw.header && !aw.subheader && !aw.detail && !aw.cta && !aw.disclaimer && !aw.brieflink
+        && (!aw.references||!aw.references.length) && (!aw.attachments||!aw.attachments.length);
+      if(untouched && i===t.artworks.length-1 && !aw.created_from_scope_change_id){
+        t.artworks.splice(i,1);
+      } else {
+        aw.status='cancelled'; aw.cancelled_reason = reason||''; aw.cancelled_at = nowIso();
+        aw.cancelled_by = STATE.auth.user?.name || STATE.auth.identity;
+      }
+      toRemove--;
+    }
+  }
 }
 // How many of a task's points land on one specific day. Most tasks live entirely on
 // prefer_delivery_date (unchanged fallback below). A task that went through Auto-Split Capacity
@@ -3873,6 +3960,8 @@ function render(){
     ${STATE.taskWsLightbox ? renderTaskWsLightbox() : ''}
     ${STATE.artworkApplyPrompt ? renderArtworkApplyPromptModal() : ''}
     ${STATE.editQuantityUI.taskId ? renderEditQuantityModal() : ''}
+    ${STATE.preflightUI.taskId ? renderPreflightModal() : ''}
+    ${STATE.adjustScopeUI.taskId ? renderAdjustScopeModal() : ''}
     ${STATE.reassignUI.taskId ? renderReassignModal() : ''}
   `;
   bindEvents();
@@ -5903,7 +5992,7 @@ function resetBriefDraft(){
     // extraLinks = External Brief Links (Task-level: Master Brief/Campaign Brief/Client Brief/etc — DEV
     // SPEC: Brief Links / Reference Split). Filled once per Task, shown above the Artwork Tabs, never
     // duplicated per-Artwork. Not to be confused with per-Artwork References (aw.references[]).
-    mode:'unified', extraLinks:[],
+    mode:'unified', extraLinks:[], extraLinkDraft:'', extraLinkError:'',
     artworks:[newArtwork()], activeArtworkIndex:0, applyAllFields:[],
   };
   STATE.cal.selectedDate=null;
@@ -6195,18 +6284,42 @@ function renderPlatformSelectHTML(category){
 // shared. Revives the pre-existing linkcard/linkrow markup+CSS (this exact list UI already existed as
 // the old standalone Attachments step, later disconnected from the DOM when References went per-Artwork
 // — see the removal note this comment replaces) rather than inventing a new pattern.
+// §2.1 Persistent Link Input (Final Workflow Update — External Brief Links): the input is always on
+// screen — no more "กด + Add Link ก่อนจึงเห็นช่องกรอก". Pasting a URL and pressing Enter (or the button)
+// adds it immediately with a label auto-detected from the URL (detectReferenceType, same helper the
+// per-Artwork References already use), clears the box, and returns focus to it for the next paste.
 function renderExternalBriefLinksSectionHTML(){
+  const err = BRIEF_DRAFT.extraLinkError;
   return `<div class="section-card ebl-card">
     <div class="refbox-head">
       <label style="margin:0;font-weight:800;font-size:13px">External Brief Links</label>
-      <button type="button" class="refadd-btn" id="addExtraLinkBtn">+ Add Link</button>
     </div>
-    <div class="hint" style="margin-bottom:10px">Master Brief / Campaign Brief / Google Docs / Marketing Requirement / Client Brief / ลิงก์ภายนอกอื่นๆ — กรอกครั้งเดียว ใช้ร่วมกันทุก Artwork ใน Task นี้</div>
+    <div class="hint" style="margin-bottom:8px">Master Brief / Campaign Brief / Google Docs / Marketing Requirement / Client Brief / External Link</div>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <input type="url" id="extraLinkInput" placeholder="วางลิงก์ External Brief เช่น Google Docs / Campaign Brief / Client Brief"
+        value="${escAttr(BRIEF_DRAFT.extraLinkDraft||'')}"
+        style="flex:1;height:46px;border:1px solid var(--border,#ddd);background:#fff;border-radius:11px;padding:0 12px">
+      <button type="button" class="btn btn-primary" id="addExtraLinkBtn" style="white-space:nowrap">+ เพิ่มลิงก์</button>
+    </div>
+    ${err ? `<div class="field-error" style="display:block;margin-bottom:8px">${err}</div>` : ''}
     <div id="extraLinksWrap">${renderExtraLinksHTML()}</div>
   </div>`;
 }
+function isLikelyValidUrl(u){
+  try{ const parsed = new URL(u); return parsed.protocol==='http:'||parsed.protocol==='https:'; }catch(e){ return false; }
+}
+function addExtraLinkFromInput(){
+  const inp = document.getElementById('extraLinkInput');
+  const raw = (inp?.value||'').trim();
+  if(!raw){ BRIEF_DRAFT.extraLinkError='กรุณากรอกลิงก์'; const w=document.getElementById('extraLinksWrap')?.parentElement; if(w){ w.outerHTML = renderExternalBriefLinksSectionHTML(); bindExtraLinks(); document.getElementById('addExtraLinkBtn')?.addEventListener('click', addExtraLinkFromInput); document.getElementById('extraLinkInput')?.focus(); } return; }
+  if(!isLikelyValidUrl(raw)){ BRIEF_DRAFT.extraLinkError='รูปแบบลิงก์ไม่ถูกต้อง'; const w=document.getElementById('extraLinksWrap')?.parentElement; if(w){ w.outerHTML = renderExternalBriefLinksSectionHTML(); bindExtraLinks(); document.getElementById('addExtraLinkBtn')?.addEventListener('click', addExtraLinkFromInput); document.getElementById('extraLinkInput')?.focus(); } return; }
+  BRIEF_DRAFT.extraLinks.push({id:uidShort('lnk'), label:detectReferenceType(raw).label, url:raw});
+  BRIEF_DRAFT.extraLinkError=''; BRIEF_DRAFT.extraLinkDraft='';
+  const w=document.getElementById('extraLinksWrap')?.parentElement;
+  if(w){ w.outerHTML = renderExternalBriefLinksSectionHTML(); bindExtraLinks(); document.getElementById('addExtraLinkBtn')?.addEventListener('click', addExtraLinkFromInput); document.getElementById('extraLinkInput')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addExtraLinkFromInput(); } }); document.getElementById('extraLinkInput')?.focus(); }
+}
 function renderExtraLinksHTML(){
-  if(!BRIEF_DRAFT.extraLinks.length) return '<div class="refempty">ยังไม่มี External Brief Link — กด "+ Add Link" เพื่อเพิ่ม</div>';
+  if(!BRIEF_DRAFT.extraLinks.length) return '<div class="refempty">ยังไม่มี External Brief Link</div>';
   return BRIEF_DRAFT.extraLinks.map(l=>{
     const filled = l.label && l.url && !l.editing;
     if(filled){
@@ -6329,12 +6442,14 @@ function renderBriefForm(){
             <div id="typeOtherWrap" style="display:none;margin-top:6px"><input id="f_type_other" value="${BRIEF_DRAFT.typeOther||''}" placeholder="ระบุประเภทงาน"></div>
           </div>
           <div class="field">
-            <label>จำนวนชิ้นงาน / No. of Deliverables *</label>
+            <label>จำนวน Artwork หลัก *</label>
             <input type="number" id="f_deliverables" min="1" step="1" value="${briefArtworks().length}">
+            <div class="hint">จำนวนดีไซน์หลัก ไม่รวม Resize</div>
             <span class="hint" id="deliverCountDisplay" style="display:none"></span>
           </div>
-          <div class="field"><label>Resize (จำนวนไฟล์ปรับขนาด)</label>
+          <div class="field"><label>Resize</label>
             <input type="number" id="f_resize" min="0" step="1" value="${pf?(pf.resize||0):0}">
+            <div class="hint">จำนวนไฟล์ที่ปรับขนาดเพิ่มเติมจาก Artwork หลัก</div>
             <div id="resizePointPreview" class="hint" style="display:none"></div>
           </div>
         </div>
@@ -6862,11 +6977,9 @@ function bindArtworkSection(){
   bindArtworkEditFields();
   // External Brief Links (Task-level, above the Artwork Tabs — see renderExternalBriefLinksSectionHTML).
   bindExtraLinks();
-  document.getElementById('addExtraLinkBtn')?.addEventListener('click', ()=>{
-    BRIEF_DRAFT.extraLinks.push({id:uidShort('lnk'), label:'', url:''});
-    const wrap = document.getElementById('extraLinksWrap');
-    if(wrap){ wrap.innerHTML = renderExtraLinksHTML(); bindExtraLinks(); }
-  });
+  document.getElementById('addExtraLinkBtn')?.addEventListener('click', addExtraLinkFromInput);
+  document.getElementById('extraLinkInput')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addExtraLinkFromInput(); } });
+  document.getElementById('extraLinkInput')?.addEventListener('input', e=>{ BRIEF_DRAFT.extraLinkDraft = e.target.value; });
 }
 
 /* ---------- Backdated Task (Master Dev Spec Phase G) ----------
@@ -6954,7 +7067,7 @@ function renderBackdatedTaskForm(){
           <div class="field"><label>Artwork Type *</label>
             <select id="bt_type" disabled><option value="">— เลือกประเภท Artwork —</option></select>
           </div>
-          <div class="field"><label>No. of Deliverables *</label><input type="number" id="bt_deliverables" min="1" value="1"></div>
+          <div class="field"><label>จำนวน Artwork หลัก *</label><input type="number" id="bt_deliverables" min="1" value="1"></div>
           <div class="field"><label>Resize</label><input type="number" id="bt_resize" min="0" step="1" value="0"></div>
         </div>
         <div class="bt-grid-2">
@@ -7242,7 +7355,11 @@ async function submitBackdatedTask(e){
     priority: effectivePriority, needsApproval: false, platform: [],
     task_category: category, task_type: typeName, task_type_other: null,
     kv_status_check: (category==='E-Commerce') ? BACKDATED_DRAFT.kv : null, kv_asset_link: '',
-    deliverables, original_deliverables: deliverables, resize_quantity: resizeQty, quantity_change_history: [],
+    deliverables, original_deliverables: deliverables, original_resize_quantity: resizeQty, resize_quantity: resizeQty, quantity_change_history: [],
+    // Backdated/historical entries skip Preflight entirely (there's no live Assigned→Start moment to gate
+    // — see §5) but still get the same scope shape so Adjust Scope/Scope History work identically later.
+    scope: {brief:{artwork_count:deliverables, resize_count:resizeQty}, confirmed:{artwork_count:deliverables, resize_count:resizeQty, confirmedBy:'system (backdated entry)', confirmedAt: new Date().toISOString()}, changes:[]},
+    preflight_confirmed: true, preflight_confirmed_by: 'system (backdated entry)', preflight_confirmed_at: new Date().toISOString(),
     customPoints: def && def.custom ? customPoints : 0,
     brief_link: '', brief_details: {header:'',sub_header:'',detail:'',cta:'',disclaimer:'',attachments:[],extra_links:[],visual_brief:defaultVisualBrief()},
     // Actual Brief Date reuses the same field every other view already reads (Capacity/KPI/Dashboard/
@@ -9830,9 +9947,23 @@ function renderStartDesignButtonHTML(t){
 // Designer Edit Quantity (Master Dev Spec Phase E): the assigned Designer, or a Lead Designer/Admin acting
 // on anyone's task, can change Deliverables/Resize on an already-live task — always through this dedicated
 // action (required Reason, own Quantity Change History), never by resubmitting the Brief Form.
+// §06/§13: the old "Edit Quantity" direct-overwrite action is retired the moment a task has actually
+// started Production — kept here ONLY as the (now theoretically unreachable pre-Preflight) legacy guard;
+// see canAdjustScope() below for the real post-start path, and §15 for why quantity_change_history/
+// renderEditQuantityModal themselves are kept (old entries must still read back, never deleted).
 function canEditQuantity(t){
   if(!STATE.auth.loggedIn || !t || STATE.auth.role!=='designer') return false;
   if(['delivered','rejected','closed_max_revision'].includes(t.review_status)) return false;
+  if(t.started_at) return false; // Production has started — must go through Adjust Scope instead
+  return t.assigned_user_name===STATE.auth.identity || hasAdminAccess();
+}
+// Adjust Scope (Final Workflow Update §06/§13): once Production has started, this is the ONLY door to
+// changing Artwork/Resize — always a reasoned Scope Change transaction (§07.2), never a silent overwrite.
+function canAdjustScope(t){
+  if(!STATE.auth.loggedIn || !t) return false;
+  if(['delivered','rejected','closed_max_revision'].includes(t.review_status)) return false;
+  if(!t.started_at) return false; // before Start, correction happens through Preflight only (§5.3)
+  if(STATE.auth.role!=='designer') return false; // Brief Owner-side Adjust Scope needs its own PO UI — not yet wired here
   return t.assigned_user_name===STATE.auth.identity || hasAdminAccess();
 }
 function renderEditQuantityModal(){
@@ -9854,6 +9985,171 @@ function renderEditQuantityModal(){
       </div>
     </div>
   </div>`;
+}
+// Designer Preflight (Final Workflow Update §5.1-5.6): the mandatory "review & correct scope before the
+// Timer starts" step. Shows Brief Scope alongside an editable Designer-confirmed Scope; Save writes
+// scope.confirmed, recalculates Points/Capacity through the normal engine, and only THEN actually starts
+// the Timer (via handleAction('start', ...) — now that preflight_confirmed is true it goes straight through).
+function renderPreflightModal(){
+  const t = STATE.tasks.find(x=>x.task_id===STATE.preflightUI.taskId);
+  if(!t) return '';
+  const sc = taskScope(t);
+  const err = STATE.preflightUI.error;
+  const est = estimatedOutputFor({artwork_count:STATE.preflightUI.artwork, resize_count:STATE.preflightUI.resize});
+  const changed = Number(STATE.preflightUI.artwork)!==sc.brief.artwork_count || Number(STATE.preflightUI.resize)!==sc.brief.resize_count;
+  return `<div class="modal-bg" id="preflightBg">
+    <div class="modal" style="max-width:440px">
+      <h3>ตรวจสอบบรีฟก่อนเริ่มงาน</h3>
+      <p class="hint" style="margin-bottom:10px">Task: <strong>${taskDisplayName(t)}</strong></p>
+      <div class="hint" style="margin-bottom:6px">Scope จาก Brief — Artwork หลัก <strong>${sc.brief.artwork_count}</strong> · Resize <strong>${sc.brief.resize_count}</strong></div>
+      <p class="hint" style="margin-bottom:10px">คุณสามารถแก้ไข Artwork/Resize ให้ตรงกับงานจริงได้เองก่อนเริ่มงาน — ไม่ต้องรอ Owner Approve</p>
+      <div class="field" style="margin-bottom:10px"><label>Artwork หลัก *</label><input type="number" min="1" id="pf_artwork" value="${STATE.preflightUI.artwork}"></div>
+      <div class="field" style="margin-bottom:10px"><label>Resize</label><input type="number" min="0" id="pf_resize" value="${STATE.preflightUI.resize}"></div>
+      <div class="hint" style="margin-bottom:10px">Estimated Output: <strong>${est} files</strong>${changed?' · <span style="color:var(--accent,#4A47E0)">Scope ถูกแก้ไขจาก Brief</span>':''}</div>
+      ${err ? `<div class="field-error" style="display:block;margin-bottom:10px">${err}</div>` : ''}
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-ghost" style="flex:1" id="preflightCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" style="flex:1" id="preflightConfirm">✓ ยืนยันและเริ่มงาน</button>
+      </div>
+    </div>
+  </div>`;
+}
+function bindPreflightModal(){
+  document.getElementById('preflightBg')?.addEventListener('click', e=>{ if(e.target.id==='preflightBg'){ STATE.preflightUI={taskId:null, artwork:1, resize:0, error:''}; render(); } });
+  document.getElementById('pf_artwork')?.addEventListener('input', e=>{ STATE.preflightUI.artwork = e.target.value; });
+  document.getElementById('pf_resize')?.addEventListener('input', e=>{ STATE.preflightUI.resize = e.target.value; });
+  document.getElementById('preflightCancel')?.addEventListener('click', ()=>{ STATE.preflightUI={taskId:null, artwork:1, resize:0, error:''}; render(); });
+  document.getElementById('preflightConfirm')?.addEventListener('click', async ()=>{
+    const t = STATE.tasks.find(x=>x.task_id===STATE.preflightUI.taskId); if(!t) return;
+    const artwork = Number(document.getElementById('pf_artwork')?.value||0);
+    const resize = Number(document.getElementById('pf_resize')?.value||0);
+    if(!artwork || artwork<1){ STATE.preflightUI.error='กรุณากรอกจำนวน Artwork หลัก อย่างน้อย 1'; render(); return; }
+    if(resize<0){ STATE.preflightUI.error='จำนวน Resize ต้องไม่ติดลบ'; render(); return; }
+    const sc = taskScope(t);
+    const changed = artwork!==sc.brief.artwork_count || resize!==sc.brief.resize_count;
+    const who = STATE.auth.user?.name || STATE.auth.identity || 'system';
+    sc.confirmed = {artwork_count:artwork, resize_count:resize, confirmedBy:who, confirmedAt:nowIso()};
+    // §5.4: Save Original + Confirmed Scope — brief_scope (sc.brief) is never overwritten, only confirmed
+    // is written here, so both remain readable side by side in Scope History forever.
+    syncArtworkCardsToScope(t, null, 'Preflight correction');
+    syncScopeToLegacyFieldsAndRecalcPoints(t);
+    if(changed){
+      t.review_history.push({timestamp:nowIso(), action:'SCOPE_ADJUSTED_BEFORE_PRODUCTION',
+        comment:`Scope corrected before production — Artwork ${sc.brief.artwork_count} → ${artwork} · Resize ${sc.brief.resize_count} → ${resize}`, by: who});
+      // §1.2/§10 SCOPE_ADJUSTED_BEFORE_PRODUCTION — Brief Owner only, informational (no approval needed).
+      notify(t.project_owner_email, 'Scope งานถูกปรับก่อนเริ่มผลิต', `${t.task_name} (${t.task_id}) — Artwork ${sc.brief.artwork_count} → ${artwork} · Resize ${sc.brief.resize_count} → ${resize} (แก้ไขโดย ${who} ก่อนเริ่มงาน ไม่ต้องอนุมัติ)`, t.task_id);
+    }
+    t.preflight_confirmed = true; t.preflight_confirmed_by = who; t.preflight_confirmed_at = nowIso();
+    STATE.preflightUI = {taskId:null, artwork:1, resize:0, error:''};
+    await handleAction('start', t.task_id); // now goes straight through — preflight_confirmed is true
+  });
+}
+// Adjust Scope (Final Workflow Update §07.1): the modal that records one Scope Change Transaction.
+function renderAdjustScopeModal(){
+  const u = STATE.adjustScopeUI;
+  const t = STATE.tasks.find(x=>x.task_id===u.taskId);
+  if(!t) return '';
+  const cur = currentScopeFor(t);
+  const err = u.error;
+  return `<div class="modal-bg" id="adjustScopeBg">
+    <div class="modal" style="max-width:440px">
+      <h3>ปรับ Scope ระหว่าง Production</h3>
+      <p class="hint" style="margin-bottom:10px">Current Scope — Artwork <strong>${cur.artwork_count}</strong> · Resize <strong>${cur.resize_count}</strong></p>
+      <div class="field" style="margin-bottom:10px"><label>ประเภท</label>
+        <select id="as_type">
+          <option value="artwork" ${u.type==='artwork'?'selected':''}>Artwork</option>
+          <option value="resize" ${u.type==='resize'?'selected':''}>Resize</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:10px"><label>Action</label>
+        <select id="as_action">
+          <option value="add" ${u.action==='add'?'selected':''}>เพิ่ม</option>
+          <option value="reduce" ${u.action==='reduce'?'selected':''}>ลด / ยกเลิก</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:10px"><label>จำนวน</label><input type="number" min="1" id="as_qty" value="${u.qty}"></div>
+      <div class="field" style="margin-bottom:10px"><label>เหตุผล *</label><textarea id="as_reason" rows="2" placeholder="เช่น ลูกค้าขอ Key Visual เพิ่ม 2 แบบ">${escAttr(u.reason||'')}</textarea></div>
+      <div class="field" style="margin-bottom:10px"><label>Requested By</label>
+        <select id="as_requestedby">
+          ${['Brief Owner','Client','Reviewer','Other'].map(o=>`<option ${u.requestedBy===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      ${err ? `<div class="field-error" style="display:block;margin-bottom:10px">${err}</div>` : ''}
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-ghost" style="flex:1" id="adjustScopeCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" style="flex:1" id="adjustScopeSave">บันทึก Scope Change</button>
+      </div>
+    </div>
+  </div>`;
+}
+function closeAdjustScopeModal(){ STATE.adjustScopeUI={taskId:null, type:'artwork', action:'add', qty:1, reason:'', requestedBy:'Brief Owner', error:''}; render(); }
+function bindAdjustScopeModal(){
+  document.querySelectorAll('[data-adjustscope]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation();
+    STATE.adjustScopeUI={taskId:b.dataset.adjustscope, type:'artwork', action:'add', qty:1, reason:'', requestedBy:'Brief Owner', error:''}; render(); });
+  document.getElementById('adjustScopeBg')?.addEventListener('click', e=>{ if(e.target.id==='adjustScopeBg') closeAdjustScopeModal(); });
+  document.getElementById('adjustScopeCancel')?.addEventListener('click', closeAdjustScopeModal);
+  document.getElementById('as_type')?.addEventListener('change', e=>{ STATE.adjustScopeUI.type=e.target.value; });
+  document.getElementById('as_action')?.addEventListener('change', e=>{ STATE.adjustScopeUI.action=e.target.value; });
+  document.getElementById('as_qty')?.addEventListener('input', e=>{ STATE.adjustScopeUI.qty=e.target.value; });
+  document.getElementById('as_reason')?.addEventListener('input', e=>{ STATE.adjustScopeUI.reason=e.target.value; });
+  document.getElementById('as_requestedby')?.addEventListener('change', e=>{ STATE.adjustScopeUI.requestedBy=e.target.value; });
+  document.getElementById('adjustScopeSave')?.addEventListener('click', async ()=>{
+    const u = STATE.adjustScopeUI;
+    const t = STATE.tasks.find(x=>x.task_id===u.taskId); if(!t) return;
+    const qty = Math.abs(Number(document.getElementById('as_qty')?.value||0));
+    const reason = (document.getElementById('as_reason')?.value||'').trim();
+    if(!qty){ STATE.adjustScopeUI.error='กรุณากรอกจำนวนมากกว่า 0'; render(); return; }
+    if(!reason){ STATE.adjustScopeUI.error='กรุณาระบุเหตุผล (บังคับกรอก)'; render(); return; }
+    const who = STATE.auth.user?.name || STATE.auth.identity || 'system';
+    const type = u.type, requestedBy = u.requestedBy;
+    const delta = u.action==='reduce' ? -qty : qty;
+    const sc = taskScope(t);
+    const curBefore = currentScopeFor(t);
+    const beforeVal = type==='artwork' ? curBefore.artwork_count : curBefore.resize_count;
+    const afterVal = Math.max(0, beforeVal + delta);
+    const actualDelta = afterVal - beforeVal; // clamps to 0 rather than going negative
+    // §07.2/§07.3: a Scope Change is a TRANSACTION (before/delta/after/reason/requestedBy/recordedBy/
+    // timestamp) appended to history — Current Scope is always re-derived from this ledger, never edited
+    // in place, so it can be audited back to the original Brief at any time (§12).
+    const changeId = genId('SC');
+    sc.changes.push({id:changeId, type, delta:actualDelta, before:beforeVal, after:afterVal,
+      reason, requestedBy, recordedBy:who, createdAt:nowIso()});
+    // §07.4/§07.5: sync real Artwork Cards to the new Current Scope (grow → new AW card(s); shrink an
+    // already-started Artwork → Cancelled, never deleted) BEFORE recalculating Points, so Points/Capacity
+    // are computed off the exact same Current Scope the cards now reflect.
+    if(type==='artwork') syncArtworkCardsToScope(t, changeId, reason);
+    const beforePts = appliedPoints(t);
+    syncScopeToLegacyFieldsAndRecalcPoints(t); // §08: same pointsForTask()/resizePoints() engine — no bespoke formula, no double count
+    const afterPts = appliedPoints(t);
+    // §08: Scope Change recalculates Points/Capacity but NEVER touches started_at/Actual Time already
+    // logged — the Timer already running keeps running exactly as-is.
+    t.review_history.push({timestamp:nowIso(), action:'SCOPE_CHANGE',
+      comment:`${type==='artwork'?'Artwork':'Resize'}: ${beforeVal} → ${afterVal} (${actualDelta>=0?'+':''}${actualDelta}) · Point ${beforePts.toFixed(1)} → ${afterPts.toFixed(1)} — เหตุผล: ${reason} — Requested by: ${requestedBy}`,
+      by: who});
+    const summary = `${t.task_name} (${t.task_id}) — ${type==='artwork'?'Artwork':'Resize'} ${beforeVal} → ${afterVal} (${actualDelta>=0?'+':''}${actualDelta}) · Point ${beforePts.toFixed(1)} → ${afterPts.toFixed(1)} · เหตุผล: ${reason} · Requested by: ${requestedBy} · แก้ไขโดย: ${who}`;
+    // §10: SCOPE_CHANGED_DURING_PRODUCTION → Brief Owner + Lead Designer, and the assigned Designer too
+    // if someone else (Lead/Admin) was the one who recorded it.
+    notify(t.project_owner_email, 'Scope งานมีการเปลี่ยนแปลงระหว่าง Production', summary, t.task_id);
+    notify(LEAD, 'Scope งานมีการเปลี่ยนแปลงระหว่าง Production', summary, t.task_id);
+    if(t.assigned_user_name && t.assigned_user_name!==who) notify(t.assigned_user_name, 'Scope งานมีการเปลี่ยนแปลงระหว่าง Production', summary, t.task_id);
+    // §09 Deadline Impact — surfaced as an immediate Warning toast so Designer can decide right away
+    // whether to go through the existing Deadline Extension workflow (requestExt) — never a second,
+    // parallel deadline-approval system.
+    if(t.assigned_user_name && t.prefer_delivery_date && actualDelta>0){
+      const { taskLoad, cap } = dayLoadFor(t.assigned_user_name, t.prefer_delivery_date, t.task_id);
+      const projected = Math.round((taskLoad + afterPts)*100)/100;
+      if(projected > cap){
+        toast(`⚠ บันทึก Scope Change แล้ว แต่ Capacity ไม่พอกับ Deadline เดิม (${projected.toFixed(1)}/${cap.toFixed(1)} pt วันที่ ${fmtDate(t.prefer_delivery_date)}) — ใช้ปุ่ม "ขอเลื่อนกำหนดส่ง" ถ้าต้องการขยายเวลา`);
+      } else {
+        toast('บันทึก Scope Change แล้ว — คำนวณ Point/Capacity ใหม่เรียบร้อย');
+      }
+    } else {
+      toast('บันทึก Scope Change แล้ว');
+    }
+    closeAdjustScopeModal();
+    await saveTasks();
+    render();
+  });
 }
 function bindEditQuantityModal(){
   document.querySelectorAll('[data-editqty]').forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); STATE.editQuantityUI={taskId:b.dataset.editqty, error:''}; render(); });
@@ -10147,6 +10443,54 @@ function renderQuantityChangeHistoryCard(t){
       <div class="tl-comment" style="margin-top:4px">เหตุผล: ${h.reason||'—'}</div>
     </div></div>`).join('');
 }
+// WORK SCOPE (Final Workflow Update §11): the at-a-glance Confirmed/Added/Current summary. Before Start,
+// shows the raw Brief numbers with a "waiting for Preflight" status; after Preflight with no later Scope
+// Change, shows just the Confirmed number; once any Scope Change transaction exists, breaks Current down
+// into Confirmed + each type's running delta, same as §11's example.
+function renderWorkScopeCard(t){
+  const sc = taskScope(t);
+  const cur = currentScopeFor(t);
+  const row = (label,val)=>`<div style="display:flex;justify-content:space-between;padding:3px 0"><span>${label}</span><strong>${val}</strong></div>`;
+  if(!t.preflight_confirmed){
+    return row('Artwork', sc.brief.artwork_count) + row('Resize', sc.brief.resize_count)
+      + `<div class="hint" style="margin-top:6px">Status: Waiting for Designer Preflight</div>`;
+  }
+  const awDelta = scopeChangeSum(sc.changes,'artwork');
+  const rsDelta = scopeChangeSum(sc.changes,'resize');
+  if(!awDelta && !rsDelta){
+    return row('Artwork', cur.artwork_count) + row('Resize', cur.resize_count)
+      + `<div class="hint" style="margin-top:6px">Confirmed by ${sc.confirmed?.confirmedBy||'-'}</div>`;
+  }
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div><div class="hint">Artwork</div><div style="font-weight:700;font-size:18px">${cur.artwork_count} <span class="hint" style="font-weight:400;font-size:12px">Current</span></div>
+        <div class="hint">${sc.confirmed.artwork_count} Confirmed${awDelta?` · ${awDelta>0?'+':''}${awDelta} Added during Production`:''}</div></div>
+      <div><div class="hint">Resize</div><div style="font-weight:700;font-size:18px">${cur.resize_count} <span class="hint" style="font-weight:400;font-size:12px">Current</span></div>
+        <div class="hint">${sc.confirmed.resize_count} Confirmed${rsDelta?` · ${rsDelta>0?'+':''}${rsDelta} Added during Production`:''}</div></div>
+    </div>`;
+}
+// Scope History (Final Workflow Update §12): the single audit timeline from Brief → Preflight → every
+// Scope Change → Current — sourced entirely from taskScope(t), never re-derived or duplicated elsewhere.
+function renderScopeHistoryCard(t){
+  const sc = taskScope(t);
+  const items = [];
+  items.push({label:'Brief Created', detail:`Artwork ${sc.brief.artwork_count} / Resize ${sc.brief.resize_count}`});
+  if(sc.confirmed){
+    const changedFromBrief = sc.confirmed.artwork_count!==sc.brief.artwork_count || sc.confirmed.resize_count!==sc.brief.resize_count;
+    items.push({label:'Preflight', detail:`Artwork ${sc.confirmed.artwork_count} / Resize ${sc.confirmed.resize_count}`+(changedFromBrief?` · Corrected by ${sc.confirmed.confirmedBy}`:` · Confirmed by ${sc.confirmed.confirmedBy}`), time:sc.confirmed.confirmedAt});
+  }
+  (sc.changes||[]).forEach((c,i)=>{
+    items.push({label:`Scope Change #${String(i+1).padStart(2,'0')}`,
+      detail:`${c.type==='artwork'?'Artwork':'Resize'} ${c.delta>=0?'+':''}${c.delta} (${c.before} → ${c.after}) · Requested by ${c.requestedBy} · Recorded by ${c.recordedBy} · เหตุผล: ${c.reason}`,
+      time:c.createdAt});
+  });
+  const cur = currentScopeFor(t);
+  items.push({label:'Current', detail:`Artwork ${cur.artwork_count} / Resize ${cur.resize_count}`});
+  return items.map(it=>`<div class="tl-item"><div class="tl-dot"></div><div class="tl-body">
+      <div class="tl-action">${it.label}</div>
+      ${it.time?`<div class="tl-time">${fmtDateTime(it.time)}</div>`:''}
+      <div class="tl-comment">${it.detail}</div>
+    </div></div>`).join('');
+}
 /* Reassign History (Master Dev Spec Phase F) — every Assign/Reassign Designer action, oldest last, with
    the Reason and the points that moved along with the assignment. */
 function renderReassignHistoryCard(t){
@@ -10242,7 +10586,7 @@ function renderTaskWsInfoCard(t, hideRequesterOverlap){
     {label:'Task Name', val: taskDisplayName(t)},
     {label:'Category', val: t.task_category},
     {label:'Artwork / Task Type', val: t.task_type},
-    {label:'Deliverables', val: t.deliverables ? String(t.deliverables) : ''},
+    {label:'จำนวน Artwork หลัก', val: t.deliverables ? String(t.deliverables) : ''},
     {label:'Priority', val: t.priority},
     {label:'Brief Date', val: t.brief_timestamp ? fmtDate(t.brief_timestamp) : ''},
     {label:'Deadline', val: deadline},
@@ -10474,6 +10818,7 @@ function renderTaskWorkspacePage(t){
   const s = t.review_status;
   if(canEditBriefTask(t)) actionsHTML += `<button class="btn btn-sm btn-ghost" data-editbrief="${t.task_id}">✎ Edit Brief</button>`;
   if(canEditQuantity(t)) actionsHTML += `<button class="btn btn-sm btn-ghost" data-editqty="${t.task_id}">🔢 Edit Quantity</button>`;
+  if(canAdjustScope(t)) actionsHTML += `<button class="btn btn-sm btn-ghost" data-adjustscope="${t.task_id}">➕ Adjust Scope</button>`;
   if(canReassign(t)) actionsHTML += `<button class="btn btn-sm btn-ghost" data-reassign="${t.task_id}">👤 Assign / Reassign</button>`;
   if(canDeleteBrief(t)) actionsHTML += `<button class="btn btn-sm btn-danger" data-deletebrief="${t.task_id}">🗑 Delete Brief</button>`;
 
@@ -10580,6 +10925,7 @@ function renderTaskWorkspacePage(t){
           <div class="op-title">🔒 ${t.priority} — Lead Designer Approval Required${t.overCapacity?' · เกิน Capacity ปกติ':''}</div>
           <div class="op-msg">เหตุผลที่ขอเร่งงาน: ${t.urgencyReason}${t.urgencyNote?' — '+t.urgencyNote:''}<br>Capacity ของ ${t.suggested_designer||t.assigned_user_name||'ดีไซเนอร์'}: ${t.projectedCapacity!=null?t.projectedCapacity.toFixed(2):'-'}/${DAILY_CAP} pt<br>ยื่นโดย ${t.overrideBy} · ${fmtDateTime(t.overrideAt)}</div>
         </div>` : ''}
+        ${renderCollapsibleSection('workscope', 'Work Scope', renderWorkScopeCard(t), {defaultOpen:true})}
         ${(canAct && isAssignee && (s==='in_progress'||s==='revision')) ? renderDeliverWorkCard(t) : ''}
         ${!isPOView ? renderCollapsibleSection('actions', 'Actions', actionsHTML ? `<div class="tc-actions">${actionsHTML}</div>` : `<div class="hint">ไม่มีสิทธิ์ดำเนินการในสถานะนี้</div>`, {defaultOpen:true}) : ''}
         ${!isPOView ? renderCollapsibleSection('reviewhistory', 'Review History', (t.review_history||[]).slice().reverse().map(h=>`
@@ -10589,7 +10935,8 @@ function renderTaskWorkspacePage(t){
               ${h.comment?`<div class="tl-comment">${h.comment}</div>`:''}
             </div></div>`).join('') || `<div class="hint">ยังไม่มีประวัติ</div>`, {defaultOpen:false}) : ''}
         ${(t.edit_history||[]).length ? renderCollapsibleSection('changehistory', 'Brief Change History', renderBriefChangeHistoryCard(t), {defaultOpen:false, badge:String((t.edit_history||[]).length)}) : ''}
-        ${(t.quantity_change_history||[]).length ? renderCollapsibleSection('quantityhistory', 'Quantity Change History', renderQuantityChangeHistoryCard(t), {defaultOpen:false, badge:String((t.quantity_change_history||[]).length)}) : ''}
+        ${renderCollapsibleSection('scopehistory', 'View Scope History', renderScopeHistoryCard(t), {defaultOpen:false, badge:String((taskScope(t).changes||[]).length)})}
+        ${(t.quantity_change_history||[]).length ? renderCollapsibleSection('quantityhistory', 'Quantity Change History (legacy)', renderQuantityChangeHistoryCard(t), {defaultOpen:false, badge:String((t.quantity_change_history||[]).length)}) : ''}
         ${(t.reassign_history||[]).length ? renderCollapsibleSection('reassignhistory', 'Reassign History', renderReassignHistoryCard(t), {defaultOpen:false, badge:String((t.reassign_history||[]).length)}) : ''}
       </div>
       <div class="taskws-canvas-col">
@@ -12234,6 +12581,8 @@ function bindEvents(){
   bindDesignerManagement();
   bindProfileSecurity();
   bindEditQuantityModal();
+  bindPreflightModal();
+  bindAdjustScopeModal();
   bindArtworkApplyPromptModal();
   bindReassignModal();
   bindBackdatedTaskForm();
@@ -13399,7 +13748,7 @@ function renderSummaryList(assignee, pts){
     ]},
     {title:'Task', rows:[
       ['Task Category', catName||'—'], ['Artwork Type', typeName||'—'],
-      ['Platform', platforms.length?platforms.join(', '):'—'], ['No. of Deliverables', deliverables],
+      ['Platform', platforms.length?platforms.join(', '):'—'], ['จำนวน Artwork หลัก', deliverables],
     ]},
     // §44 groups Designer + Capacity together under Assignment (Capacity used to sit under Delivery).
     {title:'Assignment', rows:[
@@ -13469,7 +13818,7 @@ function computeFinalCheckState(){
   fields.push({ok:!!taskname, label:'Task Name', target:'#f_taskname'});
   fields.push({ok:!!catVal, label:'Task Category', target:'#f_category'});
   if(catVal) fields.push({ok:typeOk, label:'Artwork Type', target:'#f_type'});
-  fields.push({ok:!(!deliverables || Number(deliverables)<1), label:'No. of Deliverables', target:'#f_deliverables'});
+  fields.push({ok:!(!deliverables || Number(deliverables)<1), label:'จำนวน Artwork หลัก', target:'#f_deliverables'});
   if(kvSectionVisible) fields.push({ok:kvOk, label:'KV Status', target:'#f_kv'});
   if(kvSectionVisible && kvOk) fields.push({ok:kvLinkOk, label:'KV Asset Link', target:'#f_kvlink_input'});
   fields.push({ok:!!dateVal, label:'Delivery Date', target:'#briefCalendar'});
@@ -13829,7 +14178,12 @@ async function submitBrief(e){
     // is the ACTUAL/current quantity — the one pointsForTask()/appliedPoints()/Capacity always read — and
     // can be changed later by the assigned Designer/Lead via the "Edit Quantity" action (required Reason,
     // logged to quantity_change_history below), never through re-submitting the Brief Form.
-    deliverables, original_deliverables: deliverables, resize_quantity: resizeQty, quantity_change_history: [],
+    deliverables, original_deliverables: deliverables, original_resize_quantity: resizeQty, resize_quantity: resizeQty, quantity_change_history: [],
+    // Artwork Scope Model (Final Workflow Update §3-14): brief_scope is the permanent Brief snapshot;
+    // Preflight fills in `confirmed` the first time the assigned Designer opens/starts the task; scope
+    // changes after Production starts only ever append to `changes` (see taskScope/currentScopeFor).
+    scope: {brief:{artwork_count:deliverables, resize_count:resizeQty}, confirmed:null, changes:[]},
+    preflight_confirmed: false, preflight_confirmed_by: null, preflight_confirmed_at: null,
     // Multi-Artwork Brief §26: the artworks array this Brief was actually built from — Designer View
     // (§23) reads this directly so its numbering/naming always matches the Requester side exactly.
     artworks: JSON.parse(JSON.stringify(briefArtworks())),
@@ -14156,6 +14510,16 @@ async function handleAction(act, id){
   const t = STATE.tasks.find(x=>x.task_id===id);
   if(!t) return;
   if(act==='start'){
+    // Designer Preflight (Final Workflow Update §5.1): the one and only "Start Timer" choke point —
+    // covers both the Task Detail "▶ เริ่มทำ" button and the My Work Kanban drag, since both call
+    // handleAction('start', ...) directly. Blocked behind a mandatory Preflight the very first time;
+    // never asked again once preflight_confirmed is true (§5.6 — refresh/pause/resume/reopen skip it).
+    if(!t.preflight_confirmed){
+      const sc = taskScope(t);
+      STATE.preflightUI = {taskId:id, artwork: sc.brief.artwork_count, resize: sc.brief.resize_count, error:''};
+      render();
+      return;
+    }
     const oldStatus = t.review_status;
     t.review_status='in_progress';
     // DEV SPEC — My Work Kanban §2 Time Tracking: "New → In Progress" is the one and only transition that
