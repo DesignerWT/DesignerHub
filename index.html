@@ -189,31 +189,52 @@ textarea{resize:vertical;min-height:64px}
 .gaugefill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .5s ease}
 .gaugefill.over{background:linear-gradient(90deg,#DC2626,#EA580C)}
 
-.board-toolbar{display:flex;gap:10px;align-items:flex-end;margin-bottom:28px;flex-wrap:wrap}
-.board-section{margin-bottom:36px}
-.board-section-title{font-family:var(--font-app);font-weight:800;font-size:16px;margin-bottom:14px;
+.board-toolbar{display:flex;gap:10px;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap}
+.board-section{margin-bottom:28px}
+.board-section-title{font-family:var(--font-app);font-weight:800;font-size:16px;margin-bottom:12px;
   padding:10px 16px;border-left:4px solid var(--accent);border-radius:8px;
   background:rgba(99,102,241,.06);color:var(--ink);letter-spacing:-.01em}
-.board-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;width:100%}
-.col{min-width:0}
-.col-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 4px 14px}
-.col-head .n{font-weight:700;font-size:13px;color:var(--ink-soft)}
-.col-head .cnt{background:rgba(15,23,42,.08);color:var(--ink-soft);font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;flex-shrink:0}
-.taskcard{background:var(--surface-solid);border:1px solid var(--line);border-radius:14px;padding:12px;
-  margin-bottom:10px;box-shadow:var(--shadow-sm);transition:.18s;cursor:pointer}
-.taskcard:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
-.tc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;margin-bottom:6px}
-.tc-title{font-weight:700;font-size:13px;line-height:1.3}
-.tc-meta{font-size:11px;color:var(--ink-faint);margin:5px 0 8px;display:flex;flex-wrap:wrap;gap:6px}
 .chip{background:rgba(99,102,241,.09);color:var(--accent);font-weight:700;font-size:10px;padding:2px 8px;border-radius:999px}
-.tc-foot{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:8px}
-.assignee{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--ink-soft)}
 .tc-actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
-.empty-col{border:1.5px dashed var(--line);border-radius:14px;padding:18px 10px;min-height:76px;
+/* DEV UPDATE — Compact Kanban Card + Column Scroll: each .col is a fixed-height flex column so a column
+   with many tasks scrolls itself (.col-body) instead of stretching the whole board — .col-head stays put
+   above it (sticky) the whole time. --board-col-offset is the vertical space above the grid (topnav + page
+   title + toolbar + Monthly Summary + section title + margins) so the columns fill exactly what's left of
+   the screen; retune the px value here if that header area's height changes noticeably. */
+:root{ --board-col-offset: 460px; }
+.board-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;width:100%;align-items:start}
+.col{min-width:0;display:flex;flex-direction:column;
+  height:calc(100vh - var(--board-col-offset));min-height:260px;
+  background:rgba(15,23,42,.02);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.col-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;
+  flex-shrink:0;position:sticky;top:0;z-index:2;
+  background:rgba(248,249,250,.94);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.col-head .n{font-weight:700;font-size:12px;color:var(--ink-soft)}
+.col-head .cnt{background:rgba(15,23,42,.08);color:var(--ink-soft);font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;flex-shrink:0}
+.col-body{flex:1;min-height:0;overflow-y:auto;padding:8px 8px 10px}
+/* Compact Task Card (DEV REQUEST — Compact Kanban Card): ~4 text lines total instead of the old sprawling
+   card, so far more tasks are scannable on one screen at once. Secondary data (Task ID/Revision/Backdated/
+   Brief Updated/lock&late flags) moved to small icon-only flags (.tc-flags, zero added height) or into Task
+   Detail entirely, per the spec — nothing here was deleted from the data model, only de-emphasized visually. */
+.taskcard{background:var(--surface-solid);border:1px solid var(--line);border-left:3px solid var(--line);
+  border-radius:10px;padding:8px 9px;margin-bottom:7px;box-shadow:var(--shadow-sm);transition:.15s ease;cursor:pointer}
+.taskcard:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+.tc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.tc-title{font-weight:700;font-size:12.5px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tc-flags{display:flex;align-items:center;gap:3px;flex-shrink:0}
+.tc-flag{font-size:10px;line-height:1;cursor:help}
+.badge-sm{font-size:9px;font-weight:800;padding:2px 6px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.tc-line2{font-size:11px;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tc-platform-more{color:var(--accent);font-weight:700;cursor:pointer}
+.tc-line3{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px;font-size:10.5px;color:var(--ink-faint);font-weight:600}
+.tc-line3 .who{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tc-line3 .pt{color:var(--accent);font-weight:800;flex-shrink:0}
+.tc-line4{font-size:10px;color:var(--ink-faint);margin-top:3px}
+.empty-col{border:1.5px dashed var(--line);border-radius:12px;padding:18px 10px;min-height:76px;
   display:flex;align-items:center;justify-content:center;text-align:center;color:var(--ink-faint);font-size:12px}
-.linkbox{display:flex;gap:6px;margin-top:9px}
-.linkbox input{flex:1;font-size:11px;padding:7px 9px;min-width:0}
-.linkchip{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--accent);font-weight:700;margin-top:9px}
+.linkbox{display:flex;gap:6px;margin-top:7px}
+.linkbox input{flex:1;font-size:11px;padding:6px 8px;min-width:0}
+.linkchip{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--accent);font-weight:700;margin-top:7px}
 .linkchip a{color:var(--accent)}
 
 .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);z-index:120;
@@ -550,6 +571,11 @@ hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 .drow-strip{display:flex;gap:3px;flex:1;min-width:180px}
 .strip-cell{flex:1;text-align:center;border-radius:7px;padding:4px 2px;font-size:10px;font-weight:700;cursor:pointer;min-width:26px}
 .strip-cell .sd{opacity:.7;font-size:10px;display:block}
+/* DEV UPDATE — Weekend/OFF Day Data Logic: an OFF day that still has real submitted work gets a thin
+   accent + tiny "OFF · N" badge instead of the plain OFF pill, so it reads at a glance as "off day, but
+   something really happened" rather than a normal working day. */
+.strip-cell.has-activity{outline:1.5px dashed var(--accent);outline-offset:-1.5px}
+.strip-offbadge{display:block;font-size:8px;font-weight:800;opacity:.75;margin-top:1px;letter-spacing:.02em}
 .drow-avail{min-width:80px;font-size:11px;color:var(--ink-soft)}
 .drow-action{margin-left:auto}
 
@@ -564,6 +590,8 @@ hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 .matrix-box.mb-near{background:#FFFBEB;border-color:#FDE68A}
 .matrix-box.mb-locked{background:#FEF2F2;border-color:#FECACA}
 .matrix-box.mb-off{background:#F1F5F9;border-color:var(--line)}
+.matrix-box.mb-off-activity{background:#EEF2FF;border-color:var(--accent);border-style:dashed}
+.matrix-box.mb-off-activity .mb-badge{background:var(--accent);color:#fff}
 .matrix-box .mb-pts{font-family:var(--font-app);font-weight:700;font-size:13px}
 .matrix-box .mb-pts small{font-weight:600;color:var(--ink-faint);font-size:10px}
 .matrix-box .mb-badge{position:absolute;top:-7px;right:-6px;font-size:10px;font-weight:700;padding:2px 6px;border-radius:999px}
@@ -767,11 +795,10 @@ hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 .kanban-col-count{background:rgba(15,23,42,.08);border-radius:999px;padding:1px 8px;font-size:10px;font-weight:700}
 .kanban-col-body{flex:1;min-height:40px;max-height:560px;overflow-y:auto}
 .kanban-col-empty{text-align:center;color:var(--ink-faint);font-size:11px;padding:14px 0}
-.kanban-col-body .ws-task-row{padding:10px 11px}
-.kanban-card-top{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.kanban-card-meta{font-size:10px}
-.kanban-card-foot{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;font-weight:600;color:var(--ink-soft)}
-.kanban-card-foot .overdue{color:var(--crit-tx)}
+/* DEV UPDATE — Compact My Work Kanban Card: shrink the shared .ws-task-row chrome further specifically
+   inside this board (PO Recent Briefs/Drafts elsewhere keep the original padding/gap untouched) to match
+   myWorkKanbanCardHTML()'s new compact .tc-* inner layout — same intent as the Process Board's .taskcard. */
+.kanban-col-body .ws-task-row{padding:8px 9px;gap:3px}
 .kanban-timer{font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;align-self:flex-start}
 .kanban-timer-idle{color:var(--ink-faint);background:rgba(15,23,42,.05)}
 .kanban-timer-active{color:var(--ok-tx);background:var(--ok-bg)}
@@ -799,6 +826,10 @@ hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 .week-bar-wrap.is-today{background:rgba(99,102,241,.08);border-radius:10px;padding:6px 3px 2px}
 .week-bar-wrap.is-today .week-bar-label{color:var(--accent);font-weight:900}
 .week-bar-wrap.is-today .week-bar-val{color:var(--accent)}
+/* DEV UPDATE — Weekend/OFF Day Data Logic: a plain OFF day (no real activity) mutes its own label/value
+   text too, so the whole column — not just the bar — reads as "day off" at a glance. */
+.week-bar-wrap.is-off .week-bar-val{color:var(--ink-faint)}
+.week-bar-wrap.is-off .week-bar-label{color:var(--ink-faint)}
 .notif-feed{list-style:none;margin:0;padding:0}
 .notif-feed li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .notif-feed li:last-child{border-bottom:none}
@@ -2198,7 +2229,13 @@ let STATE = {
   // Summary all read off the same three values together (see renderBoard). `month` (a "YYYY-MM" string)
   // is left null and lazily defaulted to the CURRENT month on first render — same lazy-default pattern
   // dash.date already uses — so it always opens on "now" rather than a stale value from a previous day.
-  board:{month:null, designer:'ALL', project:'ALL'},
+  // colScroll (DEV REQUEST — Compact Kanban Card + Column Scroll): each Kanban column's OWN scroll
+  // position, keyed by status — kept here (not just captured transiently around one render()) because
+  // opening/closing a Task Detail replaces the whole Main Content with a different page and back again
+  // (see renderMain's detailTaskId branch), so there's no "previous DOM" to read a scroll position off of
+  // at the moment the Board reappears. A live 'scroll' listener (bound in bindBoardColumnScroll) keeps this
+  // updated continuously; render() reapplies it to each .col-body every time the Board is drawn.
+  board:{month:null, designer:'ALL', project:'ALL', colScroll:{}},
   cal:{month:new Date().getMonth(), year:new Date().getFullYear(), selectedDate:null},
   detailTaskId:null, notifOpen:false, linkFormOpenId:null, userMenuOpen:false,
   gdriveBrowser:null, // set while the custom Drive image-browser portal (checkbox grid) is open — see openGdriveBrowser()
@@ -3293,6 +3330,9 @@ function addBusinessDays(dateStr, days){
 // since slicing a 10-char string to 10 chars is a no-op).
 function fmtDate(s){ if(!s) return "-"; const d=new Date(String(s).slice(0,10)+"T00:00:00"); return d.toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'2-digit'}); }
 function fmtDateTime(s){ if(!s) return "-"; const d=new Date(s); return d.toLocaleString('th-TH',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }
+// No-year variant (DEV REQUEST — Compact Kanban Card): the Board card's bottom metadata line is explicitly
+// spec'd as "18 ก.ย. · DL 23 ก.ย." with no year at all, to keep that one line as short as possible.
+function fmtDateShort(s){ if(!s) return "-"; const d=new Date(String(s).slice(0,10)+"T00:00:00"); return d.toLocaleDateString('th-TH',{day:'2-digit',month:'short'}); }
 // Resize (Master Dev Spec Phase E): Resize Point = CEIL(Resize Quantity / 4), ADDED ON TOP of the base
 // point from pointsForTask() below — applies to every task type/category, and is never merged into a
 // single combined formula with Deliverables (they're computed and stored separately, then summed).
@@ -3479,6 +3519,38 @@ function taskBreakdownFor(person, dateStr){
   const revisionPts = Math.round(revision.reduce((s,t)=>s+taskLoadOnDate(t,dateStr),0)*100)/100;
   return {master, revision, masterPts, revisionPts, total: Math.round((masterPts+revisionPts)*100)/100, tasks};
 }
+// DEV UPDATE — Weekend / OFF Day Data Logic: which dates a task has REAL, timestamped activity on — never
+// the Deadline (prefer_delivery_date is a plan, not a fact of something having happened). Pulled from the
+// actual event fields/review_history entries the rest of the app already writes at the moment real work
+// happens (AW link attached/submitted, Final Work Folder attached, Client Complete, task fully delivered) —
+// reusing these rather than inventing new tracking, per "field จริงที่ระบบใช้อยู่สำหรับการส่งงาน ห้ามใช้แค่
+// Deadline". A single shared definition here means every OFF-day surface (7-Day Strip, Capacity Matrix, and
+// anything else built on designerDayStatus/actualActivityFor later) agrees on what "real activity" means,
+// instead of each screen inventing its own check.
+function taskActivityDatesOf(t){
+  const dates = new Set();
+  if(t.aw_delivery_timestamp) dates.add(t.aw_delivery_timestamp.slice(0,10)); // designer submitted/attached AW
+  if(t.completed_at) dates.add(t.completed_at.slice(0,10)); // task fully delivered/closed
+  if(t.actual_delivery_date) dates.add(t.actual_delivery_date.slice(0,10)); // explicit actual-delivery override
+  (t.review_history||[]).forEach(h=>{
+    if(!h || !h.timestamp) return;
+    const isSubmissionEvent = h.action==='WORK_FOLDER_ATTACHED' || h.action==='CLIENT_COMPLETE'
+      || (h.action==='SUBMIT_BRIEF' && /AW (link attached|submitted)/.test(h.comment||''));
+    if(isSubmissionEvent) dates.add(h.timestamp.slice(0,10));
+  });
+  return dates;
+}
+// Real submitted/delivered work for `person` on `dateStr`, independent of Capacity/Deadline — the count +
+// "hours" (reusing the same pt unit Capacity already uses everywhere else; DAILY_CAP=8.0 is an 8-hour work
+// day, so 1 pt = 1 hour of capacity in this app's own math) of tasks with real activity that date. This is
+// intentionally separate from dayLoadFor() (which is forward-looking Planned Capacity and deliberately
+// excludes delivered/terminal tasks — see its own comment) — Actual Workload must be able to show a
+// delivered task's real submission day even on an OFF day, which dayLoadFor is not built to do.
+function actualActivityFor(person, dateStr){
+  const tasks = STATE.tasks.filter(t=>t.assigned_user_name===person && taskActivityDatesOf(t).has(dateStr));
+  const hours = Math.round(tasks.reduce((s,t)=>s+appliedPoints(t),0)*100)/100;
+  return {count: tasks.length, hours, tasks};
+}
 // Single shared status computation for a designer on a given date.
 function designerDayStatus(person, dateStr){
   const {taskLoad, isFullLeave} = dayLoadFor(person, dateStr);
@@ -3488,7 +3560,15 @@ function designerDayStatus(person, dateStr){
   else if(holiday) key='holiday';
   else key = capacityStatusKey(taskLoad);
   const meta = DASH_STATUS_META[key];
-  return {points: taskLoad, key, label: meta.label, rank: meta.rank, cls: meta.cls, isFullLeave, holiday};
+  // DEV UPDATE — Weekend / OFF Day Data Logic: an OFF day (weekend/holiday/leave) still reports Planned
+  // Capacity = 0 above (key/points untouched) — but must never make real submitted work on that day
+  // disappear. `activity` is computed only for OFF days (no cost on every normal working day) and handed
+  // to the caller ALONGSIDE the OFF status, never in place of it: "if OFF AND no activity → OFF; if OFF AND
+  // has activity → show the activity, status stays OFF" — exactly the rule from the dev spec, and it never
+  // flips key/cls to a working-day status just because work happened on an off day.
+  const isOffDay = key==='leave' || key==='holiday';
+  const activity = isOffDay ? actualActivityFor(person, dateStr) : null;
+  return {points: taskLoad, key, label: meta.label, rank: meta.rank, cls: meta.cls, isFullLeave, holiday, activity};
 }
 function earliestAvailableFor(person, fromDateStr){
   let d = new Date((fromDateStr||todayISO())+"T00:00:00");
@@ -5104,28 +5184,31 @@ function myWorkKanbanTimerHTML(t, colKey){
   return '';
 }
 // §7 Card Design: "ไม่ควรใส่ข้อมูลเยอะเกินไป" — task name, type/platform, priority, deadline, requester,
-// points, time status only. Reuses .ws-task-row/.ws-task-name/.ws-task-date/.ws-task-pts (see CSS comment
-// above .kanban-board) so this stays the same visual card language as the redesigned PO Recent Briefs/Drafts
-// lists, just laid out vertically to fit a narrow column instead of a wide row.
+// points, time status only.
+// DEV UPDATE — Compact My Work Kanban Card (Krissha feedback: "อันนี้ยังใหญ่อยู่นะ" on the old ~7-line
+// card): rebuilt on the exact same compact .tc-* line system + priorityBadgeSm()/boardCardPlatformHTML()
+// the Process Board's taskCardHTML() already uses (see there — both Kanbans now share one card language
+// instead of two near-duplicate ones), just with My Work's own extra bits (requester line, live Timer,
+// Undo button) appended below the same 4 compact lines rather than an all-new format. Still reuses
+// .ws-task-row as the outer card chrome (white bg/shadow/left accent/hover lift/drag) — only the INSIDE is
+// new — so PO Recent Briefs/Drafts (the other .ws-task-row consumer) is completely untouched.
 function myWorkKanbanCardHTML(t, colKey){
   const today = todayISO();
   const isOverdue = colKey!=='completed' && t.prefer_delivery_date && t.prefer_delivery_date<today;
   const requester = findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '—';
-  const platformText = (t.platform||[]).length ? t.platform.join(', ') : '';
   return `<div class="ws-task-row" draggable="true" data-opentask="${t.task_id}" data-kanban-card="${t.task_id}"
       style="border-left-color:${priorityAccentColor(t.priority)}">
-    <div class="kanban-card-top">
-      ${priorityBadge(t.priority)}
-      ${t.edit_revision>1 ? `<span class="chip" style="color:var(--accent);font-weight:700">✎ Rev</span>` : ''}
-      ${t.is_backdated ? `<span class="chip" style="color:#a15c00;font-weight:700">⏱</span>` : ''}
+    <div class="tc-top">
+      <div class="tc-title" title="${escAttr(taskDisplayName(t))}">${taskDisplayName(t)}</div>
+      <span class="tc-flags">
+        ${t.edit_revision>1 ? `<span class="tc-flag" title="Brief Updated (Rev ${t.edit_revision})">✎</span>` : ''}
+        ${t.is_backdated ? `<span class="tc-flag" title="Backdated Task">⏱</span>` : ''}
+      </span>
+      ${priorityBadgeSm(t.priority)}
     </div>
-    <div class="ws-task-name">${taskDisplayName(t)}</div>
-    <div class="kanban-card-meta hint">${t.task_type}${platformText?' · '+platformText:''}</div>
-    <div class="kanban-card-foot">
-      <span class="ws-task-date ${isOverdue?'overdue':''}" style="min-width:0;text-align:left">DL: ${fmtDate(t.prefer_delivery_date)}</span>
-      <span class="ws-task-pts" style="min-width:0">${appliedPoints(t).toFixed(1)} pt</span>
-    </div>
-    <div class="hint">สั่งโดย: ${requester}</div>
+    <div class="tc-line2">${t.task_type||''}${boardCardPlatformHTML(t)}</div>
+    <div class="tc-line3"><span class="who">สั่งโดย: ${requester}</span><span class="pt">${appliedPoints(t).toFixed(1)} pt</span></div>
+    <div class="tc-line4" style="${isOverdue?'color:var(--crit-tx);font-weight:700':''}">DL: ${fmtDate(t.prefer_delivery_date)}${isOverdue?' ⏰':''}</div>
     ${myWorkKanbanTimerHTML(t, colKey)}
     ${colKey==='in_progress' ? `<button type="button" class="kanban-card-undo" data-act="undoStart" data-id="${t.task_id}" draggable="false" title="เผลอย้ายผิด? ย้อนกลับไป &quot;งานใหม่&quot; และล้างเวลาที่นับไว้">↺ เผลอย้ายผิด? ย้อนกลับ</button>` : ''}
   </div>`;
@@ -5344,16 +5427,25 @@ function renderWorkspace(){
   // Day 1 is always today, Day 7 is always +6 days — never a Mon-Fri calendar week and never a day that
   // has already passed. Nothing here is cached/stored, so it recomputes fresh from `today` on every
   // render() and rolls automatically the moment the real date changes (oldest day drops off the left,
-  // a new day appears on the right) with no separate migration needed. Weekends stay IN the strip (Sat/
-  // Sun are real days here, not skipped) and still go through the same dayLoadFor() capacity math as
-  // every other day, so a Non-working Day still shows its true point load per the real Working Calendar.
+  // a new day appears on the right) with no separate migration needed.
+  // DEV UPDATE — Weekend / OFF Day Data Logic (Krissha feedback: "เสาร์ อาทิตย์ยังไม่เป็นสีเทา มันดูยาก"):
+  // every day now goes through the SAME designerDayStatus()/actualActivityFor() every other OFF-day surface
+  // (Team Dashboard's 7-Day Strip + Capacity Matrix) already uses — never a separate weekend-only check. An
+  // OFF day (weekend/holiday/leave) with nothing really submitted reads as a flat gray bar labeled "OFF", so
+  // it's obviously non-working at a glance; an OFF day WITH real submitted work still reads as an off day
+  // (muted/off-tinted bar + "OFF" note under the date) but shows the real hours instead of hiding them.
   const ROLLING_DOW_TH = ['อา','จ','อ','พ','พฤ','ศ','ส']; // Date.getDay(): 0=Sun...6=Sat
   const weekBars = Array.from({length:7}, (_,i)=>{
     const ds = addDaysISO(today, i);
     const d0 = new Date(ds+'T00:00:00');
-    const {taskLoad} = dayLoadFor(me, ds);
-    const h = Math.max(6, Math.min(100, Math.round(taskLoad/DAILY_CAP*100)));
-    return {lbl: `${ROLLING_DOW_TH[d0.getDay()]}. ${d0.getDate()}`, pts:taskLoad, h, color:weekBarColor(taskLoad), isToday: ds===today};
+    const st = designerDayStatus(me, ds);
+    const isOff = st.key==='leave' || st.key==='holiday';
+    const hasActivity = isOff && st.activity && st.activity.count>0;
+    const pts = isOff ? (hasActivity ? st.activity.hours : 0) : st.points;
+    const h = (isOff && !hasActivity) ? 6 : Math.max(6, Math.min(100, Math.round(pts/DAILY_CAP*100)));
+    const color = isOff ? (hasActivity ? '#818CF8' : '#CBD5E1') : weekBarColor(pts);
+    return {lbl: `${ROLLING_DOW_TH[d0.getDay()]}. ${d0.getDate()}`, pts, h, color, isToday: ds===today,
+      isOff, hasActivity, valLabel: (isOff && !hasActivity) ? 'OFF' : pts.toFixed(1)};
   });
 
   const notifs = myNotifs().slice(0,6);
@@ -5394,10 +5486,10 @@ function renderWorkspace(){
   <div class="card" style="margin-bottom:16px">
     <div class="section-title" style="margin-bottom:0">ภาระงาน 7 วันข้างหน้า — ${role}</div>
     <div class="week-strip">
-      ${weekBars.map(w=>`<div class="week-bar-wrap${w.isToday?' is-today':''}">
-        <span class="week-bar-val">${w.pts.toFixed(1)}</span>
+      ${weekBars.map(w=>`<div class="week-bar-wrap${w.isToday?' is-today':''}${w.isOff?' is-off':''}">
+        <span class="week-bar-val">${w.valLabel}</span>
         <div class="week-bar" style="height:${w.h}%;background:${w.color}${w.isToday?';outline:2px solid var(--accent);outline-offset:2px':''}"></div>
-        <span class="week-bar-label">${w.lbl}</span>
+        <span class="week-bar-label">${w.lbl}${w.hasActivity?' · OFF':''}</span>
       </div>`).join('')}
     </div>
   </div>
@@ -9996,16 +10088,56 @@ function renderColumn(status, tasks){
   // createdAt (its only history entry so far) while "In Progress"/"Revision"/etc naturally sort by
   // whichever action most recently moved them into that column, with no separate field to keep in sync.
   const sorted = tasks.slice().sort((a,b)=>(lastUpdateOf(b)||'').localeCompare(lastUpdateOf(a)||''));
+  // DEV REQUEST — Compact Kanban Card + Column Scroll: the task list now lives in its own .col-body
+  // (independently scrollable, see CSS) rather than flowing directly inside .col — .col-head stays outside
+  // it so it never scrolls out of view. data-boardcol is a stable per-column key (status is unique across
+  // both BOARD_SECTIONS) used to restore this exact column's own scroll position after a full render() —
+  // see SCROLL_PRESERVE_MULTI / captureScrollState / restoreScrollState.
   return `<div class="col">
     <div class="col-head"><span class="n">${STATUS_LABEL[status]}</span><span class="cnt">${sorted.length}</span></div>
-    ${sorted.length===0 ? `<div class="empty-col">ไม่มีงาน</div>` : sorted.map(t=>taskCardHTML(t,true)).join('')}
+    <div class="col-body" data-boardcol="${status}">
+      ${sorted.length===0 ? `<div class="empty-col">ไม่มีงาน</div>` : sorted.map(t=>taskCardHTML(t,true)).join('')}
+    </div>
   </div>`;
 }
 function priorityBadge(p){ return `<span class="badge b-${p}">${p==='CRITICAL'?'🔴':p==='URGENT'?'🟠':p==='PRIORITY'?'🟡':'🔵'} ${p}</span>`; }
+// Compact corner badge for the Board card (DEV REQUEST — Compact Kanban Card §6 "Priority ใช้ badge เล็ก
+// ไม่เพิ่มความสูง Card") — same colors/emoji as priorityBadge(), just small enough to sit inline in the
+// card's top row without adding a line of its own. priorityBadge() itself is used elsewhere and left as-is.
+function priorityBadgeSm(p){ return `<span class="badge badge-sm b-${p}">${p==='CRITICAL'?'🔴':p==='URGENT'?'🟠':p==='PRIORITY'?'🟡':'🔵'} ${p}</span>`; }
+// Short label for the card's bottom metadata line (§4 "วันสั่งงาน · DL Deadline · ความด่วน" — เช่น "ปกติ"/
+// "ด่วน"/"Priority", per Krissha's own examples), separate from priorityBadge()'s full enum name.
+const PRIORITY_SHORT_TH = {STANDARD:'ปกติ', PRIORITY:'Priority', URGENT:'ด่วน', CRITICAL:'วิกฤต'};
 // Trello-style left accent strip color for a .ws-task-row card, reusing the same priority colors already
 // used everywhere else (badges, calendar) so the new color cue stays consistent with what STANDARD/PRIORITY/
 // URGENT/CRITICAL already mean elsewhere in the app rather than inventing a second palette.
 function priorityAccentColor(p){ return {CRITICAL:'var(--crit-tx)', URGENT:'var(--urg-tx)', PRIORITY:'var(--pri-tx)', STANDARD:'var(--std-tx)'}[p] || 'var(--line)'; }
+// §5 Secondary Data (Task ID / Revision / Backdated / Brief Updated / lock&late flags): kept, but compressed
+// into small icon-only flags with a hover tooltip instead of full-text chips, so they cost zero extra card
+// height (§6 "ห้ามตัดข้อมูลหลักจนอ่านไม่ออก" only protects the PRIMARY fields — these were named explicitly
+// as ones that should shrink). Full text for all of these still lives on the Task Detail page, unchanged.
+function boardCardFlagsHTML(t, late, extPending){
+  const flags = [];
+  if(t.needsApproval) flags.push(['🔒','รอ Lead Designer Approval']);
+  if(late) flags.push(['⏰','เลยกำหนดส่ง']);
+  if(extPending) flags.push(['📨','ขอเลื่อนกำหนดส่ง (รออนุมัติ)']);
+  if(t.edit_revision>1) flags.push(['✎',`Brief Updated (Rev ${t.edit_revision})`]);
+  if(t.is_backdated) flags.push(['⏱','Backdated Task']);
+  if(!flags.length) return '';
+  return `<span class="tc-flags">${flags.map(([ic,title])=>`<span class="tc-flag" title="${escAttr(title)}">${ic}</span>`).join('')}</span>`;
+}
+// §3 Platform: always reads live off t.platform (the same array Brief/Edit Brief writes — single source of
+// truth, so an edited Brief updates every open card the instant the board re-renders, no separate copy to
+// keep in sync), shown on the SAME line as Work Type, never a new one. 2+ platforms collapse to "First +N",
+// with the rest available on hover (title tooltip) and via a normal click-through to Task Detail (the whole
+// card is already click-to-open) — satisfies "กดหรือ Hover +2 เพื่อดู Platform ที่เหลือได้" without a
+// separate popover/state to build and keep in sync across renders.
+function boardCardPlatformHTML(t){
+  const plats = (Array.isArray(t.platform) ? t.platform : []).filter(Boolean);
+  if(!plats.length) return '';
+  if(plats.length===1) return ` · ${plats[0]}`;
+  return ` · ${plats[0]} <span class="tc-platform-more" title="${escAttr(plats.slice(1).join(', '))}">+${plats.length-1}</span>`;
+}
 
 function taskCardHTML(t){
   const late = t.prefer_delivery_date && t.prefer_delivery_date < todayISO() && !['delivered','rejected','closed_max_revision'].includes(t.review_status);
@@ -10025,27 +10157,21 @@ function taskCardHTML(t){
   } else if(t.aw_link){
     linkSection = `<div class="linkchip">🔗 <a href="${t.aw_link}" target="_blank">ลิงก์ส่งงานแล้ว</a></div>`;
   }
-  return `<div class="taskcard" data-opentask="${t.task_id}">
+  const ownerName = findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '—';
+  const designerName = t.assigned_user_name || 'Pending Assignment';
+  // §4 Bottom Metadata — exactly "วันสั่งงาน · DL Deadline · ความด่วน", no labels, no year (fmtDateShort).
+  const orderDate = t.brief_timestamp ? fmtDateShort(t.brief_timestamp) : '-';
+  const dlDate = t.prefer_delivery_date ? fmtDateShort(t.prefer_delivery_date) : '-';
+  const prioShort = PRIORITY_SHORT_TH[t.priority] || t.priority || '';
+  return `<div class="taskcard" data-opentask="${t.task_id}" style="border-left-color:${priorityAccentColor(t.priority)}">
     <div class="tc-top">
-      <div class="tc-title">${taskDisplayName(t)}</div>
-      ${priorityBadge(t.priority)}
+      <div class="tc-title" title="${escAttr(taskDisplayName(t))}">${taskDisplayName(t)}</div>
+      ${boardCardFlagsHTML(t, late, extPending)}
+      ${priorityBadgeSm(t.priority)}
     </div>
-    <div class="tc-meta">
-      ${t.project_name?`<span class="chip">${t.project_name}</span>`:''}
-      <span class="mono">${t.task_id}</span>
-      ${t.edit_revision>1 ? `<span style="color:var(--accent);font-weight:700">✎ Brief Updated (Rev ${t.edit_revision})</span>` : ''}
-      ${t.is_backdated ? `<span style="color:#a15c00;font-weight:700">⏱ Backdated</span>` : ''}
-      ${late?`<span style="color:var(--crit-tx);font-weight:700">⏰ เลยกำหนด</span>`:''}
-      ${extPending?`<span style="color:var(--pri-tx);font-weight:700">📨 ขอเลื่อนกำหนด</span>`:''}
-      ${t.needsApproval ? `<span style="color:#C2410C;font-weight:700">🔒 Lead Designer Approval</span>` : ''}
-    </div>
-    <div style="font-size:12px;color:var(--ink-soft)">${t.task_type}</div>
-    <div class="tc-owner hint" style="margin-top:2px">🧑‍💼 Brief Owner: ${findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '—'}</div>
-    <div class="tc-foot">
-      <span class="assignee"><span class="avatar" style="width:18px;height:18px;font-size:10px">${(t.assigned_user_name||'?')[0]||'?'}</span>${t.assigned_user_name||'Pending Assignment'}</span>
-      <span class="mono" style="font-size:11px;font-weight:700;color:var(--accent)">${appliedPoints(t).toFixed(2)} pt</span>
-    </div>
-    <div style="font-size:11px;color:var(--ink-faint);margin-top:4px">ส่งมอบ: ${fmtDate(t.prefer_delivery_date)} · Rev ${t.revision_count||0}/3</div>
+    <div class="tc-line2">${t.task_type||''}${boardCardPlatformHTML(t)}</div>
+    <div class="tc-line3"><span class="who">${ownerName} → ${designerName}</span><span class="pt">${appliedPoints(t).toFixed(2)} pt</span></div>
+    <div class="tc-line4">${orderDate} · DL ${dlDate} · ${prioShort}</div>
     ${linkSection}
   </div>`;
 }
@@ -11781,9 +11907,18 @@ function render7DayStrip(person, startDate){
   for(let i=0;i<7;i++){
     const ds = addDaysISO(startDate, i);
     const st = designerDayStatus(person, ds);
-    const label = st.key==='leave' ? 'OFF' : st.key==='holiday' ? 'OFF' : st.points.toFixed(0);
-    html += `<div class="strip-cell status-pill ${st.cls}" data-stripcell="${person}|${ds}" title="${fmtDate(ds)} — ${st.label}">
-      <span class="sd">${new Date(ds+'T00:00:00').getDate()}</span>${label}</div>`;
+    const isOff = st.key==='leave' || st.key==='holiday';
+    // DEV UPDATE — Weekend / OFF Day Data Logic: an OFF day with no real submitted work still reads "OFF"
+    // exactly as before — only a day that actually has real activity swaps the number in (never flips the
+    // day's own OFF status/color, just what's printed on top of it), plus a small badge so it's still
+    // obviously an off day with work on it, not a normal working day.
+    const hasActivity = isOff && st.activity && st.activity.count>0;
+    const label = isOff ? (hasActivity ? st.activity.hours.toFixed(1) : 'OFF') : st.points.toFixed(0);
+    const title = hasActivity
+      ? `${fmtDate(ds)} — ${st.label} · มีงานส่งจริง ${st.activity.count} งาน (${st.activity.hours.toFixed(1)} ชม.)`
+      : `${fmtDate(ds)} — ${st.label}`;
+    html += `<div class="strip-cell status-pill ${st.cls}${hasActivity?' has-activity':''}" data-stripcell="${person}|${ds}" title="${escAttr(title)}">
+      <span class="sd">${new Date(ds+'T00:00:00').getDate()}</span>${label}${hasActivity?`<span class="strip-offbadge">OFF · ${st.activity.count}</span>`:''}</div>`;
   }
   return html;
 }
@@ -11803,6 +11938,18 @@ function renderCapacityMatrix(all, startDate){
           const st = designerDayStatus(d.person, ds);
           const bd = taskBreakdownFor(d.person, ds);
           if(st.key==='leave'||st.key==='holiday'){
+            // DEV UPDATE — Weekend / OFF Day Data Logic: OFF stays OFF (Planned Capacity is still 0, the
+            // cell keeps its mb-off styling) but real submitted/delivered work that day is shown instead of
+            // being hidden behind the plain "OFF" text — st.activity is only ever populated for OFF days
+            // (see designerDayStatus), off real event timestamps, never off the Deadline.
+            const hasActivity = st.activity && st.activity.count>0;
+            if(hasActivity){
+              return `<td><div class="matrix-box mb-off mb-off-activity" data-matrixcell="${d.person}|${ds}" title="${escAttr((st.key==='leave'?'ลา':'หยุด')+' — มีงานส่งจริง '+st.activity.count+' งาน')}">
+                <span class="mb-badge">${st.activity.count} งาน</span>
+                <div class="mb-pts">${st.activity.hours.toFixed(1)} <small>ชม.</small></div>
+                <div class="hint" style="font-size:10px">${st.key==='leave'?'ลา':'หยุด'} · มีงานส่ง</div>
+              </div></td>`;
+            }
             return `<td><div class="matrix-box mb-off" data-matrixcell="${d.person}|${ds}"><div class="mb-pts">OFF</div><div class="hint" style="font-size:10px">${st.key==='leave'?'ลา':'หยุด'}</div></div></td>`;
           }
           const tier = st.points>=DAILY_CAP ? 'locked' : (st.points>=DAILY_CAP*0.75 ? 'near' : 'avail');
@@ -13061,6 +13208,17 @@ function bindEvents(){
   document.getElementById('boardMonthFilter')?.addEventListener('change', e=>{ STATE.board.month=e.target.value; render(); });
   document.getElementById('boardDesignerFilter')?.addEventListener('change', e=>{ STATE.board.designer=e.target.value; render(); });
   document.getElementById('boardProjectFilter')?.addEventListener('change', e=>{ STATE.board.project=e.target.value; render(); });
+  // DEV REQUEST — Compact Kanban Card + Column Scroll: reapply + keep tracking each column's own scroll
+  // position (STATE.board.colScroll, keyed by status) every render — a plain 'scroll' listener never
+  // triggers render() itself (scrolling must not cost a rebuild), it just keeps STATE current so whichever
+  // render() eventually happens next (opening/closing a Task Detail, editing a Brief, changing a filter,
+  // updating status, etc.) can put every column right back where the user left it instead of resetting to
+  // the top. Cheap even with 9 columns — plain scrollTop reads/writes, no re-render.
+  document.querySelectorAll('.col-body[data-boardcol]').forEach(el=>{
+    const key = el.dataset.boardcol;
+    if(STATE.board.colScroll[key]) el.scrollTop = STATE.board.colScroll[key];
+    el.addEventListener('scroll', ()=>{ STATE.board.colScroll[key] = el.scrollTop; }, {passive:true});
+  });
 
   // Leave Calendar
   document.getElementById('leaveForm')?.addEventListener('submit', submitLeave);
