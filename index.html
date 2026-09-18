@@ -793,6 +793,12 @@ hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 .week-bar{width:100%;border-radius:8px 8px 3px 3px;min-height:6px;transition:height .3s}
 .week-bar-label{font-size:10px;color:var(--ink-faint);font-weight:700}
 .week-bar-val{font-size:11px;font-weight:700}
+/* DEV UPDATE (Dashboard Capacity = Today + Next 6 Days): Today's column gets a visibly distinct treatment
+   — soft accent background behind the whole bar + bolded, accent-colored label/value — not just the
+   outline already on the bar itself, per "Highlight Today ให้ชัดกว่าวันอื่น". */
+.week-bar-wrap.is-today{background:rgba(99,102,241,.08);border-radius:10px;padding:6px 3px 2px}
+.week-bar-wrap.is-today .week-bar-label{color:var(--accent);font-weight:900}
+.week-bar-wrap.is-today .week-bar-val{color:var(--accent)}
 .notif-feed{list-style:none;margin:0;padding:0}
 .notif-feed li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .notif-feed li:last-child{border-bottom:none}
@@ -2187,7 +2193,12 @@ let STATE = {
   // the whole session (not reset on navigating into a task and back — dev spec requirement #5) since
   // STATE itself isn't torn down between renders.
   myCompletedUI:{search:'', sort:'latest', filters:{project:'ALL', workType:'ALL', platform:'ALL', role:'ALL', year:'ALL', month:'ALL'}, expanded:{}},
-  projectFilter:"ALL",
+  // DEV UPDATE (Working Process Board — Month / Designer / Project Filter): replaces the old standalone
+  // projectFilter with one combined filter bag the three dropdowns share, so Kanban/Counters/Monthly
+  // Summary all read off the same three values together (see renderBoard). `month` (a "YYYY-MM" string)
+  // is left null and lazily defaulted to the CURRENT month on first render — same lazy-default pattern
+  // dash.date already uses — so it always opens on "now" rather than a stale value from a previous day.
+  board:{month:null, designer:'ALL', project:'ALL'},
   cal:{month:new Date().getMonth(), year:new Date().getFullYear(), selectedDate:null},
   detailTaskId:null, notifOpen:false, linkFormOpenId:null, userMenuOpen:false,
   gdriveBrowser:null, // set while the custom Drive image-browser portal (checkbox grid) is open — see openGdriveBrowser()
@@ -3377,7 +3388,7 @@ function syncArtworkCardsToScope(t, scopeChangeId, reason){
     for(let i=t.artworks.length-1; i>=0 && toRemove>0; i--){
       const aw = t.artworks[i];
       if(aw.status==='cancelled') continue;
-      const untouched = !aw.header && !aw.subheader && !aw.detail && !aw.cta && !aw.disclaimer && !aw.brieflink
+      const untouched = !aw.brief && !aw.header && !aw.subheader && !aw.detail && !aw.cta && !aw.disclaimer && !aw.brieflink
         && (!aw.references||!aw.references.length) && (!aw.attachments||!aw.attachments.length);
       if(untouched && i===t.artworks.length-1 && !aw.created_from_scope_change_id){
         t.artworks.splice(i,1);
@@ -5329,13 +5340,20 @@ function renderWorkspace(){
   const thisMonthG = myCompletedGroupInfo(today);
   const completedSectionTitle = `งานที่เสร็จแล้ว — ${thisMonthG.monthLabel} ${thisMonthG.bYear}`;
 
-  const monday = mondayOfWeek(today);
-  const weekDays = ['จ','อ','พ','พฤ','ศ'];
-  const weekBars = weekDays.map((lbl,i)=>{
-    const ds = addDaysISO(monday, i);
+  // DEV UPDATE (Dashboard Capacity = Today + Next 6 Days): rolling 7-day window anchored on `today` —
+  // Day 1 is always today, Day 7 is always +6 days — never a Mon-Fri calendar week and never a day that
+  // has already passed. Nothing here is cached/stored, so it recomputes fresh from `today` on every
+  // render() and rolls automatically the moment the real date changes (oldest day drops off the left,
+  // a new day appears on the right) with no separate migration needed. Weekends stay IN the strip (Sat/
+  // Sun are real days here, not skipped) and still go through the same dayLoadFor() capacity math as
+  // every other day, so a Non-working Day still shows its true point load per the real Working Calendar.
+  const ROLLING_DOW_TH = ['อา','จ','อ','พ','พฤ','ศ','ส']; // Date.getDay(): 0=Sun...6=Sat
+  const weekBars = Array.from({length:7}, (_,i)=>{
+    const ds = addDaysISO(today, i);
+    const d0 = new Date(ds+'T00:00:00');
     const {taskLoad} = dayLoadFor(me, ds);
     const h = Math.max(6, Math.min(100, Math.round(taskLoad/DAILY_CAP*100)));
-    return {lbl, pts:taskLoad, h, color:weekBarColor(taskLoad), isToday: ds===today};
+    return {lbl: `${ROLLING_DOW_TH[d0.getDay()]}. ${d0.getDate()}`, pts:taskLoad, h, color:weekBarColor(taskLoad), isToday: ds===today};
   });
 
   const notifs = myNotifs().slice(0,6);
@@ -5367,28 +5385,31 @@ function renderWorkspace(){
 
   <!-- Reorder Dashboard dev spec, SECTION 2-3: Weekly Capacity + Notifications move up here (were at the
        very bottom of the page before this spec) — both are "right now" context, same as the KPI row above
-       them, so they read before the task lists instead of after. -->
-  <div class="ws-bottom" style="margin-bottom:16px">
-    <div class="card">
-      <div class="section-title" style="margin-bottom:0">ภาระงานสัปดาห์นี้ — ${role}</div>
-      <div class="week-strip">
-        ${weekBars.map(w=>`<div class="week-bar-wrap">
-          <span class="week-bar-val">${w.pts.toFixed(1)}</span>
-          <div class="week-bar" style="height:${w.h}%;background:${w.color}${w.isToday?';outline:2px solid var(--accent);outline-offset:2px':''}"></div>
-          <span class="week-bar-label">${w.lbl}</span>
-        </div>`).join('')}
-      </div>
+       them, so they read before the task lists instead of after.
+       DEV UPDATE (Dashboard Capacity = Today + Next 6 Days): the capacity strip gets its own full-width
+       card instead of sharing the old 2-up .ws-bottom grid with Notifications — 7 columns need more room
+       than a half-width card gives on a laptop screen, so it can stay a single row with no horizontal
+       scroll ("Desktop ต้องเห็นครบ 7 วันในแถวเดียว"). Notifications moves to its own full-width card
+       right below it. -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="section-title" style="margin-bottom:0">ภาระงาน 7 วันข้างหน้า — ${role}</div>
+    <div class="week-strip">
+      ${weekBars.map(w=>`<div class="week-bar-wrap${w.isToday?' is-today':''}">
+        <span class="week-bar-val">${w.pts.toFixed(1)}</span>
+        <div class="week-bar" style="height:${w.h}%;background:${w.color}${w.isToday?';outline:2px solid var(--accent);outline-offset:2px':''}"></div>
+        <span class="week-bar-label">${w.lbl}</span>
+      </div>`).join('')}
     </div>
-    <div class="card">
-      <div class="section-title" style="margin-bottom:0">แจ้งเตือนล่าสุด</div>
-      ${notifs.length===0 ? `<div class="hint" style="margin-top:8px">ยังไม่มีการแจ้งเตือน</div>` : `
-      <ul class="notif-feed">
-        ${notifs.map(n=>`<li data-notifitem="${n.id}" ${n.taskId?`data-opentask="${n.taskId}" style="cursor:pointer"`:''}>
-          <span class="nf-icon">${n.read?'🔔':'🔵'}</span>
-          <div><div class="nf-msg"><strong>${n.title}</strong> ${n.message}</div><div class="nf-time">${fmtDateTime(n.timestamp)}</div></div>
-        </li>`).join('')}
-      </ul>`}
-    </div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="section-title" style="margin-bottom:0">แจ้งเตือนล่าสุด</div>
+    ${notifs.length===0 ? `<div class="hint" style="margin-top:8px">ยังไม่มีการแจ้งเตือน</div>` : `
+    <ul class="notif-feed">
+      ${notifs.map(n=>`<li data-notifitem="${n.id}" ${n.taskId?`data-opentask="${n.taskId}" style="cursor:pointer"`:''}>
+        <span class="nf-icon">${n.read?'🔔':'🔵'}</span>
+        <div><div class="nf-msg"><strong>${n.title}</strong> ${n.message}</div><div class="nf-time">${fmtDateTime(n.timestamp)}</div></div>
+      </li>`).join('')}
+    </ul>`}
   </div>
 
   <!-- Reorder Dashboard dev spec, SECTION 4 (new): "งานที่ต้องจัดการวันนี้" — priority-ranked action list,
@@ -5791,7 +5812,11 @@ function nowIso(){ return new Date().toISOString(); }
 function newArtwork(name){
   return {
     artworkId: uidShort('aw'), name: name||'',
-    header:'', subheader:'', detail:'', cta:'', disclaimer:'', brieflink:'',
+    // §Brief/Artwork Final Scope: header/subheader/cta/disclaimer/detail are retired from the UI in
+    // favor of one big `brief` field ("Brief / Content") — kept here only so a task saved before this
+    // change still has somewhere for its old data to live; every render/bind site now reads/writes
+    // `brief` instead. See renderVBInputsPanel/bindVBInputsPanel and artworkMissingFields.
+    header:'', subheader:'', detail:'', cta:'', disclaimer:'', brief:'', brieflink:'',
     product:'',
     references:[],
     attachments:[],
@@ -5872,8 +5897,8 @@ function syncDeliverablesField(){
 const ARTWORK_REQUIRED_FIELDS = [
   {key:'name', label:'Artwork Name'},
 ];
-const ARTWORK_APPLYALL_FIELDS = ['header','subheader','cta','disclaimer'];
-const ARTWORK_APPLYALL_LABELS = {header:'Header', subheader:'Sub-header', cta:'CTA', disclaimer:'Disclaimer'};
+const ARTWORK_APPLYALL_FIELDS = ['brief'];
+const ARTWORK_APPLYALL_LABELS = {brief:'Brief / Content'};
 function artworkFieldFilled(aw, key){ return !!(aw && aw[key] && String(aw[key]).trim()); }
 function artworkMissingFields(aw){ return ARTWORK_REQUIRED_FIELDS.filter(f=>!artworkFieldFilled(aw,f.key)); }
 function artworkIsComplete(aw){ return artworkMissingFields(aw).length===0; }
@@ -5881,7 +5906,7 @@ function artworkCanvasHasContent(aw){
   return !!(aw && aw.canvas && Array.isArray(aw.canvas.pages) && aw.canvas.pages.some(p=>p.elements && p.elements.length>0));
 }
 function artworkHasAnyData(aw){
-  return ['name','header','subheader','detail','cta','disclaimer','brieflink'].some(k=>artworkFieldFilled(aw,k))
+  return ['name','brief','header','subheader','detail','cta','disclaimer','brieflink'].some(k=>artworkFieldFilled(aw,k))
     || (aw.attachments && aw.attachments.length>0)
     || (aw.references && aw.references.length>0)
     || artworkCanvasHasContent(aw);
@@ -6032,7 +6057,7 @@ function loadBriefDraftFromTask(t, startArtworkIndex){
     } else {
       artworksRehydrated = [Object.assign(newArtwork(t.task_name||''), {
         header:bd.header||'', subheader:bd.sub_header||'',
-        detail:bd.detail||'', cta:bd.cta||'', disclaimer:bd.disclaimer||'', brieflink:t.brief_link||'',
+        detail:bd.detail||'', cta:bd.cta||'', disclaimer:bd.disclaimer||'', brief: bd.brief || bd.detail || '', brieflink:t.brief_link||'',
         attachments:(bd.attachments||[]).slice(), canvas: legacyVb,
       })];
     }
@@ -6146,8 +6171,8 @@ function legacyBriefDetailsMirror(){
     brief_link: primaryLink,
     brief_details: {
       mode: 'unified',
-      header: aw0.header || '', sub_header: aw0.subheader || '', detail: aw0.detail || '',
-      cta: aw0.cta || '', disclaimer: aw0.disclaimer || '',
+      header: aw0.header || '', sub_header: aw0.subheader || '', detail: aw0.brief || aw0.detail || '',
+      cta: aw0.cta || '', disclaimer: aw0.disclaimer || '', brief: aw0.brief || '',
       attachments: (aw0.attachments || []).slice(),
       // extra_links kept as a mirror of the real external_brief_links field above (buildDraftSnapshot)
       // so any legacy consumer still reading brief_details.extra_links keeps working.
@@ -6549,7 +6574,7 @@ function renderArtworkCardsHTML(){
   const arr = briefArtworks();
   return arr.map((aw,i)=>{
     const st = artworkStatus(aw,i); const meta = ARTWORK_STATUS_META[st];
-    const metaLine = (aw.header||'').trim();
+    const metaLine = (aw.brief || aw.header || '').trim();
     return `<div class="aw-card ${i===activeArtworkIndex()?'active':''}" draggable="true" data-awid="${aw.artworkId}" data-awcard="${i}">
       <span class="aw-card-drag" title="ลากเพื่อจัดลำดับ (Reorder)">⋮⋮</span>
       <div class="aw-card-num">${artworkSeqLabel(i)}</div>
@@ -7073,10 +7098,17 @@ function renderBackdatedTaskForm(){
           <div class="field"><label>Artwork Type *</label>
             <select id="bt_type" disabled><option value="">— เลือกประเภท Artwork —</option></select>
           </div>
-          <div class="field"><label>จำนวน Artwork หลัก *</label><input type="number" id="bt_deliverables" min="1" value="1"></div>
+          <div class="field"><label>จำนวน Artwork หลัก *</label><input type="number" id="f_deliverables" min="1" step="1" value="1"></div>
           <div class="field"><label>Resize</label><input type="number" id="bt_resize" min="0" step="1" value="0"></div>
         </div>
         <div class="bt-grid-2">
+          <!-- Platform (DEV FIX — same field Normal Task uses: #platformField/#platformPillsWrap, driven by
+               the shared BRIEF_DRAFT.platforms + renderPlatformSelectHTML()/bindPlatformSelect() — never a
+               separate Backdated-only copy. Shown only for categories that actually have platform options
+               (PLATFORMS_BY_CATEGORY), same gating as the live Brief form. -->
+          <div class="field" id="platformField" style="display:none;margin-bottom:0"><label>แพลตฟอร์ม (Platform)</label>
+            <div id="platformPillsWrap"></div>
+          </div>
           <!-- §11 KV Status Logic: used ONLY when Task Category = E-Commerce (this Backdated Task form
                specifically) — gated on Category alone, never on Artwork Type, with only the two options
                (no "ไม่เกี่ยวข้อง"), required before Submit, and cleared to null the moment Category leaves
@@ -7089,11 +7121,24 @@ function renderBackdatedTaskForm(){
             </select>
             <div class="hint">ใช้เฉพาะ Task Category = E-Commerce</div>
           </div>
+        </div>
+        <div class="bt-grid-2">
           <div class="field" id="btCustomWrap" style="display:none">
             <label>Points (กำหนดโดย Lead Designer)</label><input type="number" step="0.5" id="bt_custom" value="2">
           </div>
         </div>
         <div class="bt-helper-row">Resize Point = CEIL(จำนวน Resize ÷ 4) — บวกเพิ่มจาก Point งานหลักเสมอ (คำนวณที่ Backend หลัง Submit — ไม่แสดง Point ในฟอร์มนี้)</div>
+      </div>
+
+      <!-- DEV FIX — Backdated Preview = Normal Task Preview: Artwork Brief & Canvas now reuses the EXACT
+           SAME Artwork Editor as Normal Task (renderArtworkDetailsHTML()/#artworkDetailsSection →
+           bindArtworkSection()/refreshArtworkSection() — see bindBackdatedTaskForm() below), so Artwork
+           Name / Brief / Content / Images / Reference Links / Canvas / External Brief Links all behave
+           identically for Backdated as for a Normal Task, instead of a separate/duplicated implementation
+           that could drift out of sync. -->
+      <div class="bt-section">
+        <div class="bt-section-title">Artwork Brief &amp; Canvas</div>
+        <div id="artworkDetailsSection"></div>
       </div>
 
       <div class="bt-section">
@@ -7189,12 +7234,23 @@ function currentBackdatedPoints(){
   if(def && def.custom) return (Number(document.getElementById('bt_custom')?.value||0)) + resizePts;
   return pointsForTask({
     task_category: catEl.value, task_type: typeEl.value, kv_status_check: BACKDATED_DRAFT.kv,
-    deliverables: document.getElementById('bt_deliverables')?.value || 1,
+    deliverables: document.getElementById('f_deliverables')?.value || 1,
   }) + resizePts;
 }
 function bindBackdatedTaskForm(){
   if(!document.getElementById('backdatedForm')) return;
   BACKDATED_DRAFT = { kv:'' };
+  // DEV FIX — Backdated Preview = Normal Task Preview: Artwork Name / Brief / Content / Images / Reference
+  // Links / Canvas / External Brief Links for Backdated Task now live in the SAME BRIEF_DRAFT.artworks data
+  // model Normal Task uses (never a separate Backdated-only copy — see submitBackdatedTask() below, which
+  // saves straight off briefArtworks() exactly like submitBrief() does). resetBriefDraft() here mirrors
+  // exactly what renderBriefForm() does for a brand-new Normal Brief (both run once per full render() while
+  // composing a new — never-yet-submitted — record), and refreshArtworkSection() first-populates the shared
+  // #artworkDetailsSection the same way onCategoryChange() does on the Brief & Intake page.
+  resetBriefDraft();
+  refreshArtworkSection();
+  document.getElementById('f_deliverables')?.addEventListener('input', refreshBriefForm);
+  document.getElementById('f_deliverables')?.addEventListener('change', e=>applyDeliverablesCount(Number(e.target.value)));
   const updateCalcPriority = ()=>{
     const briefDate = document.getElementById('bt_briefdate')?.value || '';
     const deadlineDate = document.getElementById('bt_deadline')?.value || '';
@@ -7218,18 +7274,29 @@ function bindBackdatedTaskForm(){
     if(preview) preview.innerHTML = renderOwnerAutoPreviewHTML(e.target.value);
   });
   document.getElementById('bt_category')?.addEventListener('change', e=>{
-    const cat = MASTER_TABLE[e.target.value];
+    const catVal = e.target.value;
+    const cat = MASTER_TABLE[catVal];
     const typeEl = document.getElementById('bt_type');
     const kvWrap = document.getElementById('btKvWrap');
     const customWrap = document.getElementById('btCustomWrap');
+    const platField = document.getElementById('platformField');
     // §11: leaving E-Commerce (or clearing Category) always clears the stored KV Status back to null.
     BACKDATED_DRAFT.kv = '';
     const kvSelect = document.getElementById('bt_kv'); if(kvSelect) kvSelect.value = '';
-    if(!cat){ typeEl.disabled = true; typeEl.innerHTML = '<option value="">— เลือกประเภท Artwork —</option>'; kvWrap.style.display='none'; customWrap.style.display='none'; return; }
+    // Platform (DEV FIX — same field/data Normal Task uses): changing Category always resets the
+    // previously-selected Platform, exactly like onCategoryChange() does for the live Brief form.
+    BRIEF_DRAFT.platforms = new Set(); BRIEF_DRAFT.customPlatform = '';
+    if(!cat){ typeEl.disabled = true; typeEl.innerHTML = '<option value="">— เลือกประเภท Artwork —</option>'; kvWrap.style.display='none'; customWrap.style.display='none'; if(platField) platField.style.display='none'; return; }
     typeEl.disabled = false;
     typeEl.innerHTML = '<option value="">— เลือกประเภท Artwork —</option>' + Object.keys(cat.types).map(t=>`<option value="${t}">${t}</option>`).join('');
-    kvWrap.style.display = (e.target.value==='E-Commerce') ? 'block' : 'none';
+    kvWrap.style.display = (catVal==='E-Commerce') ? 'block' : 'none';
     customWrap.style.display = 'none';
+    if(PLATFORMS_BY_CATEGORY[catVal]){
+      if(platField) platField.style.display='block';
+      const pillsWrap = document.getElementById('platformPillsWrap');
+      if(pillsWrap) pillsWrap.innerHTML = renderPlatformSelectHTML(catVal);
+      bindPlatformSelect();
+    } else if(platField){ platField.style.display='none'; }
   });
   document.getElementById('bt_type')?.addEventListener('change', e=>{
     const catVal = document.getElementById('bt_category').value;
@@ -7329,7 +7396,10 @@ async function submitBackdatedTask(e){
   if(overrideActive && !overrideReason){ toast('กรุณาระบุเหตุผลสำหรับ Override Priority'); markBtFieldInvalid('bt_override_reason'); return; }
   if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'กำลังบันทึก...'; }
   const def = MASTER_TABLE[category]?.types?.[typeName];
-  const deliverables = Number(document.getElementById('bt_deliverables')?.value || 1);
+  // DEV FIX — Backdated Preview = Normal Task Preview: deliverables is now derived the same way submitBrief()
+  // derives it — the #f_deliverables field kept in sync with briefArtworks().length, falling back to the
+  // real array length so it can never disagree with how many Artworks are actually about to be saved below.
+  const deliverables = Number(document.getElementById('f_deliverables')?.value || briefArtworks().length || 1);
   const resizeQty = Number(document.getElementById('bt_resize')?.value || 0);
   const customPoints = Number(document.getElementById('bt_custom')?.value || 0);
   const base = (def && def.custom ? customPoints : pointsForTask({task_category:category, task_type:typeName, kv_status_check:BACKDATED_DRAFT.kv, deliverables})) + resizePoints(resizeQty);
@@ -7351,6 +7421,18 @@ async function submitBackdatedTask(e){
   // today (or a still-future Original Deadline) forward — never retroactively into the historical dates.
   const liveDeliveryDate = isCompleted ? deliveryDate : liveTargetDateForActiveBackdated(deadlineDate, deadlineUnknown);
   const owner = findUserByEmail(ownerEmail);
+  // DEV FIX — Backdated Preview = Normal Task Preview: save Artwork Name / Brief / Content / Images /
+  // Reference Links / Canvas straight off the SAME BRIEF_DRAFT.artworks data model + External Brief Links
+  // list submitBrief() saves a Normal Task from — never a separate Backdated-only schema — so the shared
+  // Task Preview (renderTaskWorkspacePage) has real data to show for Backdated exactly like it does for a
+  // Normal Task. brief_link/brief_details below stay only as the same backward-compat AW01 mirror every
+  // Normal Task also carries (legacyBriefDetailsMirror) — the real, authoritative content is `artworks`.
+  const backdatedArtworks = JSON.parse(JSON.stringify(briefArtworks()));
+  const backdatedExternalLinks = (BRIEF_DRAFT.extraLinks||[]).filter(l=>l.url && l.url.trim()).map(l=>({id:l.id, label:(l.label||'').trim()||'Brief Link', url:l.url.trim()}));
+  const legacyMirror = legacyBriefDetailsMirror();
+  // Platform (DEV FIX — same field Normal Task uses): mirrors buildDraftSnapshot()'s own platforms line —
+  // BRIEF_DRAFT.platforms is the single shared Set both forms read/write via #platformField.
+  const backdatedPlatforms = Array.from(BRIEF_DRAFT.platforms||[]).map(p=>p==='อื่นๆ ระบุ' ? (BRIEF_DRAFT.customPlatform.trim()||'อื่นๆ') : p);
   const task = {
     task_id: uid(),
     created_by_email: STATE.auth.user?.email || STATE.auth.identity,
@@ -7358,16 +7440,20 @@ async function submitBackdatedTask(e){
     created_by_role: STATE.auth.user?.role || STATE.auth.role,
     project_owner_email: ownerEmail, department: owner?.department || '', department_other: null,
     project_name: '', task_name: taskName,
-    priority: effectivePriority, needsApproval: false, platform: [],
+    priority: effectivePriority, needsApproval: false, platform: backdatedPlatforms,
     task_category: category, task_type: typeName, task_type_other: null,
     kv_status_check: (category==='E-Commerce') ? BACKDATED_DRAFT.kv : null, kv_asset_link: '',
     deliverables, original_deliverables: deliverables, original_resize_quantity: resizeQty, resize_quantity: resizeQty, quantity_change_history: [],
+    // Artwork Name / Brief / Content / Images / Reference Links / Canvas — real data, same shape as Normal
+    // Task (see comment above submitBackdatedTask's task object).
+    artworks: backdatedArtworks,
+    external_brief_links: backdatedExternalLinks,
     // Backdated/historical entries skip Preflight entirely (there's no live Assigned→Start moment to gate
     // — see §5) but still get the same scope shape so Adjust Scope/Scope History work identically later.
     scope: {brief:{artwork_count:deliverables, resize_count:resizeQty}, confirmed:{artwork_count:deliverables, resize_count:resizeQty, confirmedBy:'system (backdated entry)', confirmedAt: new Date().toISOString()}, changes:[]},
     preflight_confirmed: true, preflight_confirmed_by: 'system (backdated entry)', preflight_confirmed_at: new Date().toISOString(),
     customPoints: def && def.custom ? customPoints : 0,
-    brief_link: '', brief_details: {header:'',sub_header:'',detail:'',cta:'',disclaimer:'',attachments:[],extra_links:[],visual_brief:defaultVisualBrief()},
+    brief_link: legacyMirror.brief_link, brief_details: legacyMirror.brief_details,
     // Actual Brief Date reuses the same field every other view already reads (Capacity/KPI/Dashboard/
     // Calendar), giving "attributed to the actual time period" for free once prefer_delivery_date below is
     // set correctly for each status.
@@ -7452,9 +7538,11 @@ function renderDynamicSummaryHTML(){
   // Read from BRIEF_DRAFT (kept in sync by the Brief Inputs panel's input handlers), not the DOM:
   // on the very first render of #vbeRoot (fresh mount, or loading an existing brief to edit), the
   // Brief Inputs fields are being built in this same string and don't exist in the DOM yet.
+  // §Brief/Artwork Final Scope: `brief` is the one field the Brief Inputs panel writes now; `header`/
+  // `subheader`/`detail` only ever have a value on an Artwork saved before this change.
   const header = (activeArtwork().header||'').trim();
   const subheader = (activeArtwork().subheader||'').trim();
-  const detail = (activeArtwork().detail||'').trim();
+  const detail = (activeArtwork().brief || activeArtwork().detail || '').trim();
   // References now live in the References & Assets list (aw.references[] + sharedReferences[]) rather
   // than the old single brieflink field — the Canvas summary block links to the first one, if any.
   const combinedRefs = artworkReferencesCombined(activeArtwork());
@@ -7824,7 +7912,7 @@ function renderVBInputsPanel(){
   const applyChk = field => `<label class="aw-applyall"><input type="checkbox" data-awapplyall="${field}" ${applyAll.includes(field)?'checked':''}> ใช้กับทุกแผ่น</label>`;
   const aw = activeArtwork(); const idx = activeArtworkIndex();
   if(collapsed){
-    const briefDone = artworkFieldFilled(aw,'header') || artworkFieldFilled(aw,'detail');
+    const briefDone = artworkFieldFilled(aw,'brief');
     return `<div class="vbe-inputs collapsed">
       <div class="vbe-inputs-head">
         <div class="plabel" style="margin:0">Artwork ${artworkSeqLabel(idx)} — ${artworkDisplayName(aw,idx)} / Brief ${briefDone?'completed ✓':'ยังไม่ครบ'}</div>
@@ -7838,11 +7926,7 @@ function renderVBInputsPanel(){
       <button type="button" class="vbe-collapse-btn" id="vbInputsCollapseBtn">Collapse ▴</button>
     </div>
     <div class="vbe-inputs-grid">
-      <div class="field"><label>Header</label><input id="f_header" value="${aw.header||''}" placeholder="หัวข้อหลัก เช่น PAYDAY SALE">${applyChk('header')}</div>
-      <div class="field"><label>Sub-header</label><input id="f_subheader" value="${aw.subheader||''}" placeholder="หัวข้อรอง">${applyChk('subheader')}</div>
-      <div class="field"><label>CTA</label><input id="f_cta" value="${aw.cta||''}" placeholder="เช่น ช้อปเลย >">${applyChk('cta')}</div>
-      <div class="field vif-disclaimer"><label>Disclaimer</label><input id="f_disclaimer" value="${aw.disclaimer||''}" placeholder="เช่น *เงื่อนไขเป็นไปตามที่บริษัทฯ กำหนด">${applyChk('disclaimer')}</div>
-      <div class="field vif-detail"><label>Detail</label><textarea id="f_detail" style="height:76px;min-height:68px" placeholder="Text Content / Concept / Mood & Tone / ข้อมูลเพิ่มเติม">${aw.detail||''}</textarea></div>
+      <div class="field vif-detail" style="grid-column:1/-1"><label>Brief / Content</label><textarea id="f_brief" style="height:96px;min-height:76px" placeholder="Text Content / Concept / Mood &amp; Tone / ข้อมูลเพิ่มเติมของ Artwork นี้">${aw.brief||''}</textarea>${applyChk('brief')}</div>
     </div>
     <div class="refimg-row">
       ${renderReferencesAssetsHTML(aw)}
@@ -9217,39 +9301,16 @@ function bindVisualEditor(){
   document.getElementById('vbArrangeDeleteBtn')?.addEventListener('click', deleteSelectedVB);
   document.getElementById('vbResetPageBtn')?.addEventListener('click', resetVBPage);
 
-  // Brief Inputs panel — Header / Sub-header / Detail / Reference Link auto-sync straight into the
-  // Canvas's Brief Summary block (targeted patch only, so focus never drops while typing).
+  // Brief Inputs panel — Brief/Content auto-syncs straight into the Canvas's Brief Summary block
+  // (targeted patch only, so focus never drops while typing). §Brief/Artwork Final Scope: replaces the
+  // old Header/Sub-header/CTA/Disclaimer/Detail set with this one field.
   bindUploadGrid();
-  document.getElementById('f_header')?.addEventListener('input', e=>{
-    activeArtwork().header = e.target.value;
+  document.getElementById('f_brief')?.addEventListener('input', e=>{
+    activeArtwork().brief = e.target.value;
     syncSummaryBlocksInPlace(); scheduleAutosave(); updateBriefReadiness();
   });
-  document.getElementById('f_header')?.addEventListener('blur', e=>{ handleApplyAllFieldBlur('header', e.target.value); refreshArtworkListAndNav(); });
-  document.getElementById('f_subheader')?.addEventListener('input', e=>{
-    activeArtwork().subheader = e.target.value;
-    syncSummaryBlocksInPlace(); scheduleAutosave();
-  });
-  document.getElementById('f_subheader')?.addEventListener('blur', e=>{ handleApplyAllFieldBlur('subheader', e.target.value); refreshArtworkListAndNav(); });
-  document.getElementById('f_detail')?.addEventListener('input', e=>{
-    activeArtwork().detail = e.target.value;
-    syncSummaryBlocksInPlace(); scheduleAutosave(); updateBriefReadiness();
-  });
+  document.getElementById('f_brief')?.addEventListener('blur', e=>{ handleApplyAllFieldBlur('brief', e.target.value); refreshArtworkListAndNav(); });
   bindReferencesAssetsEvents(activeArtwork());
-  // CTA / Disclaimer — plain brief-content fields, same autosave pattern as Header/Sub-header/Detail.
-  // They don't feed the Visual Brief Summary block (no syncSummaryBlocksInPlace call needed). They're
-  // also the only two Brief Inputs eligible for "Apply to All" (ARTWORK_APPLYALL_FIELDS) — blur re-checks
-  // that via handleApplyAllFieldBlur(), which pops the DOM-portal confirm modal if a value that was
-  // previously applied-to-all is edited again on just this Artwork.
-  document.getElementById('f_cta')?.addEventListener('input', e=>{
-    activeArtwork().cta = e.target.value;
-    scheduleAutosave();
-  });
-  document.getElementById('f_cta')?.addEventListener('blur', e=>{ handleApplyAllFieldBlur('cta', e.target.value); refreshArtworkListAndNav(); });
-  document.getElementById('f_disclaimer')?.addEventListener('input', e=>{
-    activeArtwork().disclaimer = e.target.value;
-    scheduleAutosave();
-  });
-  document.getElementById('f_disclaimer')?.addEventListener('blur', e=>{ handleApplyAllFieldBlur('disclaimer', e.target.value); refreshArtworkListAndNav(); });
   document.querySelectorAll('[data-awapplyall]').forEach(cb=>cb.onchange = e=>toggleApplyAll(cb.dataset.awapplyall, e.target.checked));
 
   document.querySelectorAll('[data-vbadd]').forEach(b=>b.onclick=()=>{
@@ -9764,21 +9825,117 @@ const BOARD_SECTIONS = [
   {title:'Brief & Production', statuses:['pending_lead_approval','new','in_progress','pending_review','revision']},
   {title:'Approval & Release', statuses:['pending_client_review','delivered','rejected','closed_max_revision']},
 ];
+// DEV UPDATE — Working Process Board §9 "Kanban Workflow เดิมห้ามเปลี่ยน": BOARD_SECTIONS/STATUS_LABEL
+// above are untouched (same 9 statuses, same 2 groupings, same labels) — everything below only adds
+// Month/Designer/Project filtering, the Monthly Summary, monthly data scope, and newest-first sorting
+// on top of that exact same structure.
+
+// Terminal = a task has left the live pipeline for good (Proofing & Ready to Release/"delivered" is the
+// real finish line in this schema — see completedTodayCount/dayLoadFor/myCompletedThisMonth elsewhere,
+// all of which already treat review_status==='delivered' as "done"). rejected/closed_max_revision are
+// the other two dead ends. Everything else is still open/live work.
+const BOARD_TERMINAL_STATUSES = ['delivered','rejected','closed_max_revision'];
+function isBoardTaskTerminal(t){ return BOARD_TERMINAL_STATUSES.includes(t.review_status); }
+
+// §5/§12 Monthly Summary "หมวดใหญ่ (Task Category)": bucket straight off the real Task Category field
+// (MASTER_TABLE's own keys — E-Commerce/Content/Product/Offline Artwork/อื่นๆ) — anything blank or not
+// one of those five (e.g. an older/odd record) falls into the "อื่นๆ" bucket rather than disappearing
+// from the count, since every task must land in exactly one Summary tile for the numbers to add up to
+// Total. Order here is the exact display order the dev spec's Final Layout mockup uses.
+const BOARD_SUMMARY_CATEGORIES = ['E-Commerce','Content','Product','Offline Artwork', OTHER_CATEGORY];
+const BOARD_SUMMARY_CATEGORY_LABEL = {'E-Commerce':'E-Commerce','Content':'Content','Product':'Product','Offline Artwork':'Offline Artwork', [OTHER_CATEGORY]:'อื่นๆ'};
+function boardCategoryBucket(t){
+  return BOARD_SUMMARY_CATEGORIES.includes(t.task_category) ? t.task_category : OTHER_CATEGORY;
+}
+
+// §3/§4 Month = the board's primary data scope, one month at a time, but a task that's still genuinely
+// OPEN must keep showing up on every later month's board too — not just the month it happened to be
+// created in — while a task that finished in some other month with zero activity here should not. So a
+// task belongs to monthStr ("YYYY-MM") if EITHER:
+//   (a) it's still active (non-terminal) AND it already existed by the end of that month — i.e. it was
+//       part of the live, open backlog during that month, exactly like the spec's "Created: 28 Aug,
+//       Status: In Progress in Sep → still show in September" example, OR
+//   (b) it has any actual workflow activity (a review_history entry, or its original brief) timestamped
+//       inside that month — this is what correctly EXCLUDES the spec's other example ("Completed: 28 Aug,
+//       no Sep activity → not in September") while still keeping a task that was, say, created AND
+//       completed inside the very month being viewed.
+// Never just createdAt===month alone, per the dev spec.
+function taskActiveInBoardMonth(t, monthStr){
+  const createdMonth = (t.brief_timestamp||'').slice(0,7);
+  if(!isBoardTaskTerminal(t) && createdMonth && createdMonth<=monthStr) return true;
+  const hist = t.review_history||[];
+  if(hist.some(h=>h.timestamp && h.timestamp.slice(0,7)===monthStr)) return true;
+  if(createdMonth===monthStr) return true;
+  return false;
+}
+// Dropdown range for the Month filter: 18 months back to 3 months ahead of today, so "เปลี่ยนย้อนหลังได้"
+// always has real history available without having to scan every task just to build the list.
+function boardMonthOptions(){
+  const out = [];
+  const base = new Date(); base.setDate(1);
+  for(let i=-18;i<=3;i++){
+    const d = new Date(base.getFullYear(), base.getMonth()+i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    out.push({value, label: d.toLocaleDateString('th-TH',{month:'long',year:'numeric'})});
+  }
+  return out;
+}
 function renderBoard(){
+  if(!STATE.board.month) STATE.board.month = todayISO().slice(0,7);
   const proj = projectList();
-  const filtered = STATE.projectFilter==='ALL' ? STATE.tasks : STATE.tasks.filter(t=>t.project_name===STATE.projectFilter);
+  const designers = (STATE.users||[]).filter(u=>(u.role==='designer'||u.role==='lead') && u.status==='active')
+    .map(u=>u.name).sort((a,b)=>a.localeCompare(b));
+  const month = STATE.board.month;
+
+  // §3/§4: Month scope first, then Designer + Project on top of it (all three combine — §2 "ทั้ง 3 Filter
+  // ต้องทำงานร่วมกัน") — this single `filtered` list feeds BOTH the Monthly Summary and every Kanban
+  // column below it, so they can never disagree with each other.
+  let filtered = STATE.tasks.filter(t=>taskActiveInBoardMonth(t, month));
+  if(STATE.board.designer!=='ALL') filtered = filtered.filter(t=>t.assigned_user_name===STATE.board.designer);
+  if(STATE.board.project!=='ALL') filtered = filtered.filter(t=>t.project_name===STATE.board.project);
+
+  // §6/§7: counts always show all 5 categories, even at 0, "เพื่อให้ Layout คงที่และเทียบเดือนได้ง่าย".
+  const catCounts = {}; BOARD_SUMMARY_CATEGORIES.forEach(c=>catCounts[c]=0);
+  filtered.forEach(t=>{ catCounts[boardCategoryBucket(t)]++; });
+
+  const monthLabel = boardMonthOptions().find(o=>o.value===month)?.label
+    || new Date(month+'-01T00:00:00').toLocaleDateString('th-TH',{month:'long',year:'numeric'});
+
   return `
   <h1 class="pagetitle">Working Process Board</h1>
   <p class="pagesub">Kanban View — คลิกการ์ดเพื่อดูรายละเอียด/ประวัติการตรวจ</p>
   <div class="board-toolbar">
-    <div style="min-width:220px"><label>Filter by Project</label>
-      <select id="projFilter">
-        <option value="ALL" ${STATE.projectFilter==='ALL'?'selected':''}>ทุกโปรเจกต์ (All Projects)</option>
-        ${proj.map(p=>`<option value="${p}" ${STATE.projectFilter===p?'selected':''}>${p}</option>`).join('')}
+    <div style="min-width:190px"><label>Month</label>
+      <select id="boardMonthFilter">
+        ${boardMonthOptions().map(o=>`<option value="${o.value}" ${month===o.value?'selected':''}>${o.label}</option>`).join('')}
+      </select>
+    </div>
+    <div style="min-width:190px"><label>Designer</label>
+      <select id="boardDesignerFilter">
+        <option value="ALL" ${STATE.board.designer==='ALL'?'selected':''}>All Designers</option>
+        ${designers.map(d=>`<option value="${d}" ${STATE.board.designer===d?'selected':''}>${d}</option>`).join('')}
+      </select>
+    </div>
+    <div style="min-width:220px"><label>Project</label>
+      <select id="boardProjectFilter">
+        <option value="ALL" ${STATE.board.project==='ALL'?'selected':''}>ทุกโปรเจกต์ (All Projects)</option>
+        ${proj.map(p=>`<option value="${p}" ${STATE.board.project===p?'selected':''}>${p}</option>`).join('')}
       </select>
     </div>
     <div class="chip" style="padding:8px 12px;font-size:12px">${filtered.length} งานทั้งหมด</div>
   </div>
+
+  <!-- §5-§8/§12 Monthly Summary — reuses the same .dash-summary/.dsum-card tiles Team Dashboard already
+       uses, counted strictly off Task Category and recalculated live from the exact same filtered task
+       list the Kanban columns below use, so Month/Designer/Project always agree with the numbers here. -->
+  <div class="card" style="margin-bottom:20px">
+    <div class="section-title" style="margin-bottom:10px">Monthly Summary — ${monthLabel}</div>
+    <div class="dash-summary" style="margin-bottom:0">
+      ${BOARD_SUMMARY_CATEGORIES.map(c=>`<div class="dsum-card"><div class="dv">${catCounts[c]}</div><div class="dl">${BOARD_SUMMARY_CATEGORY_LABEL[c]}</div></div>`).join('')}
+      <div class="dsum-card" style="border-color:var(--accent)"><div class="dv" style="color:var(--accent)">${filtered.length}</div><div class="dl">Total</div></div>
+    </div>
+  </div>
+
   ${BOARD_SECTIONS.map(sec=>`
     <div class="board-section">
       <div class="board-section-title">${sec.title}</div>
@@ -9789,9 +9946,15 @@ function renderBoard(){
   `).join('')}`;
 }
 function renderColumn(status, tasks){
+  // §10/§11 "การ์ดใหม่ / Action ล่าสุดต้องอยู่บนสุด": every column sorts newest-workflow-activity-first,
+  // via the SAME lastUpdateOf() the app already computes from review_history (its latest entry timestamp,
+  // falling back to brief_timestamp for a card with no history yet) — so "New Brief" naturally sorts by
+  // createdAt (its only history entry so far) while "In Progress"/"Revision"/etc naturally sort by
+  // whichever action most recently moved them into that column, with no separate field to keep in sync.
+  const sorted = tasks.slice().sort((a,b)=>(lastUpdateOf(b)||'').localeCompare(lastUpdateOf(a)||''));
   return `<div class="col">
-    <div class="col-head"><span class="n">${STATUS_LABEL[status]}</span><span class="cnt">${tasks.length}</span></div>
-    ${tasks.length===0 ? `<div class="empty-col">ไม่มีงาน</div>` : tasks.map(t=>taskCardHTML(t,true)).join('')}
+    <div class="col-head"><span class="n">${STATUS_LABEL[status]}</span><span class="cnt">${sorted.length}</span></div>
+    ${sorted.length===0 ? `<div class="empty-col">ไม่มีงาน</div>` : sorted.map(t=>taskCardHTML(t,true)).join('')}
   </div>`;
 }
 function priorityBadge(p){ return `<span class="badge b-${p}">${p==='CRITICAL'?'🔴':p==='URGENT'?'🟠':p==='PRIORITY'?'🟡':'🔵'} ${p}</span>`; }
@@ -10534,11 +10697,17 @@ function detectLinkSource(url){
 // Canvas merge, Task #76) — the caller just needs to pass an object with header/sub_header/detail/cta/
 // disclaimer. artworkFieldsAsBd() below is the adapter from an artwork object to this shape.
 function artworkFieldsAsBd(aw){
-  return {header: aw?.header||'', sub_header: aw?.subheader||'', detail: aw?.detail||'', cta: aw?.cta||'', disclaimer: aw?.disclaimer||''};
+  return {brief: aw?.brief||'', header: aw?.header||'', sub_header: aw?.subheader||'', detail: aw?.detail||'', cta: aw?.cta||'', disclaimer: aw?.disclaimer||''};
 }
 function renderBriefContentCard(bd){
   bd = bd || {};
-  const fields = [
+  // §Brief/Artwork Final Scope: a NEW Artwork stores one combined `brief` field ("Brief / Content") —
+  // shown as a single row. An Artwork/task saved before this change has no `brief` value at all, so it
+  // falls back to showing its old header/sub_header/detail/cta/disclaimer set exactly as before —
+  // historical data is never relabeled or merged, just displayed under whichever shape it was saved in.
+  const fields = (bd.brief||'').trim() ? [
+    {key:'brief', label:'Brief / Content', val: bd.brief},
+  ] : [
     {key:'headline', label:'Headline', val: bd.header || ''},
     {key:'subheadline', label:'Subheadline', val: bd.sub_header || ''},
     {key:'detail', label:'Detail', val: bd.detail || ''},
@@ -10608,8 +10777,49 @@ function renderTaskWsInfoCard(t, hideRequesterOverlap){
   // used by other forms) so only this card gets smaller, tighter values.
   return `<div class="row2 taskinfo-grid" style="margin-bottom:0">
     ${fields.map(f=>`<div><div class="hint">${f.label}</div><strong>${f.val}</strong></div>`).join('')}
-  </div>
-  ${t.is_backdated ? `<div class="hint" style="margin-top:10px">ⓘ Backdated record${t.backdated_reason?' · เหตุผล: '+escAttr(t.backdated_reason):''}</div>` : ''}`;
+  </div>`;
+  // The old single-line "ⓘ Backdated record · เหตุผล: ..." hint that used to live here was removed — see
+  // renderBackdatedHistoryCard() / the dedicated "Backdated / Historical Record" section below, which now
+  // carries Historical Work Dates, Current Work Information, Backdated Reason and Historical Priority in
+  // full (DEV FIX — Backdated Preview = Normal Task Preview) instead of one truncated line.
+}
+// Backdated / Historical Record (DEV FIX — Backdated Preview = Normal Task Preview): the ONLY part of a
+// Backdated Task's preview that's allowed to differ from a Normal Task — everything else (Task Info,
+// Artworks, External Brief Links, Key Visual, Brief Content, Reference Links, Images, Canvas...) reuses the
+// exact same cards/order/layout Normal Task uses, unchanged. This card is appended in its own section right
+// after Task Info, never mixed into it, and obeys the same "มีข้อมูล → แสดง / ไม่มีข้อมูล → ซ่อน" rule as
+// every other field on this page — each of the 4 groups (Historical Work Dates / Current Work Information /
+// Backdated Reason / Historical Priority) is hidden entirely when it has nothing to show, never a blank
+// line, "-", "ไม่มีข้อมูล" or placeholder.
+function renderBackdatedHistoryCard(t){
+  const historyFields = [
+    {label:'Actual Brief Date', val: t.historical_brief_date ? fmtDate(t.historical_brief_date) : (t.brief_timestamp ? fmtDate(t.brief_timestamp) : '')},
+    {label:'Original Deadline', val: t.historical_deadline_unknown ? 'ไม่ทราบ' : (t.historical_deadline_date ? fmtDate(t.historical_deadline_date) : '')},
+    {label:'Actual Delivery Date', val: t.actual_delivery_date ? fmtDate(t.actual_delivery_date) : ''},
+  ].filter(f=>f.val && String(f.val).trim());
+  const currentFields = [
+    {label:'Current Work Status', val: STATUS_LABEL[t.review_status] || t.review_status || ''},
+    {label:'Assigned Designer', val: t.assigned_user_name || t.suggested_designer || ''},
+  ].filter(f=>f.val && String(f.val).trim());
+  const priorityFields = [
+    {label:'Historical Priority', val: t.historical_priority ? (PRIORITY_TH_LABEL[t.historical_priority] || t.historical_priority) : ''},
+    {label:'Priority Override', val: t.priority_override ? `${PRIORITY_TH_LABEL[t.priority_override.value] || t.priority_override.value} (เดิม: ${PRIORITY_TH_LABEL[t.priority_override.calculated] || t.priority_override.calculated})` : ''},
+    {label:'เหตุผล Override', val: t.priority_override?.reason ? escAttr(t.priority_override.reason) : ''},
+  ].filter(f=>f.val && String(f.val).trim());
+  const groups = [
+    {title:'Historical Work Dates', fields: historyFields},
+    {title:'Current Work Information', fields: currentFields},
+    {title:'Backdated Reason', fields: t.backdated_reason ? [{label:'Reason for Backdated Task', val: escAttr(t.backdated_reason)}] : []},
+    {title:'Historical Priority', fields: priorityFields},
+  ].filter(g=>g.fields.length);
+  if(t.completedWorkFolderUrl) groups.push({title:'Completed Work File', fields:[{label:'Work Folder Link', val:`<a href="${escAttr(t.completedWorkFolderUrl)}" target="_blank" rel="noopener">${escAttr(t.completedWorkFolderUrl)}</a>`}]});
+  if(!groups.length) return '<div class="hint">ไม่มีข้อมูล Historical Record</div>';
+  return groups.map(g=>`<div style="margin-bottom:14px">
+    <div class="hint" style="font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px">${g.title}</div>
+    <div class="row2 taskinfo-grid" style="margin-bottom:0">
+      ${g.fields.map(f=>`<div><div class="hint">${f.label}</div><strong>${f.val}</strong></div>`).join('')}
+    </div>
+  </div>`).join('');
 }
 /* Artwork Checklist (Multi-Artwork Brief §23): a Brief with multiple sheets of the same Artwork type
    (Shop in Shop 4/8/20 แผ่น etc.) still lands on the Designer's side as ONE Job/Project card — never a
@@ -10626,7 +10836,7 @@ function renderArtworkChecklistCard(t){
     ${arr.map((aw,i)=>{
       const complete = ARTWORK_REQUIRED_FIELDS.every(f=>aw[f.key] && String(aw[f.key]).trim());
       const meta = complete ? ARTWORK_STATUS_META.complete : ARTWORK_STATUS_META.partial;
-      const metaLine = (aw.header||'').trim();
+      const metaLine = (aw.brief || aw.header || '').trim();
       // When this task has real per-artwork Canvas data, clicking a row switches the Canvas / Brief
       // Content / Images panels above to that Artwork — same numbering the Requester used (Task #76).
       return `<div class="aw-card ${i===activeIdx?'active':''}" style="${perArtwork?'cursor:pointer':'cursor:default'}" ${perArtwork?`data-taskwsartwork="${i}"`:''}>
@@ -10914,6 +11124,9 @@ function renderTaskWorkspacePage(t){
           </div>
         </div>` : ''}
         ${renderCollapsibleSection('taskinfo', 'Task Info', renderTaskWsInfoCard(t, isPOView), {defaultOpen:true, badge: t.is_backdated ? '<span style="color:#a15c00;font-weight:800;letter-spacing:.03em">BACKDATED</span>' : null})}
+        <!-- DEV FIX — Backdated Preview = Normal Task Preview: the ONLY Backdated-only section — everything
+             else on this page below is the exact same shared cards/order Normal Task uses. -->
+        ${t.is_backdated ? renderCollapsibleSection('backdatedhistory', 'Backdated / Historical Record', renderBackdatedHistoryCard(t), {defaultOpen:true}) : ''}
         <!-- Feedback: with only 1 Artwork (the common case), an "Artworks (1)" checklist card plus a hint
              explaining how to "switch between Artworks" is pure clutter — there's nothing to check off
              against or switch to. Both only earn their place once a Brief actually HAS more than one. -->
@@ -12778,7 +12991,11 @@ function bindEvents(){
     updateBriefAutosavePill();
   }
 
-  document.getElementById('projFilter')?.addEventListener('change', e=>{ STATE.projectFilter=e.target.value; render(); });
+  // DEV UPDATE — Working Process Board Month/Designer/Project Filter: all three write into the same
+  // STATE.board bag renderBoard() reads, so they always combine (§2) rather than resetting each other.
+  document.getElementById('boardMonthFilter')?.addEventListener('change', e=>{ STATE.board.month=e.target.value; render(); });
+  document.getElementById('boardDesignerFilter')?.addEventListener('change', e=>{ STATE.board.designer=e.target.value; render(); });
+  document.getElementById('boardProjectFilter')?.addEventListener('change', e=>{ STATE.board.project=e.target.value; render(); });
 
   // Leave Calendar
   document.getElementById('leaveForm')?.addEventListener('submit', submitLeave);
@@ -13583,6 +13800,15 @@ function bindBriefStepper(){
 function refreshBriefForm(){
   const catEl=document.getElementById('f_category'), typeEl=document.getElementById('f_type');
   renderUploadGrid();
+  // DEV FIX — Backdated Preview = Normal Task Preview: the Backdated Task Form now mounts this SAME shared
+  // Artwork Editor (#artworkDetailsSection → refreshArtworkSection() → here) so Artwork/Brief/Images/Canvas
+  // work identically to Normal Task — but Backdated has none of the Normal Brief form's own Basic-Info-step
+  // chrome (Capacity preview / Calendar picker / Override panel / Category-Type selects). Bail out here,
+  // right after the one shared piece Backdated also needs (the Images grid) is refreshed, instead of
+  // throwing on #overridePanel/#capacityMsg/#customWrap below, which only ever exist on the real Brief &
+  // Intake page. Zero behavior change for the Normal Brief page itself, since #overridePanel is always
+  // present there.
+  if(!document.getElementById('overridePanel')) return;
   const catVal = catEl?.value;
   updateTemplateButton(catVal);
   const isOtherCat = catVal===OTHER_CATEGORY;
@@ -13795,6 +14021,7 @@ function computeFinalCheckState(){
   const owner = document.getElementById('f_owner')?.value.trim();
   const deptSel = document.getElementById('f_dept')?.value;
   const deptOk = deptSel && (deptSel!==OTHER_CATEGORY || BRIEF_DRAFT.deptOther.trim());
+  const projectVal = document.getElementById('f_project')?.value.trim();
   const taskname = document.getElementById('f_taskname')?.value.trim();
   const catEl = document.getElementById('f_category');
   const catVal = catEl?.value;
@@ -13821,6 +14048,9 @@ function computeFinalCheckState(){
   const fields = [];
   fields.push({ok:!!owner, label:'Project Owner Email', target:'#f_owner'});
   fields.push({ok:!!deptOk, label:'Department'+(deptSel===OTHER_CATEGORY?' (ระบุแผนก)':''), target:'#f_owner'});
+  // §Basic Information required (Brief/Artwork Final Scope §1): Project/Campaign is now a required
+  // field, same validation/scroll-target pattern as Task Name/Category/Type below.
+  fields.push({ok:!!projectVal, label:'Project / Campaign', target:'#f_project'});
   fields.push({ok:!!taskname, label:'Task Name', target:'#f_taskname'});
   fields.push({ok:!!catVal, label:'Task Category', target:'#f_category'});
   if(catVal) fields.push({ok:typeOk, label:'Artwork Type', target:'#f_type'});
