@@ -6221,6 +6221,7 @@ function scheduleBriefDraftAutosave(){
   }, 1500);
 }
 async function saveDraftManually(){
+  if(!commitPendingQuickAddLinks()) return;
   const snap = buildDraftSnapshot();
   if(isBriefFormEffectivelyEmpty(snap)){ toast('กรอกข้อมูลอย่างน้อยชื่องานก่อนบันทึกฉบับร่าง'); return; }
   await upsertDraft();
@@ -6325,6 +6326,7 @@ function renderExternalBriefLinksSectionHTML(){
       <input type="url" class="refquickadd-input" id="extraLinkInput" value="${escAttr(BRIEF_DRAFT.extraLinkDraft||'')}" placeholder="วางลิงก์ External Brief เช่น Google Docs / Campaign Brief / Client Brief">
       <button type="button" class="refquickadd-more" id="addExtraLinkBtn">+ เพิ่มลิงก์</button>
     </div>
+    <div class="hint" style="margin-top:2px;margin-bottom:10px">กด Enter หรือปุ่ม "+ เพิ่มลิงก์" เพื่อยืนยันลิงก์ก่อนบันทึก</div>
     ${err ? `<div class="field-error" style="display:block;margin-bottom:8px">${err}</div>` : ''}
     <div class="reflist" id="extraLinksWrap">${renderExtraLinksHTML()}</div>
   </div>`;
@@ -6347,6 +6349,46 @@ function addExtraLinkFromInput(){
   refreshArtworkSection();
   scheduleBriefDraftAutosave();
   document.getElementById('extraLinkInput')?.focus();
+}
+// DEV FIX — "link ไม่ขึ้น ทุกที่ แก้ไข กรอกลิงก์ แล้วลิงก์ไม่มา": both Quick-Add link inputs (External
+// Brief Links' #extraLinkInput, and each Artwork's #refQuickAdd_<id> Reference Link input) only ever
+// wrote into BRIEF_DRAFT.extraLinks[] / aw.references[] when the user explicitly pressed Enter or
+// clicked the "+" button — every save path (buildDraftSnapshot/submitBrief/submitBackdatedTask) reads
+// ONLY those committed arrays, never the raw text still sitting in the input. So a link typed and then
+// saved via the Save/Submit button directly (no Enter, no "+") was silently discarded — matching exactly
+// what was reported. Per the system-wide "no data loss" rule, no typed input may vanish silently: this
+// runs right before every Save Draft / Submit Brief / Submit Backdated Task action and auto-commits any
+// left-over text in these inputs, the same way pressing Enter would have. An invalid URL is never
+// silently dropped either — it blocks the save with a toast so the user can fix or clear it themselves.
+function commitPendingQuickAddLinks(){
+  const extraInp = document.getElementById('extraLinkInput');
+  const extraRaw = (extraInp?.value||'').trim();
+  if(extraRaw){
+    if(!isLikelyValidUrl(extraRaw)){
+      toast('⚠ External Brief Link ที่พิมพ์ไว้ ("'+extraRaw+'") รูปแบบลิงก์ไม่ถูกต้อง — กรุณาแก้ไขหรือลบก่อนบันทึก');
+      extraInp?.focus();
+      return false;
+    }
+    BRIEF_DRAFT.extraLinks.push({id:uidShort('lnk'), label:detectReferenceType(extraRaw).label, url:extraRaw});
+    BRIEF_DRAFT.extraLinkError=''; BRIEF_DRAFT.extraLinkDraft='';
+    extraInp.value='';
+  }
+  const pendingRefInputs = Array.from(document.querySelectorAll('[data-refquickaddinput]'));
+  for(const inp of pendingRefInputs){
+    const raw = (inp.value||'').trim();
+    if(!raw) continue;
+    const artworkId = inp.dataset.refquickaddinput;
+    const aw = briefArtworks().find(a=>a.artworkId===artworkId);
+    if(!aw) continue;
+    if(!isLikelyValidUrl(raw)){
+      toast('⚠ Reference Link ที่พิมพ์ไว้ ("'+raw+'") รูปแบบลิงก์ไม่ถูกต้อง — กรุณาแก้ไขหรือลบก่อนบันทึก');
+      inp.focus();
+      return false;
+    }
+    addReferenceRecord(aw, {name:'', url:raw});
+    inp.value='';
+  }
+  return true;
 }
 function renderExtraLinksHTML(){
   if(!BRIEF_DRAFT.extraLinks.length) return '<div class="refempty">ยังไม่มี External Brief Link</div>';
@@ -7359,6 +7401,7 @@ async function submitBackdatedTask(e){
   if(!canCreateBackdated()) return; // defensive — mirrors the render()-level gate, never trust the UI alone
   const submitBtn = document.getElementById('submitBackdatedBtn');
   if(submitBtn?.disabled) return; // guard against double-submit while a save is already in flight
+  if(!commitPendingQuickAddLinks()) return;
   document.querySelectorAll('.bt-invalid').forEach(el=>el.classList.remove('bt-invalid'));
   const ownerEmail = document.getElementById('bt_owner')?.value?.trim() || '';
   const taskName = document.getElementById('bt_taskname')?.value?.trim() || '';
@@ -7775,6 +7818,7 @@ function renderReferencesAssetsHTML(aw){
       <input type="url" class="refquickadd-input" id="refQuickAdd_${aw.artworkId}" data-refquickaddinput="${aw.artworkId}" placeholder="วางลิงก์ Reference / Google Drive / Website / Pinterest...">
       <button type="button" class="refquickadd-more" data-refquickadd="${aw.artworkId}">+ Add another reference</button>
     </div>
+    <div class="hint" style="margin-top:2px;margin-bottom:10px">กด Enter หรือปุ่ม "+ Add another reference" เพื่อยืนยันลิงก์ก่อนบันทึก</div>
     <div class="reflist" id="refList_${aw.artworkId}">
       ${all.length ? shown.map(r=>renderRefItemHTML(r)).join('') : '<div class="refempty">ยังไม่มี Reference</div>'}
     </div>
@@ -10756,11 +10800,23 @@ function renderTaskWsInfoCard(t, hideRequesterOverlap){
   const deadline = t.is_backdated
     ? (t.historical_deadline_unknown ? 'ไม่ทราบ' : (t.historical_deadline_date ? fmtDate(t.historical_deadline_date) : ''))
     : (t.prefer_delivery_date ? fmtDate(t.prefer_delivery_date) : '');
+  // DEV P0 — All Task Participants Must See All Saved Task Data: Brief Owner (project_owner_email →
+  // name + department) is real Task data, not an action, so it must be visible to every role with access
+  // to this Task — Designer/Lead/Reviewer/Admin previously had nowhere on this page to see it at all (only
+  // the Project Owner's own "Requester" line in their Status banner above showed it). hideRequesterOverlap
+  // (true only when the viewer IS that Project Owner, isPOView) skips adding it a second time here — it
+  // never hides it from anyone else.
+  const requesterName = findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '';
   const fields = [
     {label:'Task ID', val: t.task_id},
     {label:'Task Name', val: taskDisplayName(t)},
+    {label:'Brief Owner', val: (!hideRequesterOverlap && requesterName) ? `${requesterName}${t.department?' · '+t.department:''}` : ''},
     {label:'Category', val: t.task_category},
     {label:'Artwork / Task Type', val: t.task_type},
+    // DEV P0 — Platform is real saved Task data (submitBrief()/submitBackdatedTask() both write t.platform)
+    // but previously had no visible spot anywhere on the Task Detail page for ANY role — only in list/board
+    // table columns. Shown here now, for every role, same as every other field on this card.
+    {label:'Platform', val: (Array.isArray(t.platform) && t.platform.length) ? t.platform.join(', ') : ''},
     {label:'จำนวน Artwork หลัก', val: t.deliverables ? String(t.deliverables) : ''},
     {label:'Priority', val: t.priority},
     {label:'Brief Date', val: t.brief_timestamp ? fmtDate(t.brief_timestamp) : ''},
@@ -11146,13 +11202,22 @@ function renderTaskWorkspacePage(t){
         </div>` : ''}
         ${renderCollapsibleSection('workscope', 'Work Scope', renderWorkScopeCard(t), {defaultOpen:true})}
         ${(canAct && isAssignee && (s==='in_progress'||s==='revision')) ? renderDeliverWorkCard(t) : ''}
+        <!-- Actions stays role-gated on purpose: this is a set of workflow ACTION buttons (Start/Reject/
+             Approve/etc), never Task DATA — a Project Owner genuinely has none of these actions in this
+             workflow, so the whole card is correctly omitted for them (DEV P0 — Visibility ≠ Edit
+             Permission: action gating is fine, data gating is not). -->
         ${!isPOView ? renderCollapsibleSection('actions', 'Actions', actionsHTML ? `<div class="tc-actions">${actionsHTML}</div>` : `<div class="hint">ไม่มีสิทธิ์ดำเนินการในสถานะนี้</div>`, {defaultOpen:true}) : ''}
-        ${!isPOView ? renderCollapsibleSection('reviewhistory', 'Review History', (t.review_history||[]).slice().reverse().map(h=>`
+        <!-- DEV P0 — ALL TASK PARTICIPANTS MUST SEE ALL SAVED TASK DATA: Review History (approvals,
+             revision requests + reasons, reviewer identity, timestamps) is Task DATA, not an action — it
+             used to be hidden from the Project Owner entirely (isPOView), so a PO could never see why a
+             Designer/Lead requested a revision or who approved what. Every role with access to this Task
+             now sees the exact same timeline; only the Actions buttons above stay role-gated. -->
+        ${renderCollapsibleSection('reviewhistory', 'Review History', (t.review_history||[]).slice().reverse().map(h=>`
             <div class="tl-item"><div class="tl-dot"></div><div class="tl-body">
               <div class="tl-action">${h.action}</div>
               <div class="tl-time">${fmtDateTime(h.timestamp)}${h.by?' · '+h.by:''}</div>
               ${h.comment?`<div class="tl-comment">${h.comment}</div>`:''}
-            </div></div>`).join('') || `<div class="hint">ยังไม่มีประวัติ</div>`, {defaultOpen:false}) : ''}
+            </div></div>`).join('') || `<div class="hint">ยังไม่มีประวัติ</div>`, {defaultOpen:false})}
         ${(t.edit_history||[]).length ? renderCollapsibleSection('changehistory', 'Brief Change History', renderBriefChangeHistoryCard(t), {defaultOpen:false, badge:String((t.edit_history||[]).length)}) : ''}
         ${renderCollapsibleSection('scopehistory', 'View Scope History', renderScopeHistoryCard(t), {defaultOpen:false, badge:String((taskScope(t).changes||[]).length)})}
         ${(t.quantity_change_history||[]).length ? renderCollapsibleSection('quantityhistory', 'Quantity Change History (legacy)', renderQuantityChangeHistoryCard(t), {defaultOpen:false, badge:String((t.quantity_change_history||[]).length)}) : ''}
@@ -14263,6 +14328,7 @@ function bindCalendarPick(){
 
 async function submitBrief(e){
   e.preventDefault();
+  if(!commitPendingQuickAddLinks()) return;
   const catName = document.getElementById('f_category').value;
   const isOtherCat = catName===OTHER_CATEGORY;
   const typeName = isOtherCat ? 'อื่นๆ ระบุ' : document.getElementById('f_type').value;
