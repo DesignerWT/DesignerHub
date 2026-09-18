@@ -6294,29 +6294,34 @@ function renderExternalBriefLinksSectionHTML(){
     <div class="refbox-head">
       <label style="margin:0;font-weight:800;font-size:13px">External Brief Links</label>
     </div>
-    <div class="hint" style="margin-bottom:8px">Master Brief / Campaign Brief / Google Docs / Marketing Requirement / Client Brief / External Link</div>
-    <div style="display:flex;gap:8px;margin-bottom:6px">
-      <input type="url" id="extraLinkInput" placeholder="วางลิงก์ External Brief เช่น Google Docs / Campaign Brief / Client Brief"
-        value="${escAttr(BRIEF_DRAFT.extraLinkDraft||'')}"
-        style="flex:1;height:46px;border:1px solid var(--border,#ddd);background:#fff;border-radius:11px;padding:0 12px">
-      <button type="button" class="btn btn-primary" id="addExtraLinkBtn" style="white-space:nowrap">+ เพิ่มลิงก์</button>
+    <div class="hint" style="margin-bottom:10px">Master Brief / Campaign Brief / Google Docs / Marketing Requirement / Client Brief / ลิงก์ภายนอกอื่นๆ — กรอกครั้งเดียว ใช้ร่วมกันทุก Artwork ใน Task นี้</div>
+    <div class="refquickadd">
+      <label class="refquickadd-label">External Brief Link</label>
+      <input type="url" class="refquickadd-input" id="extraLinkInput" value="${escAttr(BRIEF_DRAFT.extraLinkDraft||'')}" placeholder="วางลิงก์ External Brief เช่น Google Docs / Campaign Brief / Client Brief">
+      <button type="button" class="refquickadd-more" id="addExtraLinkBtn">+ เพิ่มลิงก์</button>
     </div>
     ${err ? `<div class="field-error" style="display:block;margin-bottom:8px">${err}</div>` : ''}
-    <div id="extraLinksWrap">${renderExtraLinksHTML()}</div>
+    <div class="reflist" id="extraLinksWrap">${renderExtraLinksHTML()}</div>
   </div>`;
 }
 function isLikelyValidUrl(u){
   try{ const parsed = new URL(u); return parsed.protocol==='http:'||parsed.protocol==='https:'; }catch(e){ return false; }
 }
+// Commits the always-visible input (Enter or the "+ เพิ่มลิงก์" button, same shape as the per-Artwork
+// Reference Link quick-add): validates, appends with an auto-detected label, then goes through the
+// same full refreshArtworkSection() every other structural Artwork-area change already uses — no
+// bespoke outerHTML surgery, no drift from the app's normal render/rebind cycle.
 function addExtraLinkFromInput(){
   const inp = document.getElementById('extraLinkInput');
   const raw = (inp?.value||'').trim();
-  if(!raw){ BRIEF_DRAFT.extraLinkError='กรุณากรอกลิงก์'; const w=document.getElementById('extraLinksWrap')?.parentElement; if(w){ w.outerHTML = renderExternalBriefLinksSectionHTML(); bindExtraLinks(); document.getElementById('addExtraLinkBtn')?.addEventListener('click', addExtraLinkFromInput); document.getElementById('extraLinkInput')?.focus(); } return; }
-  if(!isLikelyValidUrl(raw)){ BRIEF_DRAFT.extraLinkError='รูปแบบลิงก์ไม่ถูกต้อง'; const w=document.getElementById('extraLinksWrap')?.parentElement; if(w){ w.outerHTML = renderExternalBriefLinksSectionHTML(); bindExtraLinks(); document.getElementById('addExtraLinkBtn')?.addEventListener('click', addExtraLinkFromInput); document.getElementById('extraLinkInput')?.focus(); } return; }
+  BRIEF_DRAFT.extraLinkDraft = raw;
+  if(!raw){ BRIEF_DRAFT.extraLinkError='กรุณากรอกลิงก์'; refreshArtworkSection(); document.getElementById('extraLinkInput')?.focus(); return; }
+  if(!isLikelyValidUrl(raw)){ BRIEF_DRAFT.extraLinkError='รูปแบบลิงก์ไม่ถูกต้อง'; refreshArtworkSection(); document.getElementById('extraLinkInput')?.focus(); return; }
   BRIEF_DRAFT.extraLinks.push({id:uidShort('lnk'), label:detectReferenceType(raw).label, url:raw});
   BRIEF_DRAFT.extraLinkError=''; BRIEF_DRAFT.extraLinkDraft='';
-  const w=document.getElementById('extraLinksWrap')?.parentElement;
-  if(w){ w.outerHTML = renderExternalBriefLinksSectionHTML(); bindExtraLinks(); document.getElementById('addExtraLinkBtn')?.addEventListener('click', addExtraLinkFromInput); document.getElementById('extraLinkInput')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addExtraLinkFromInput(); } }); document.getElementById('extraLinkInput')?.focus(); }
+  refreshArtworkSection();
+  scheduleBriefDraftAutosave();
+  document.getElementById('extraLinkInput')?.focus();
 }
 function renderExtraLinksHTML(){
   if(!BRIEF_DRAFT.extraLinks.length) return '<div class="refempty">ยังไม่มี External Brief Link</div>';
@@ -6333,6 +6338,7 @@ function renderExtraLinksHTML(){
     }
     return `<div class="linkrow" data-linkrow="${l.id}">
       <input placeholder="ชื่อลิงก์ เช่น Google Drive / Reference" data-linklabel="${l.id}" value="${l.label||''}">
+
       <input type="url" placeholder="https://drive.google.com/…" data-linkurl="${l.id}" value="${l.url||''}">
       <button type="button" class="rm-linkrow" data-rmlink="${l.id}">✕</button>
     </div>`;
