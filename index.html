@@ -4420,7 +4420,7 @@ function renderSidebar(){
   if(STATE.auth.role==='po'){
     const groups = [
       {grp:'My Workspace', items:[['poHome','My Workspace'],['brief','Create New Brief'],['poBriefs','My Briefs'],['poDrafts','Drafts'],['poCompleted','Completed Jobs']]},
-      {grp:'Working Process', items:[['board','Process Board']]},
+      {grp:'Working Process', items:[['board','Process Board'],['dashboard','Team Dashboard']]},
       {grp:'Resources', items:[['assets','Assets Center']]},
       {grp:'Brand Standard', items:[['ci','CI Reference Center'],['banners','Standard Banner'],['pdp','PDP Pattern']]},
     ];
@@ -4453,7 +4453,11 @@ function renderSidebar(){
 // Sections that are internal-only (Designer/Lead/Admin) — a Project Owner must never render these, even if
 // sideSection ends up pointing at one (stale state, direct manipulation, etc). Defensive, on top of the
 // sidebar already never offering these buttons to a PO.
-const PO_FORBIDDEN_SECTIONS = ['dashboard','admin','users','departments','designers','leave','security','backdated','myCompleted'];
+// Krissha: "Team Dashboard (Team View) ทุกคนสามารถดูได้" — a PO can now open Team Dashboard too (for a
+// quick queue check), so 'dashboard' is no longer PO-forbidden; canViewInternalDetail()/canCreateInternalTaskFor()
+// still keep a PO from seeing or managing any Designer's Internal Task detail inside its drawer (see
+// renderDesignerDrawer/renderInternalTasksAggregateOnly below) — only the capacity/queue view opens up.
+const PO_FORBIDDEN_SECTIONS = ['admin','users','departments','designers','leave','security','backdated','myCompleted'];
 // Admin-only sections: reachable only while Admin Mode is actually on (isAdminModeOn()). This catches the
 // case where Krissha's sideSection is left pointing at 'users' etc. from a previous Admin Mode session but
 // STATE.adminModeActive has since reset to false (e.g. logged out and back in) — same defensive pattern as
@@ -5111,6 +5115,24 @@ function renderMyWorkTimelineInternalOnly(person, dateStr){
         <button type="button" class="btn btn-sm btn-ghost" data-editinternal="${it.id}">Edit</button>
         <button type="button" class="btn btn-sm btn-danger" data-deleteinternal="${it.id}">Delete</button>
       </span>
+    </div>`;
+  }).join('')}</div>`;
+}
+// PO variant of the drawer's Internal Task list (Krissha: "Team Dashboard ... ทุกคนสามารถดูได้" opened the
+// dashboard/drawer to Project Owners too). Per canViewInternalDetail()'s existing rule, a PO — and any
+// Designer looking at a colleague who isn't themselves/the Lead — never sees a colleague's Internal Task
+// name/category, only that a time block exists and how long it is, same generic "Unavailable"/"Internal /
+// Busy" fallback already used in renderMyWorkTimeline's internalHtml. No Edit/Delete controls here either.
+function renderInternalTasksAggregateOnly(person, dateStr){
+  const rows = STATE.internalTasks.filter(it=>it.person===person && it.date===dateStr)
+    .sort((a,b)=>(a.allDay?'':a.startTime||'99:99').localeCompare(b.allDay?'':b.startTime||'99:99'));
+  if(rows.length===0) return `<div class="hint" style="margin-top:6px">ไม่มี Internal Task ในวันนี้</div>`;
+  return `<div class="mywork-list" style="margin-top:6px">${rows.map(it=>{
+    const timeLabel = it.allDay ? 'ทั้งวัน' : (it.timeMode==='duration' ? `${internalTaskHours(it).toFixed(1)} ชม.` : `${it.startTime}–${it.endTime}`);
+    return `<div class="mywork-row">
+      <span class="badge" style="background:#FEF3C7;color:#92400E">INTERNAL</span>
+      <span class="mywork-name">${it.allDay?'Unavailable':'Internal / Busy'}</span>
+      <span class="mywork-pts">${timeLabel}</span>
     </div>`;
   }).join('')}</div>`;
 }
@@ -12021,9 +12043,9 @@ function renderDesignerDrawer(){
 
       <div class="eyebrow" style="margin-top:16px;display:flex;align-items:center;justify-content:space-between">
         <span>Internal Tasks on ${fmtDate(drawerDate)}</span>
-        <button type="button" class="btn btn-sm btn-primary" data-addinternal="${person}" data-addinternaldate="${drawerDate}">+ Add</button>
+        ${canCreateInternalTaskFor(person) ? `<button type="button" class="btn btn-sm btn-primary" data-addinternal="${person}" data-addinternaldate="${drawerDate}">+ Add</button>` : ''}
       </div>
-      ${renderMyWorkTimelineInternalOnly(person, drawerDate)}
+      ${canViewInternalDetail({person}) ? renderMyWorkTimelineInternalOnly(person, drawerDate) : renderInternalTasksAggregateOnly(person, drawerDate)}
 
       ${upcoming.length ? `<div class="eyebrow" style="margin-top:16px">Upcoming Work</div>
         ${upcoming.map(t=>`<div class="sl-row"><span class="sl-k">${fmtDate(t.prefer_delivery_date)} — ${taskDisplayName(t)}</span><span class="sl-v">${appliedPoints(t).toFixed(1)} pt · ${t.priority}</span></div>`).join('')}` : ''}
