@@ -1478,6 +1478,10 @@ body.vb-dragging, body.vb-dragging *{cursor:grabbing!important}
    treatment already applied below 1000px — lets the whole page scroll as one, so the browser's own obvious
    scrollbar is the only one involved and nothing can hide below an invisible fold again. */
 .taskws-panel-col{flex:1 1 340px;min-width:340px;max-width:420px;display:flex;flex-direction:column;gap:12px}
+/* Krissha: "ไม่ต้องพรีวิว แคนวาแล้ว" — when the Canvas preview column is hidden (CANVAS_EDITOR_ENABLED=false),
+   this is the only column left in .taskws-body, so the 420px cap made for sitting beside a wide Canvas would
+   otherwise leave most of the page blank. Let it use the full row width instead, capped for readability. */
+.taskws-panel-col-full{max-width:900px;width:100%}
 .taskws-canvas-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
 .taskws-canvas-wrap{position:relative;overflow:auto;background:#F5F6FA;padding:26px;display:flex;
   align-items:center;justify-content:center;height:clamp(420px,62vh,680px);width:100%;border-radius:14px;box-sizing:border-box}
@@ -2338,7 +2342,7 @@ async function submitQueueAdjustmentRequests(assignee, dateStr){
       comment:`ขอปรับคิวงาน — Capacity ของ ${assignee} วันที่ ${fmtDate(dateStr)} เต็ม`, by});
     notifyUsers([t.project_owner_email], 'มีคำขอปรับคิวงานวันที่ '+fmtDate(dateStr),
       `"${t.task_name}" (${t.task_id}) — กำหนดส่งปัจจุบัน ${fmtDate(dateStr)} — Capacity ของทีมในวันที่ดังกล่าวเต็ม และมีงาน Priority ที่ต้องการใช้ช่วงเวลาเดียวกัน หากงานของคุณสามารถเลื่อนกำหนดส่งได้ กรุณายืนยัน`,
-      t.task_id, {excludeActor:true});
+      t.task_id, {excludeActor:true, eventType:'QUEUE_ADJUSTMENT_REQUESTED', extra:{currentDeadline:dateStr}});
   });
   if(targets.length) await saveTasks();
   return targets.length;
@@ -2365,7 +2369,7 @@ async function respondQueueAdjustmentMove(taskId, newDate){
     by: STATE.auth.user?.name||STATE.auth.identity||'system'});
   await saveTasks();
   if(t.assigned_user_name) notifyUsers([t.assigned_user_name], 'กำหนดส่งงานเปลี่ยนแปลง',
-    `"${t.task_name}" (${t.task_id}) — ${fmtDate(oldDate)} → ${fmtDate(newDate)}`, t.task_id, {excludeActor:true});
+    `"${t.task_name}" (${t.task_id}) — ${fmtDate(oldDate)} → ${fmtDate(newDate)}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_ADJUSTED', extra:{oldDeadline:oldDate}});
   toast('ยืนยันเลื่อนกำหนดส่งแล้ว'); render();
 }
 
@@ -2393,7 +2397,7 @@ async function respondCapacityOverrideAccept(taskId){
   await saveTasks();
   notifyUsers([t.project_owner_email], 'Designer รับงานแล้ว (งานแทรก)',
     `"${t.task_name}" (${t.task_id}) — Designer รับงานในวันที่ร้องขอ ${fmtDate(t.capacity_override_requested_date)} แล้ว งานนี้ถูกเพิ่มในช่วงที่ Capacity เต็ม อาจมีความล่าช้าตามสถานการณ์คิวงาน`,
-    t.task_id, {excludeActor:true});
+    t.task_id, {excludeActor:true, eventType:'CAPACITY_OVERRIDE_ACCEPTED', extra:{requestedDate:t.capacity_override_requested_date}});
   toast('รับงานแล้ว — บันทึกเป็นงานแทรก (Capacity Override)'); render();
 }
 // §16 — proposing a new date never touches prefer_delivery_date yet; only the Requester's own Confirm does.
@@ -2408,7 +2412,7 @@ async function respondCapacityOverridePropose(taskId, proposedDate){
   await saveTasks();
   notifyUsers([t.project_owner_email], 'Designer เสนอวันส่งใหม่',
     `"${t.task_name}" (${t.task_id}) — เดิม ${fmtDate(t.capacity_override_requested_date)} → เสนอ ${fmtDate(proposedDate)} กรุณายืนยัน`,
-    t.task_id, {excludeActor:true});
+    t.task_id, {excludeActor:true, eventType:'CAPACITY_OVERRIDE_NEW_DATE', extra:{requestedDate:t.capacity_override_requested_date, proposedDate}});
   toast('ส่งข้อเสนอวันใหม่แล้ว'); render();
 }
 async function respondCapacityOverrideReject(taskId){
@@ -2420,7 +2424,7 @@ async function respondCapacityOverrideReject(taskId){
     comment:'Designer ปฏิเสธงานแทรก — Requester ต้องเลือกวันอื่น', by:t.capacity_override_decided_by});
   await saveTasks();
   notifyUsers([t.project_owner_email], 'Designer ไม่รับงานแทรกวันนี้',
-    `"${t.task_name}" (${t.task_id}) — กรุณาเลือกวันส่งใหม่`, t.task_id, {excludeActor:true});
+    `"${t.task_name}" (${t.task_id}) — กรุณาเลือกวันส่งใหม่`, t.task_id, {excludeActor:true, eventType:'CAPACITY_OVERRIDE_REJECTED', extra:{requestedDate:t.capacity_override_requested_date}});
   toast('ปฏิเสธคำขอแล้ว'); render();
 }
 // §17 — the ONLY place prefer_delivery_date actually changes for an Override task — explicit Requester
@@ -2434,7 +2438,7 @@ async function confirmCapacityOverrideProposedDate(taskId){
     comment:`กำหนดส่งปรับจาก ${fmtDate(oldDate)} → ${fmtDate(t.prefer_delivery_date)} (ยืนยันวันที่ Designer เสนอ)`, by: STATE.auth.user?.name||STATE.auth.identity||'system'});
   await saveTasks();
   if(t.assigned_user_name) notifyUsers([t.assigned_user_name], 'Requester ยืนยันวันใหม่แล้ว',
-    `"${t.task_name}" (${t.task_id}) — กำหนดส่งใหม่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {excludeActor:true});
+    `"${t.task_name}" (${t.task_id}) — กำหนดส่งใหม่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {excludeActor:true, eventType:'CAPACITY_DATE_CONFIRMED', extra:{newDeadline:t.prefer_delivery_date}});
   toast('ยืนยันวันที่ใหม่แล้ว'); render();
 }
 
@@ -4228,13 +4232,20 @@ function toast(msg){
   const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
   document.body.appendChild(el); setTimeout(()=>el.remove(),2800);
 }
-function notify(to, title, message, taskId){
+function notify(to, title, message, taskId, eventType, extra, role){
   STATE.notifications.push({id:'n_'+Math.random().toString(36).slice(2,9), to, title, message, timestamp:new Date().toISOString(), read:false, taskId: taskId||null});
   saveNotifs();
-  // Email Notifications (Krissha, request: "ระบบแจ้งเตือน Email มีมั้ย") — mirrors every in-app
-  // notification 1:1 via the same Apps Script proxy used for Drive. Deliberately fire-and-forget and
-  // wrapped so a slow/broken email leg can never delay or break the in-app notification above it — see
-  // sendEmailNotification()'s own comment for why.
+  // Email Notifications — Krissha's Email Master Spec (eventType → Email Template): Email used to mirror
+  // the In-App title/message 1:1. Now, when a call site names an eventType, the email leg is built from
+  // EMAIL_EVENT_TITLE/EMAIL_EVENT_BODY (its own Subject + full Global Email Template body — see
+  // buildEventEmail() below) instead of the short In-App text; the In-App notification above is untouched
+  // either way. No eventType, no matching template, or no task found for taskId → falls straight back to
+  // the old title/message mirror, so a call site that hasn't been updated yet still sends an email exactly
+  // as before. Deliberately fire-and-forget either way — see deliverRawEmail()'s own comment for why.
+  if(eventType){
+    const t = (STATE.tasks||[]).find(x=>x.task_id===taskId);
+    if(t){ sendEventEmail(to, eventType, t, extra, role); return; }
+  }
   sendEmailNotification(to, title, message);
 }
 // `to` here is whatever notify()'s many call sites already use as a person identifier — sometimes a
@@ -4248,7 +4259,9 @@ function resolveNotifyEmail(to){
   const u = (STATE.users||[]).find(u=>u.name===s);
   return u?.email || null;
 }
-function sendEmailNotification(to, subject, body){
+// Shared low-level transport for both the legacy title/message mirror (sendEmailNotification) and the
+// new eventType-based templates (sendEventEmail) — one place that talks to the Apps Script proxy.
+function deliverRawEmail(to, subject, body){
   try{
     if(!STATE.gdriveConfig?.emailNotifyEnabled) return;
     const proxyUrl = gdriveProxyUrl();
@@ -4262,6 +4275,209 @@ function sendEmailNotification(to, subject, body){
     gdriveFetchWithTimeout(url, 15000).catch(()=>{});
   }catch(e){ /* email is a bonus on top of in-app notifications, never let it break them */ }
 }
+function sendEmailNotification(to, subject, body){ deliverRawEmail(to, subject, body); }
+/* ==================== EMAIL EVENT TEMPLATES — Krissha's Email Master Spec ====================
+   One eventType → one Email Template, separate from the In-App text (notify()'s own title/message stays
+   short). Global layout per event: WORLDTECH / Graphic Workflow header, a shared Task block (Task ID /
+   Project / Priority / Designer / Brief Owner / Deadline), then the event's own content + links — built
+   once here in buildEventEmail() rather than 29 separate HTML files. Subject is always
+   "WORLDTECH | {{event title}} — {{task name}}", never a bare title.
+   The app has no hosted URL of its own (no per-task deep link, no URL routing — see Krissha, "ไม่ใช่
+   ลิงก์งานหรอคะ": window.location resolved to a local file:///Users/.../Downloads/... path on whoever's
+   machine happened to send the email, which is useless to everyone else). Fix (Krissha, "แค่ดึงข้อมูลจาก
+   การใส่ลิงก์ส่งงานมาโชว์ก็พอ"): every "เปิดงาน" / "เปิด Brief" / "ตรวจงาน" CTA now resolves to whatever
+   REAL link is already saved on the task itself via emailTaskLink() below, instead of a fabricated app
+   URL — completedWorkFolderUrl > aw_link ("ลิงก์ส่งงาน", same field the Task Detail page's own
+   "แนบลิงก์ส่งงาน" button writes) > brief_link > the first External Brief Link. If none of those exist yet
+   (e.g. a brand-new Brief before any reference link was attached), the CTA is simply omitted — never a
+   broken/fake link. */
+function emailTaskLink(t){
+  if(t.completedWorkFolderUrl) return t.completedWorkFolderUrl;
+  if(t.aw_link) return t.aw_link;
+  if(t.brief_link) return t.brief_link;
+  const extLinks = Array.isArray(t.external_brief_links) ? t.external_brief_links : [];
+  if(extLinks.length && extLinks[0].url) return extLinks[0].url;
+  return '';
+}
+function emailLink(label, url){ return url ? `[ ${label} ] ${url}` : ''; }
+function emailBriefOwnerName(t){ return findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '-'; }
+function emailTaskBlock(t){
+  return [
+    `Task: ${taskDisplayName(t)}`,
+    `Task ID: ${t.task_id}`,
+    t.project_name ? `Project: ${t.project_name}` : '',
+    `Priority: ${t.priority||'-'}`,
+    `Designer: ${t.assigned_user_name||'-'}`,
+    `Brief Owner: ${emailBriefOwnerName(t)}`,
+    `Deadline: ${fmtDate(t.prefer_delivery_date)}`
+  ].filter(Boolean).join('\n');
+}
+const EMAIL_EVENT_TITLE = {
+  BRIEF_SUBMITTED: 'มีบรีฟใหม่',
+  LEAD_APPROVAL_REQUIRED: 'รอ Lead Designer อนุมัติ',
+  BRIEF_APPROVED: 'Brief Approved',
+  BRIEF_APPROVAL_REJECTED: 'Brief ต้องแก้ไขก่อนดำเนินการ',
+  DATE_PRIORITY_CHANGE_REQUESTED: 'ขอปรับวันที่หรือ Priority',
+  BRIEF_IMPORTANT_UPDATE: 'Brief มีการเปลี่ยนแปลงสำคัญ',
+  BRIEF_REJECTED_BY_DESIGNER: 'Designer แจ้งปัญหาใน Brief',
+  TASK_ASSIGNED: 'คุณได้รับมอบหมายงาน',
+  TASK_UNASSIGNED_FROM_DESIGNER: 'Assignment มีการเปลี่ยนแปลง',
+  TASK_REASSIGNED: 'งานถูก Reassign',
+  SCOPE_ADJUSTED_PREFLIGHT: 'Scope ถูกปรับก่อนเริ่ม Production',
+  SCOPE_CHANGED_PRODUCTION: 'Scope เปลี่ยนระหว่าง Production',
+  CAPACITY_OVERRIDE_REQUESTED: 'ขอรับงานแทรกในวันที่ Capacity เต็ม',
+  CAPACITY_OVERRIDE_ACCEPTED: 'Designer ยืนยันรับงานแทรก',
+  CAPACITY_OVERRIDE_NEW_DATE: 'Designer เสนอวันส่งใหม่',
+  CAPACITY_OVERRIDE_REJECTED: 'ต้องเลือกวันส่งใหม่',
+  CAPACITY_DATE_CONFIRMED: 'Requester ยืนยันวันส่งใหม่',
+  QUEUE_ADJUSTMENT_REQUESTED: 'ขอพิจารณาปรับคิวงาน',
+  DEADLINE_ADJUSTED: 'กำหนดส่งงานเปลี่ยนแปลง',
+  WORK_SUBMITTED_QC: 'มีงานรอตรวจ QC',
+  FINAL_REVIEW_READY: 'งานพร้อมตรวจขั้นสุดท้าย',
+  QC_APPROVED: 'QC ผ่านแล้ว',
+  REVISION_REQUESTED: 'มีคำขอแก้ไขงาน',
+  WORK_COMPLETED: 'งานเสร็จสมบูรณ์',
+  AUTO_COMPLETED: 'งานถูกปิดอัตโนมัติ',
+  DEADLINE_EXTENSION_REQUESTED: 'มีคำขอเลื่อนกำหนดส่ง',
+  DEADLINE_EXTENSION_APPROVED: 'อนุมัติ Delivery Date ใหม่',
+  DEADLINE_EXTENSION_REJECTED: 'คำขอเลื่อนกำหนดส่งไม่ได้รับการอนุมัติ',
+  TASK_REOPENED: 'งานถูกเปิดกลับมาอีกครั้ง',
+  DEADLINE_DUE_SOON: 'ใกล้ถึงกำหนดส่ง',
+  DEADLINE_OVERDUE: 'งานเกินกำหนดส่ง',
+  FINAL_REVIEW_REMINDER: 'Final Review ใกล้ครบกำหนด'
+};
+const EMAIL_EVENT_BODY = {
+  BRIEF_SUBMITTED(t, extra, role){
+    const link = emailTaskLink(t);
+    if(role==='designer') return `คุณได้รับงานใหม่\n\nมี Brief ใหม่ถูกส่งเข้าคิวของคุณ กรุณาตรวจสอบรายละเอียด Scope, Reference และ Deadline ก่อนเริ่มงาน\n\nกำหนดส่ง: ${fmtDate(t.prefer_delivery_date)}\n\n${emailLink('เปิด Brief', link)}\n${emailLink('เปิดงาน', link)}`;
+    if(role==='owner') return `ส่ง Brief สำเร็จแล้ว\n\nBrief "${taskDisplayName(t)}" ถูกบันทึกและส่งเข้าสู่ Workflow เรียบร้อยแล้ว\n\nDesigner: ${t.assigned_user_name||'-'}\nกำหนดส่ง: ${fmtDate(t.prefer_delivery_date)}\n\n${emailLink('ดูสถานะงาน', link)}`;
+    return `มี Brief ใหม่เข้าสู่ทีม\n\nBrief ใหม่ถูกเพิ่มเข้าสู่คิวของ ${t.assigned_user_name||'-'}\n\n${emailLink('เปิดงาน', link)}`;
+  },
+  LEAD_APPROVAL_REQUIRED(t, extra, role){
+    const link = emailTaskLink(t);
+    if(role==='owner') return `Brief ถูกส่งให้ Lead Designer พิจารณาแล้ว\n\nขณะนี้งานยังไม่ได้ยืนยัน Assignment / Delivery Date จนกว่า Lead Designer จะพิจารณาเรียบร้อย\n\n${emailLink('ดูสถานะคำขอ', link)}`;
+    return `มี Brief ที่ต้องพิจารณาก่อนเข้าคิวงาน\n\nงานนี้มี Priority / Delivery Condition ที่ต้องได้รับการอนุมัติจาก Lead Designer\n\nPriority: ${t.priority||'-'}\nSuggested Designer: ${extra.suggestedDesigner||t.assigned_user_name||'-'}\nRequested Delivery: ${fmtDate(extra.requestedDate||t.prefer_delivery_date)}\n\nเหตุผล\n${extra.reason||'-'}\n\n${emailLink('ตรวจสอบและอนุมัติ', link)}`;
+  },
+  BRIEF_APPROVED(t, extra, role){
+    const link = emailTaskLink(t);
+    if(role==='designer') return `Lead Designer Approved\n\n"${taskDisplayName(t)}" (${t.priority||'-'}) ได้รับอนุมัติแล้ว — เข้า Queue แล้ว\n\n${emailLink('เปิดงาน', link)}`;
+    return `Brief ได้รับการอนุมัติแล้ว\n\nLead Designer อนุมัติ Brief เรียบร้อย และงานเข้าสู่คิว Production แล้ว\n\nAssigned Designer: ${t.assigned_user_name||'-'}\nDeadline: ${fmtDate(t.prefer_delivery_date)}\n\n${emailLink('เปิด Brief', link)}\n${emailLink('เปิดงาน', link)}`;
+  },
+  BRIEF_APPROVAL_REJECTED(t, extra){
+    return `Brief ยังไม่ได้รับการอนุมัติ\n\nLead Designer ขอให้แก้ไขข้อมูลก่อนส่งกลับเข้ากระบวนการ\n\nเหตุผล\n${extra.reason||'-'}\n\nกรุณาตรวจสอบ Priority / Requested Delivery Date และข้อมูลที่เกี่ยวข้อง\n\n${emailLink('แก้ไข Brief', emailTaskLink(t))}`;
+  },
+  DATE_PRIORITY_CHANGE_REQUESTED(t, extra){
+    return `Lead Designer ขอให้ปรับข้อมูลของงาน\n\n${extra.reason||'-'}\n\nกำหนดส่งปัจจุบัน: ${fmtDate(t.prefer_delivery_date)}\nPriority ปัจจุบัน: ${t.priority||'-'}\n\n${emailLink('แก้ไข Brief', emailTaskLink(t))}`;
+  },
+  BRIEF_IMPORTANT_UPDATE(t, extra){
+    return `Brief ถูกอัปเดต\n\nมีการแก้ไขข้อมูลสำคัญของงาน กรุณาตรวจสอบก่อนดำเนินงานต่อ\n\nรายการเปลี่ยนแปลง\n${extra.importantDiff||'-'}\n\n${emailLink('ดู Brief ล่าสุด', emailTaskLink(t))}`;
+  },
+  BRIEF_REJECTED_BY_DESIGNER(t, extra, role){
+    const link = emailTaskLink(t);
+    if(role==='lead') return `Brief ถูกส่งกลับ\n\n${t.assigned_user_name||'Designer'} reject "${taskDisplayName(t)}"\n\nเหตุผล\n${extra.reason||'-'}\n\nDesigner: ${t.assigned_user_name||'-'}\n\n${emailLink('ตรวจสอบ Brief', link)}`;
+    return `Brief ถูกส่งกลับ\n\nDesigner ยังไม่สามารถเริ่มงานจาก Brief ปัจจุบันได้\n\nเหตุผล\n${extra.reason||'-'}\n\nDesigner: ${t.assigned_user_name||'-'}\n\n${emailLink('ตรวจสอบ Brief', link)}`;
+  },
+  TASK_ASSIGNED(t, extra){
+    const reassignLine = extra.oldDesigner ? `\n\nDesigner เดิม: ${extra.oldDesigner}\n\nเหตุผล\n${extra.reason||'-'}` : '';
+    return `คุณได้รับ Assignment ใหม่\n\nคุณได้รับมอบหมายให้ดูแลงานนี้\n\nมอบหมายโดย: ${extra.changedBy||'-'}\nDeadline: ${fmtDate(t.prefer_delivery_date)}${reassignLine}\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+  },
+  TASK_UNASSIGNED_FROM_DESIGNER(t, extra){
+    return `งานนี้ถูก Reassign ไปยัง Designer คนอื่นแล้ว\n\nDesigner ใหม่: ${extra.newDesigner||'-'}\n\nเหตุผล\n${extra.reason||'-'}\n\nระบบจะนำงานนี้ออกจาก Work Queue ของคุณ\n\n${emailLink('ดูรายละเอียดงาน', emailTaskLink(t))}`;
+  },
+  TASK_REASSIGNED(t, extra){
+    return `Assignment ถูกเปลี่ยน\n\nจาก: ${extra.oldDesigner||'-'}\nเป็น: ${extra.newDesigner||'-'}\n\nเหตุผล\n${extra.reason||'-'}\n\nDeadline: ${fmtDate(t.prefer_delivery_date)}\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+  },
+  SCOPE_ADJUSTED_PREFLIGHT(t, extra){
+    return `Designer ตรวจ Brief และปรับจำนวนงานก่อนเริ่ม Production\n\nArtwork\n${extra.oldArtwork} → ${extra.newArtwork}\n\nResize\n${extra.oldResize} → ${extra.newResize}\n\nตรวจสอบโดย: ${extra.changedBy||'-'}\n\nการเปลี่ยนแปลงนี้เป็นการยืนยัน Actual Scope ก่อนเริ่มงาน และไม่ต้อง Approve เพิ่มเติม\n\n${emailLink('ดู Scope ปัจจุบัน', emailTaskLink(t))}`;
+  },
+  SCOPE_CHANGED_PRODUCTION(t, extra){
+    return `Scope ของงานมีการเปลี่ยนแปลง\n\nประเภท: ${extra.scopeType||'-'}\nเดิม: ${extra.before||'-'}\nใหม่: ${extra.after||'-'}\n\nPoint: ${extra.beforePoints!=null?extra.beforePoints:'-'} → ${extra.afterPoints!=null?extra.afterPoints:'-'}\n\nRequested by: ${extra.requestedBy||'-'}\nบันทึกโดย: ${extra.changedBy||'-'}\n\nเหตุผล\n${extra.reason||'-'}\n\n${emailLink('ดู Scope History', emailTaskLink(t))}`;
+  },
+  CAPACITY_OVERRIDE_REQUESTED(t, extra){
+    const link = emailTaskLink(t);
+    return `มีคำขอ Capacity Override\n\nRequester ต้องการให้งานนี้ส่งในวันที่ Capacity ของคุณเต็มแล้ว\n\nRequested Date: ${fmtDate(extra.requestedDate)}\nPriority: ${t.priority||'-'}\n\nเหตุผล\n${extra.overrideReason||'-'}\n\nกรุณาเลือก:\n${emailLink('รับวันที่ร้องขอ', link)}\n${emailLink('เสนอวันใหม่', link)}\n${emailLink('ไม่รับวันที่ร้องขอ', link)}`;
+  },
+  CAPACITY_OVERRIDE_ACCEPTED(t, extra){
+    return `Designer รับ Requested Date แล้ว\n\nDesigner: ${t.assigned_user_name||'-'}\nConfirmed Date: ${fmtDate(extra.requestedDate)}\n\nงานนี้ถูกเพิ่มในช่วงที่ Capacity เต็ม จึงยังควรติดสถานะ Capacity Override ในระบบ\n\n${emailLink('ดูงาน', emailTaskLink(t))}`;
+  },
+  CAPACITY_OVERRIDE_NEW_DATE(t, extra){
+    return `Designer เสนอ Delivery Date ใหม่\n\nวันที่ร้องขอเดิม: ${fmtDate(extra.requestedDate)}\n\nวันที่เสนอใหม่: ${fmtDate(extra.proposedDate)}\n\nกรุณายืนยันว่าต้องการใช้วันที่ใหม่หรือไม่\n\n${emailLink('ยืนยันวันที่ใหม่', emailTaskLink(t))}`;
+  },
+  CAPACITY_OVERRIDE_REJECTED(t, extra){
+    return `Designer ไม่สามารถรับงานในวันที่ร้องขอได้\n\nRequested Date: ${fmtDate(extra.requestedDate)}\n\nกรุณาเลือก Delivery Date ใหม่ตาม Capacity ที่ว่าง\n\n${emailLink('เลือกวันส่งใหม่', emailTaskLink(t))}`;
+  },
+  CAPACITY_DATE_CONFIRMED(t, extra){
+    return `Delivery Date ใหม่ได้รับการยืนยันแล้ว\n\nDeadline ใหม่\n${fmtDate(extra.newDeadline||t.prefer_delivery_date)}\n\nRequester ยืนยันวันที่ที่คุณเสนอเรียบร้อยแล้ว\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+  },
+  QUEUE_ADJUSTMENT_REQUESTED(t, extra){
+    return `มีคำขอพิจารณา Delivery Date\n\nCapacity ของทีมในวันที่ ${fmtDate(extra.currentDeadline||t.prefer_delivery_date)} เต็ม และมีงาน Priority ที่ต้องใช้ช่วงเวลาเดียวกัน\n\nงานของคุณยังไม่ได้ถูกเลื่อนอัตโนมัติ\n\nหากงานสามารถเลื่อนได้ กรุณาเลือก Delivery Date ใหม่\nหากจำเป็นต้องใช้วันเดิม สามารถเลือกคงกำหนดเดิมได้\n\n${emailLink('ตอบคำขอปรับคิว', emailTaskLink(t))}`;
+  },
+  DEADLINE_ADJUSTED(t, extra){
+    return `Delivery Date ถูกอัปเดต\n\nกำหนดเดิม\n${fmtDate(extra.oldDeadline)}\n\nกำหนดใหม่\n${fmtDate(t.prefer_delivery_date)}\n\nเหตุผล: Capacity ของคิวงานในช่วงวันที่ร้องขอเต็ม\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+  },
+  WORK_SUBMITTED_QC(t, extra){
+    const link = emailTaskLink(t);
+    return `Designer ส่ง Artwork แล้ว\n\nArtwork เวอร์ชันล่าสุดพร้อมสำหรับ Lead QC\n\nDesigner: ${t.assigned_user_name||'-'}\nSubmitted: ${fmtDateTime(t.aw_delivery_timestamp)}\n\nArtwork ล่าสุด\n${emailLink('เปิดไฟล์งานบน Google Drive', t.aw_link)}\n\nBrief\n${emailLink('เปิด Brief', link)}\n\nAction\n${emailLink('เปิดหน้า QC', link)}`;
+  },
+  FINAL_REVIEW_READY(t, extra){
+    const link = emailTaskLink(t);
+    const skipNote = extra.skippedQC ? `\n\nงานนี้ดำเนินการโดย Lead Designer จึงเข้าสู่ Final Review โดยไม่ต้องมี QC ซ้ำ` : '';
+    return `Artwork พร้อมสำหรับ Final Review\n\nงานผ่าน Lead QC แล้ว กรุณาตรวจ Artwork และเลือก Approve หรือ Request Revision\n\nDesigner: ${t.assigned_user_name||'-'}\n\nFinal Review Due\n${fmtDateTime(t.approval_due_at)}\n\nArtwork สำหรับตรวจ\n${emailLink('เปิดไฟล์งานบน Google Drive', t.aw_link)}\n${emailLink('เปิด Brief', link)}\n\n${emailLink('ตรวจงาน', link)}${skipNote}`;
+  },
+  QC_APPROVED(t, extra){
+    return `Artwork ผ่าน Lead QC แล้ว\n\nงานถูกส่งไปยัง Brief Owner เพื่อ Final Review เรียบร้อยแล้ว\n\nFinal Review Due: ${fmtDateTime(t.approval_due_at)}\n\n${emailLink('ดูสถานะงาน', emailTaskLink(t))}`;
+  },
+  REVISION_REQUESTED(t, extra){
+    if(extra.limitReached) return `Revision Limit ถูกใช้ครบแล้ว\n\nTask นี้ไม่สามารถรับ Revision เพิ่มได้ กรุณาสร้าง Task ใหม่หากต้องดำเนินงานต่อ`;
+    const link = emailTaskLink(t);
+    return `Artwork ต้องแก้ไข\n\nมี Feedback ใหม่สำหรับ Artwork นี้\n\nRevision: ${t.revision_count||1} / 3\n\nFeedback\n${extra.comment||'-'}\n\nArtwork ปัจจุบัน\n${emailLink('เปิด Artwork', t.aw_link)}\n\nBrief\n${emailLink('เปิด Brief', link)}\n\n${emailLink('เปิดงานเพื่อแก้ไข', link)}`;
+  },
+  WORK_COMPLETED(t, extra){
+    const finalLink = t.completedWorkFolderUrl ? emailLink('เปิด Final Work Folder', t.completedWorkFolderUrl) : emailLink('เปิด Artwork ล่าสุด', t.aw_link);
+    return `งานได้รับการยืนยันเรียบร้อยแล้ว\n\nArtwork ผ่าน Final Review และ Task เปลี่ยนสถานะเป็น Completed\n\nDesigner: ${t.assigned_user_name||'-'}\nCompleted: ${fmtDateTime(t.completed_at)}\n\nFinal Work\n${finalLink}\n\n${emailLink('ดูรายละเอียดงาน', emailTaskLink(t))}`;
+  },
+  AUTO_COMPLETED(t, extra){
+    const finalLink = t.completedWorkFolderUrl ? emailLink('เปิด Final Work', t.completedWorkFolderUrl) : emailLink('เปิด Final Work', t.aw_link);
+    return `Final Review ครบกำหนดแล้ว\n\nไม่มีคำขอแก้ไขภายใน 2 วันทำงาน หลังเข้าสู่ Final Review ระบบจึงเปลี่ยน Task เป็น Completed\n\nFinal Review Started: ${fmtDateTime(t.approval_waiting_at)}\nCompleted: ${fmtDateTime(t.completed_at)}\n\nFinal Work\n${finalLink}\n\n${emailLink('ดูรายละเอียดงาน', emailTaskLink(t))}`;
+  },
+  DEADLINE_EXTENSION_REQUESTED(t, extra){
+    return `Designer ขอปรับ Delivery Date\n\nDesigner: ${t.assigned_user_name||'-'}\n\nกำหนดเดิม: ${fmtDate(t.prefer_delivery_date)}\n\nวันที่ร้องขอใหม่\n${fmtDate(extra.requestedDeadline)}\n\nเหตุผล\n${extra.reason||'-'}\n\n${emailLink('พิจารณาคำขอ', emailTaskLink(t))}`;
+  },
+  DEADLINE_EXTENSION_APPROVED(t, extra){
+    return `คำขอเลื่อนกำหนดส่งได้รับการอนุมัติ\n\nกำหนดใหม่\n${fmtDate(t.prefer_delivery_date)}\n\nระบบอัปเดต Delivery Date ของ Task เรียบร้อยแล้ว\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+  },
+  DEADLINE_EXTENSION_REJECTED(t, extra){
+    return `Delivery Date เดิมยังคงมีผล\n\nคำขอเปลี่ยนกำหนดส่งไม่ได้รับการอนุมัติ\n\nกำหนดส่งปัจจุบัน\n${fmtDate(t.prefer_delivery_date)}\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+  },
+  TASK_REOPENED(t, extra){
+    return `Task ถูก Reopen\n\nงานที่เคย Completed ถูกนำกลับเข้าสู่ Revision Queue\n\nเปิดโดย: ${extra.reopenedBy||'-'}\n\nเหตุผล\n${extra.reason||'-'}\n\nกรุณาตรวจสอบ Feedback / Requirement ล่าสุดก่อนดำเนินงานต่อ\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+  },
+  DEADLINE_DUE_SOON(t, extra){
+    return `งานใกล้ถึงกำหนดส่ง\n\nDeadline: ${fmtDate(t.prefer_delivery_date)}\n\nงานนี้ยังอยู่ในสถานะ ${extra.status||t.review_status||'-'}\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+  },
+  DEADLINE_OVERDUE(t, extra){
+    return `งานเลย Delivery Date แล้ว\n\nDeadline: ${fmtDate(t.prefer_delivery_date)}\nCurrent Status: ${extra.status||t.review_status||'-'}\n\nDesigner และ Lead Designer กรุณาตรวจสอบสถานะของงาน\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+  },
+  FINAL_REVIEW_REMINDER(t, extra){
+    const link = emailTaskLink(t);
+    return `กรุณาตรวจ Artwork ก่อนระบบปิดงานอัตโนมัติ\n\nงานนี้กำลังรอ Final Review\n\nหากไม่มี Request Revision ภายใน\n${fmtDateTime(t.approval_due_at)}\n\nระบบจะเปลี่ยน Task เป็น Completed อัตโนมัติ\n\nArtwork ล่าสุด\n${emailLink('เปิด Artwork', t.aw_link)}\n\n${emailLink('ตรวจงาน', link)}`;
+  }
+};
+function buildEventEmail(eventType, t, extra, role){
+  const title = EMAIL_EVENT_TITLE[eventType];
+  const bodyFn = EMAIL_EVENT_BODY[eventType];
+  if(!title || !bodyFn) return null;
+  const subject = `WORLDTECH | ${title} — ${taskDisplayName(t)}`;
+  const content = bodyFn(t, extra||{}, role||'');
+  const body = `WORLDTECH\nGraphic Workflow\n\n${emailTaskBlock(t)}\n\n${content}`;
+  return {subject, body};
+}
+function sendEventEmail(to, eventType, t, extra, role){
+  const built = buildEventEmail(eventType, t, extra, role);
+  if(!built) return;
+  deliverRawEmail(to, built.subject, built.body);
+}
+/* ==================== end Email Event Templates ==================== */
 function myNotifs(){
   const me = STATE.auth.identity;
   return STATE.notifications.filter(n=>n.to===me).sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
@@ -4296,6 +4512,15 @@ function resolveRecipientUser(identifier){
   const u=(STATE.users||[]).find(u=>u.name===s);
   return u || {name:s, email:null};
 }
+// Which role a resolved recipient plays on this task — used only to pick the right Email Template
+// variant (e.g. BRIEF_SUBMITTED's Designer/Brief Owner/Lead wording); the In-App text is unaffected.
+function emailRoleForRecipient(u, t){
+  if(!u || !t) return '';
+  if(u.email && t.project_owner_email && normalizeEmailStr(u.email)===normalizeEmailStr(t.project_owner_email)) return 'owner';
+  if(u.name && t.assigned_user_name && u.name===t.assigned_user_name) return 'designer';
+  if(u.name && u.name===LEAD) return 'lead';
+  return '';
+}
 function notifyUsers(recipients, title, message, taskId, options){
   options = options||{};
   const seen=new Set(); const resolved=[];
@@ -4317,8 +4542,15 @@ function notifyUsers(recipients, title, message, taskId, options){
       return true;
     });
   }
+  // Krissha's Email Master Spec: options.eventType (+ options.extra) routes the Email leg of every
+  // recipient through the shared template instead of the title/message mirror — see notify()/
+  // buildEventEmail() above. role is resolved per-recipient (Designer / Brief Owner / Lead all read one
+  // notifyUsers() call differently for a handful of events, e.g. BRIEF_SUBMITTED) via emailRoleForRecipient,
+  // unless the caller already knows the roles and passes options.roleFor(u) itself.
+  const evTask = options.eventType ? (STATE.tasks||[]).find(x=>x.task_id===taskId) : null;
   const deliveries = finalList.map(u=>{
-    notify(u.email || u.name, title, message, taskId);
+    const role = options.eventType ? (options.roleFor ? options.roleFor(u) : emailRoleForRecipient(u, evTask)) : undefined;
+    notify(u.email || u.name, title, message, taskId, options.eventType, options.extra, role);
     return {name:u.name||u.email, email:u.email||null, inapp:true,
       emailSent: !!(STATE.gdriveConfig?.emailNotifyEnabled && u.email),
       reason: u.email ? '' : 'ไม่มีอีเมลผูกกับบัญชีนี้'};
@@ -11878,7 +12110,8 @@ function bindPreflightModal(){
       t.review_history.push({timestamp:nowIso(), action:'SCOPE_ADJUSTED_BEFORE_PRODUCTION',
         comment:`Scope corrected before production — Artwork ${sc.brief.artwork_count} → ${artwork} · Resize ${sc.brief.resize_count} → ${resize}`, by: who});
       // §1.2/§10 SCOPE_ADJUSTED_BEFORE_PRODUCTION — Brief Owner only, informational (no approval needed).
-      notify(t.project_owner_email, 'Scope งานถูกปรับก่อนเริ่มผลิต', `${t.task_name} (${t.task_id}) — Artwork ${sc.brief.artwork_count} → ${artwork} · Resize ${sc.brief.resize_count} → ${resize} (แก้ไขโดย ${who} ก่อนเริ่มงาน ไม่ต้องอนุมัติ)`, t.task_id);
+      notify(t.project_owner_email, 'Scope งานถูกปรับก่อนเริ่มผลิต', `${t.task_name} (${t.task_id}) — Artwork ${sc.brief.artwork_count} → ${artwork} · Resize ${sc.brief.resize_count} → ${resize} (แก้ไขโดย ${who} ก่อนเริ่มงาน ไม่ต้องอนุมัติ)`, t.task_id,
+        'SCOPE_ADJUSTED_PREFLIGHT', {oldArtwork:sc.brief.artwork_count, newArtwork:artwork, oldResize:sc.brief.resize_count, newResize:resize, changedBy:who});
     }
     t.preflight_confirmed = true; t.preflight_confirmed_by = who; t.preflight_confirmed_at = nowIso();
     STATE.preflightUI = {taskId:null, artwork:1, resize:0, error:''};
@@ -11970,9 +12203,10 @@ function bindAdjustScopeModal(){
     const summary = `${t.task_name} (${t.task_id}) — ${type==='artwork'?'Artwork':'Resize'} ${beforeVal} → ${afterVal} (${actualDelta>=0?'+':''}${actualDelta}) · Point ${beforePts.toFixed(1)} → ${afterPts.toFixed(1)} · เหตุผล: ${reason} · Requested by: ${requestedBy} · แก้ไขโดย: ${who}`;
     // §10: SCOPE_CHANGED_DURING_PRODUCTION → Brief Owner + Lead Designer, and the assigned Designer too
     // if someone else (Lead/Admin) was the one who recorded it.
-    notify(t.project_owner_email, 'Scope งานมีการเปลี่ยนแปลงระหว่าง Production', summary, t.task_id);
-    notify(LEAD, 'Scope งานมีการเปลี่ยนแปลงระหว่าง Production', summary, t.task_id);
-    if(t.assigned_user_name && t.assigned_user_name!==who) notify(t.assigned_user_name, 'Scope งานมีการเปลี่ยนแปลงระหว่าง Production', summary, t.task_id);
+    const scopeChangeExtra = {scopeType: type==='artwork'?'Artwork':'Resize', before:beforeVal, after:afterVal, beforePoints:beforePts.toFixed(1), afterPoints:afterPts.toFixed(1), requestedBy, changedBy:who, reason};
+    notify(t.project_owner_email, 'Scope งานมีการเปลี่ยนแปลงระหว่าง Production', summary, t.task_id, 'SCOPE_CHANGED_PRODUCTION', scopeChangeExtra);
+    notify(LEAD, 'Scope งานมีการเปลี่ยนแปลงระหว่าง Production', summary, t.task_id, 'SCOPE_CHANGED_PRODUCTION', scopeChangeExtra);
+    if(t.assigned_user_name && t.assigned_user_name!==who) notify(t.assigned_user_name, 'Scope งานมีการเปลี่ยนแปลงระหว่าง Production', summary, t.task_id, 'SCOPE_CHANGED_PRODUCTION', scopeChangeExtra);
     // §09 Deadline Impact — surfaced as an immediate Warning toast so Designer can decide right away
     // whether to go through the existing Deadline Extension workflow (requestExt) — never a second,
     // parallel deadline-approval system.
@@ -12112,12 +12346,12 @@ function bindReassignModal(){
     t.review_history.push({timestamp: nowIso(), action:'REASSIGN',
       comment: `${oldDesigner||'(Pending Assignment)'} → ${newDesigner} — เหตุผล: ${reason}`,
       by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(newDesigner, 'คุณได้รับมอบหมายงานใหม่', `"${taskDisplayName(t)}" (${t.task_id}) — จาก ${oldDesigner||'—'} — เหตุผล: ${reason}`, t.task_id);
-    if(oldDesigner) notify(oldDesigner, 'งานถูก Reassign ไปยังคนอื่น', `"${taskDisplayName(t)}" (${t.task_id}) — เหตุผล: ${reason}`, t.task_id);
+    notify(newDesigner, 'คุณได้รับมอบหมายงานใหม่', `"${taskDisplayName(t)}" (${t.task_id}) — จาก ${oldDesigner||'—'} — เหตุผล: ${reason}`, t.task_id, 'TASK_ASSIGNED', {changedBy: STATE.auth.user?.name || STATE.auth.identity, oldDesigner, reason});
+    if(oldDesigner) notify(oldDesigner, 'งานถูก Reassign ไปยังคนอื่น', `"${taskDisplayName(t)}" (${t.task_id}) — เหตุผล: ${reason}`, t.task_id, 'TASK_UNASSIGNED_FROM_DESIGNER', {newDesigner, reason});
     // DEV MASTER REQUEST §11 — Assigned/Reassigned → Designer + Lead (Lead informed in addition to the
     // two designer-facing messages above, which stay as-is since they carry different wording for the
     // new vs. outgoing designer).
-    notifyUsers([LEAD], 'งาน Reassign', `"${taskDisplayName(t)}" (${t.task_id}) — ${oldDesigner||'(Pending Assignment)'} → ${newDesigner} — เหตุผล: ${reason}`, t.task_id, {excludeActor:true});
+    notifyUsers([LEAD], 'งาน Reassign', `"${taskDisplayName(t)}" (${t.task_id}) — ${oldDesigner||'(Pending Assignment)'} → ${newDesigner} — เหตุผล: ${reason}`, t.task_id, {excludeActor:true, eventType:'TASK_REASSIGNED', extra:{oldDesigner, newDesigner, reason}});
     STATE.reassignUI = {taskId:null, error:''};
     await saveTasks();
     render();
@@ -12913,7 +13147,7 @@ function renderTaskWorkspacePage(t){
       </div>
     </div>
     <div class="taskws-body">
-      <div class="taskws-panel-col">
+      <div class="taskws-panel-col${CANVAS_EDITOR_ENABLED?'':' taskws-panel-col-full'}">
         ${renderFinalWorkFolderCard(t)}
         <!-- Artwork Link hero (DEV SPEC point 7): "ต้องเด่นและอยู่บนสุด" — the single primary link a
              Reviewer must open goes above External Brief Links / Brief / Reference Links / Images. Hidden
@@ -12987,9 +13221,15 @@ function renderTaskWorkspacePage(t){
         ${(t.quantity_change_history||[]).length ? renderCollapsibleSection('quantityhistory', 'Quantity Change History (legacy)', renderQuantityChangeHistoryCard(t), {defaultOpen:false, badge:String((t.quantity_change_history||[]).length)}) : ''}
         ${(t.reassign_history||[]).length ? renderCollapsibleSection('reassignhistory', 'Reassign History', renderReassignHistoryCard(t), {defaultOpen:false, badge:String((t.reassign_history||[]).length)}) : ''}
       </div>
-      <div class="taskws-canvas-col">
+      <!-- Krissha: "ไม่ต้องพรีวิว แคนวาแล้ว" — with the Canvas editor already disabled (CANVAS_EDITOR_ENABLED
+           = false, see renderVisualEditorRoot above), the Designer-side Canvas preview column (toolbar +
+           zoom controls + "เริ่มออกแบบ" CTA opening an editor that no longer does anything) is dead weight
+           too. Hidden the same way that one was — no placeholder/notice box, just gone — and Task Info /
+           Brief Content stays the only thing rendered here now; nothing saved on an existing task's canvas
+           is touched. Flip CANVAS_EDITOR_ENABLED back to true to bring both back together. -->
+      ${CANVAS_EDITOR_ENABLED ? `<div class="taskws-canvas-col">
         ${renderTaskWsCanvasArea(t)}
-      </div>
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -18205,7 +18445,7 @@ async function submitBriefInner(){
         // BUG FIX (Krissha dev-report §13 — "Notification ต้องเกิดหลัง Save เท่านั้น"): deferred into
         // pendingNotifications, fired only after saveTasks() below is confirmed to have succeeded.
         const importantDiff = changedFields.filter(f=>f.important).map(f=>`${f.label}: ${f.before} → ${f.after}`).join(' · ');
-        pendingNotifications.push(()=>notifyUsers([existing.assigned_user_name, LEAD], 'Brief Updated — Important Changes', `"${existing.task_name}" (${existing.task_id}) — ${importantDiff}`, existing.task_id, {excludeActor:true}));
+        pendingNotifications.push(()=>notifyUsers([existing.assigned_user_name, LEAD], 'Brief Updated — Important Changes', `"${existing.task_name}" (${existing.task_id}) — ${importantDiff}`, existing.task_id, {excludeActor:true, eventType:'BRIEF_IMPORTANT_UPDATE', extra:{importantDiff}}));
       }
     }
     if(wasRejected){
@@ -18223,7 +18463,7 @@ async function submitBriefInner(){
         by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
       pendingNotifications.push(()=>notifyUsers([LEAD, existing.project_owner_email], 'Lead Designer Approval Required',
         `"${existing.task_name}" (${priority}) — Suggested: ${existing.suggested_designer||'—'} — ${fmtDate(existing.prefer_delivery_date)} — เหตุผล: ${existing.urgencyReason}${existing.overCapacity?' (เกิน Capacity ปกติ)':''}`,
-        existing.task_id));
+        existing.task_id, {eventType:'LEAD_APPROVAL_REQUIRED', extra:{suggestedDesigner:existing.suggested_designer, requestedDate:existing.prefer_delivery_date, reason:existing.urgencyReason}}));
     }
     // BUG FIX P0 (Krissha dev-report §2/§13 — Storage Save Failure + Notification ordering): saveTasks()
     // now returns a real success/failure boolean (see saveKey()). A confirmed failure rolls `existing`
@@ -18369,15 +18609,15 @@ async function submitBriefInner(){
     // in §11 doesn't apply here.
     notifyUsers([task.assigned_user_name, LEAD], 'มีคำขอรับงานแทรก (Capacity Override)',
       `"${taskName}" (${priority}) — Requested Date: ${fmtDate(date)} — เหตุผล: ${task.capacity_override_reason}${task.capacity_override_note?' — '+task.capacity_override_note:''}`,
-      task.task_id);
+      task.task_id, {eventType:'CAPACITY_OVERRIDE_REQUESTED', extra:{requestedDate:date, overrideReason:task.capacity_override_reason}});
     toast('📨 ส่งคำขอรับงานแทรกให้ Designer แล้ว — รอ Designer ยืนยันวันส่ง: '+task.task_id);
   } else if(needsApproval){
     // DEV MASTER REQUEST §11 — Urgent Approval → PO + Lead.
-    notifyUsers([LEAD, task.project_owner_email], 'Lead Designer Approval Required', `"${taskName}" (${priority}) — Suggested: ${assignee||'—'} — ${fmtDate(date)} — เหตุผล: ${BRIEF_DRAFT.urgencyReason}${overCapacity?' (เกิน Capacity ปกติ)':''}`, task.task_id);
+    notifyUsers([LEAD, task.project_owner_email], 'Lead Designer Approval Required', `"${taskName}" (${priority}) — Suggested: ${assignee||'—'} — ${fmtDate(date)} — เหตุผล: ${BRIEF_DRAFT.urgencyReason}${overCapacity?' (เกิน Capacity ปกติ)':''}`, task.task_id, {eventType:'LEAD_APPROVAL_REQUIRED', extra:{suggestedDesigner:assignee, requestedDate:date, reason:BRIEF_DRAFT.urgencyReason}});
     toast('📨 ส่งขออนุมัติจาก Lead Designer แล้ว: '+task.task_id);
   } else {
     // DEV MASTER REQUEST §11 — Brief Submitted → PO + Designer + Lead.
-    notifyUsers([task.assigned_user_name, task.project_owner_email, LEAD], 'บรีฟใหม่', `${task.task_name} (${task.task_id}) — กำหนดส่ง ${fmtDate(task.prefer_delivery_date)}`, task.task_id);
+    notifyUsers([task.assigned_user_name, task.project_owner_email, LEAD], 'บรีฟใหม่', `${task.task_name} (${task.task_id}) — กำหนดส่ง ${fmtDate(task.prefer_delivery_date)}`, task.task_id, {eventType:'BRIEF_SUBMITTED'});
     toast('✅ ส่งบรีฟสำเร็จ: '+task.task_id);
   }
   STATE.tab='workflow'; STATE.sideSection='board'; STATE.cal.selectedDate=null;
@@ -18670,10 +18910,64 @@ function processApprovalAutoCompletes(){
       // DEV MASTER CORRECTION §5 — Brief Owner and Assigned Designer both get told, each with their own
       // wording, never "Auto Approve" (nobody clicked approve — the deadline just passed).
       notifyUsers([t.project_owner_email], 'งานถูกปิดอัตโนมัติ',
-        `${t.task_name} — ไม่มีคำขอแก้ไขภายใน 2 วันทำงาน ระบบจึงปิดงานเป็น Completed`, t.task_id);
+        `${t.task_name} — ไม่มีคำขอแก้ไขภายใน 2 วันทำงาน ระบบจึงปิดงานเป็น Completed`, t.task_id, {eventType:'AUTO_COMPLETED'});
       if(t.assigned_user_name) notifyUsers([t.assigned_user_name], 'งานถูกปิดอัตโนมัติ',
-        `${t.task_name} — ครบกำหนด Final Review โดยไม่มี Revision งานถูกปิดเป็น Completed`, t.task_id);
+        `${t.task_name} — ครบกำหนด Final Review โดยไม่มี Revision งานถูกปิดเป็น Completed`, t.task_id, {eventType:'AUTO_COMPLETED'});
       changed = true;
+    }
+  });
+  if(changed) saveTasks();
+  return changed;
+}
+// Email Master Spec §3 (Krissha, "ปรับ Email ระบบ ตามรายการที่ส่งแก้ไป") — the 3 recommended reminder
+// events (DEADLINE_DUE_SOON / DEADLINE_OVERDUE / FINAL_REVIEW_REMINDER). The spec doc itself flags that
+// this app has no server-side cron, so — same as processApprovalAutoCompletes() above — these can only
+// ever fire while a browser is open (checked once at boot + every 60s alongside Auto Complete). This is
+// a first pass at the reliability level the app already has for AUTO_COMPLETED; the doc's own build note
+// still stands for Dev: a real time-based trigger (e.g. Apps Script scheduled trigger) is needed for
+// these to actually warn someone who doesn't have the tab open. Each dedupe flag is keyed to the value
+// it fired for, so a changed deadline/approval window naturally re-arms the reminder instead of staying
+// silently suppressed forever.
+const TERMINAL_REVIEW_STATUSES = ['delivered','rejected','closed_max_revision'];
+function processDeadlineReminders(){
+  const now = Date.now();
+  const DAY_MS = 24*60*60*1000;
+  let changed = false;
+  STATE.tasks.forEach(t=>{
+    if(TERMINAL_REVIEW_STATUSES.includes(t.review_status)) return;
+    // DEADLINE_DUE_SOON / DEADLINE_OVERDUE — both keyed off prefer_delivery_date.
+    if(t.prefer_delivery_date){
+      const dueTime = new Date(t.prefer_delivery_date+"T23:59:59").getTime();
+      if(!isNaN(dueTime)){
+        if(dueTime < now){
+          if(t.deadline_overdue_notified_for !== t.prefer_delivery_date){
+            t.deadline_overdue_notified_for = t.prefer_delivery_date;
+            if(t.assigned_user_name) notifyUsers([t.assigned_user_name, LEAD], 'งานเลยกำหนดส่งแล้ว',
+              `${t.task_name} (${t.task_id}) — เลย Delivery Date แล้ว (${fmtDate(t.prefer_delivery_date)})`, t.task_id, {eventType:'DEADLINE_OVERDUE', extra:{status:t.review_status}});
+            changed = true;
+          }
+        } else if(dueTime - now <= DAY_MS){
+          if(t.deadline_due_soon_notified_for !== t.prefer_delivery_date){
+            t.deadline_due_soon_notified_for = t.prefer_delivery_date;
+            if(t.assigned_user_name) notifyUsers([t.assigned_user_name], 'งานใกล้ถึงกำหนดส่ง',
+              `${t.task_name} (${t.task_id}) — กำหนดส่ง ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {eventType:'DEADLINE_DUE_SOON', extra:{status:t.review_status}});
+            changed = true;
+          }
+        }
+      }
+    }
+    // FINAL_REVIEW_REMINDER — only while genuinely waiting on Final Review, and only in the last 24h
+    // before AUTO_COMPLETED would otherwise silently take over.
+    if(t.review_status==='pending_client_review' && t.approval_due_at){
+      const dueAtTime = new Date(t.approval_due_at).getTime();
+      if(!isNaN(dueAtTime) && dueAtTime > now && dueAtTime - now <= DAY_MS){
+        if(t.final_review_reminder_sent_for !== t.approval_due_at){
+          t.final_review_reminder_sent_for = t.approval_due_at;
+          notifyUsers([t.project_owner_email], 'ใกล้ครบกำหนด Final Review',
+            `${t.task_name} (${t.task_id}) — กรุณาตรวจ Artwork ก่อนระบบปิดงานอัตโนมัติ ${fmtDateTime(t.approval_due_at)}`, t.task_id, {eventType:'FINAL_REVIEW_REMINDER'});
+          changed = true;
+        }
+      }
     }
   });
   if(changed) saveTasks();
@@ -18700,9 +18994,9 @@ async function submitDeliveryLink(taskId, link){
   // (skipLeadQC) or from approveQC below (normal flow).
   if(skipLeadQC){
     notifyUsers([t.project_owner_email], 'งานพร้อมตรวจขั้นสุดท้าย',
-      `${t.task_name} (${t.task_id}) — Lead QC ถูกข้ามอัตโนมัติ เนื่องจาก Assigned Designer เป็น Lead Designer`, t.task_id, {excludeActor:true});
+      `${t.task_name} (${t.task_id}) — Lead QC ถูกข้ามอัตโนมัติ เนื่องจาก Assigned Designer เป็น Lead Designer`, t.task_id, {excludeActor:true, eventType:'FINAL_REVIEW_READY', extra:{skippedQC:true}});
   } else {
-    notifyUsers([LEAD], 'มีงานรอตรวจ QC', `${t.task_name} (${t.task_id}) — ${link}`, t.task_id, {excludeActor:true});
+    notifyUsers([LEAD], 'มีงานรอตรวจ QC', `${t.task_name} (${t.task_id}) — ${link}`, t.task_id, {excludeActor:true, eventType:'WORK_SUBMITTED_QC'});
   }
   STATE.linkFormOpenId = null;
   toast('✅ แนบลิงก์ส่งงานแล้ว ส่งตรวจ Lead Designer');
@@ -18756,8 +19050,8 @@ async function handleAction(act, id){
     if(!reason){ toast('ต้องระบุเหตุผล'); return; }
     t.review_status='rejected'; t.review_comment=reason;
     t.review_history.push({timestamp:new Date().toISOString(), action:'REJECT_TASK', comment:reason, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(t.project_owner_email, 'บรีฟถูก Reject', `${t.task_name} (${t.task_id}) — เหตุผล: ${reason}`, t.task_id);
-    notify(LEAD, 'บรีฟถูก Reject', `${t.assigned_user_name} reject "${t.task_name}" — ${reason}`, t.task_id);
+    notify(t.project_owner_email, 'บรีฟถูก Reject', `${t.task_name} (${t.task_id}) — เหตุผล: ${reason}`, t.task_id, 'BRIEF_REJECTED_BY_DESIGNER', {reason}, 'owner');
+    notify(LEAD, 'บรีฟถูก Reject', `${t.assigned_user_name} reject "${t.task_name}" — ${reason}`, t.task_id, 'BRIEF_REJECTED_BY_DESIGNER', {reason}, 'lead');
   }
   else if(act==='submitReview'){
     const link = prompt('วาง AW Link:', t.aw_link||'');
@@ -18773,9 +19067,9 @@ async function handleAction(act, id){
     // "งานส่งมอบแล้ว" before Lead QC actually passes.
     if(skipLeadQC){
       notifyUsers([t.project_owner_email], 'งานพร้อมตรวจขั้นสุดท้าย',
-        `${t.task_name} (${t.task_id}) — Lead QC ถูกข้ามอัตโนมัติ เนื่องจาก Assigned Designer เป็น Lead Designer`, t.task_id, {excludeActor:true});
+        `${t.task_name} (${t.task_id}) — Lead QC ถูกข้ามอัตโนมัติ เนื่องจาก Assigned Designer เป็น Lead Designer`, t.task_id, {excludeActor:true, eventType:'FINAL_REVIEW_READY', extra:{skippedQC:true}});
     } else {
-      notifyUsers([LEAD], 'มีงานรอตรวจ QC', `${t.task_name} (${t.task_id}) — ${link}`, t.task_id, {excludeActor:true});
+      notifyUsers([LEAD], 'มีงานรอตรวจ QC', `${t.task_name} (${t.task_id}) — ${link}`, t.task_id, {excludeActor:true, eventType:'WORK_SUBMITTED_QC'});
     }
   }
   else if(act==='approveQC'){
@@ -18785,9 +19079,9 @@ async function handleAction(act, id){
     // DEV MASTER CORRECTION §4/§17 — this is the ONE place a normal Designer's PO first hears about the
     // work: Lead QC just passed, so "งานพร้อมตรวจขั้นสุดท้าย" is accurate now (was "ผ่าน QC แล้ว" before,
     // and — critically — sent to PO on submission too, before QC had even happened).
-    notifyUsers([t.project_owner_email], 'งานพร้อมตรวจขั้นสุดท้าย', `${t.task_name} (${t.task_id}) รอคุณยืนยันขั้นสุดท้าย`, t.task_id, {excludeActor:true});
+    notifyUsers([t.project_owner_email], 'งานพร้อมตรวจขั้นสุดท้าย', `${t.task_name} (${t.task_id}) รอคุณยืนยันขั้นสุดท้าย`, t.task_id, {excludeActor:true, eventType:'FINAL_REVIEW_READY', extra:{skippedQC:false}});
     // DEV MASTER REQUEST §11 — QC Approved/Completed → PO + Designer + Lead (PO handled just above).
-    notifyUsers([t.assigned_user_name, LEAD], 'ผ่าน QC แล้ว', `${t.task_name} (${t.task_id}) ผ่าน QC แล้ว`, t.task_id, {excludeActor:true});
+    notifyUsers([t.assigned_user_name, LEAD], 'ผ่าน QC แล้ว', `${t.task_name} (${t.task_id}) ผ่าน QC แล้ว`, t.task_id, {excludeActor:true, eventType:'QC_APPROVED'});
   }
   else if(act==='requestRevision'){
     const comment = prompt('รายละเอียดที่ต้องแก้ไข (บังคับกรอก):');
@@ -18803,9 +19097,10 @@ async function handleAction(act, id){
     }
     t.review_comment = comment;
     t.review_history.push({timestamp:new Date().toISOString(), action:'REQUEST_REVISION', comment, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(t.assigned_user_name, 'ขอแก้ไขงาน', `${t.task_name} — ${comment}`, t.task_id);
+    const revEmailExtra = t.revision_count > 3 ? {limitReached:true} : {comment};
+    notify(t.assigned_user_name, 'ขอแก้ไขงาน', `${t.task_name} — ${comment}`, t.task_id, 'REVISION_REQUESTED', revEmailExtra);
     // DEV MASTER REQUEST §11 — Revision Requested → PO + Designer + Lead (Designer kept as-is above).
-    notifyUsers([t.project_owner_email, LEAD], 'ขอแก้ไขงาน', `${t.task_name} (${t.task_id}) — ${comment}`, t.task_id, {excludeActor:true});
+    notifyUsers([t.project_owner_email, LEAD], 'ขอแก้ไขงาน', `${t.task_name} (${t.task_id}) — ${comment}`, t.task_id, {excludeActor:true, eventType:'REVISION_REQUESTED', extra:revEmailExtra});
   }
   else if(act==='clientApprove'){
     t.review_status='delivered';
@@ -18818,7 +19113,7 @@ async function handleAction(act, id){
     // DEV MASTER CORRECTION §17 — this action never notified anyone at all before. Standard wording:
     // PO Approved → "งานผ่านการยืนยัน"; Completed → "งานเสร็จแล้ว" — both true at this exact moment, so
     // both go out together, to Brief Owner and Assigned Designer.
-    notifyUsers([t.project_owner_email, t.assigned_user_name], 'งานผ่านการยืนยัน', `${t.task_name} (${t.task_id}) — งานเสร็จแล้ว`, t.task_id, {excludeActor:true});
+    notifyUsers([t.project_owner_email, t.assigned_user_name], 'งานผ่านการยืนยัน', `${t.task_name} (${t.task_id}) — งานเสร็จแล้ว`, t.task_id, {excludeActor:true, eventType:'WORK_COMPLETED'});
   }
   // DEV SPEC — My Work Kanban §6: the Kanban's own "Waiting Review -> Completed" drag has no granular
   // QC-then-Client two-step equivalent to reuse (that's approveQC followed by clientApprove) — this is the
@@ -18834,7 +19129,7 @@ async function handleAction(act, id){
     finalizeTaskCompletion(t);
     // DEV MASTER CORRECTION §17 — same completion notification as clientApprove above (this is the
     // one-drag Kanban shortcut for the exact same outcome).
-    notifyUsers([t.project_owner_email, t.assigned_user_name], 'งานผ่านการยืนยัน', `${t.task_name} (${t.task_id}) — งานเสร็จแล้ว`, t.task_id, {excludeActor:true});
+    notifyUsers([t.project_owner_email, t.assigned_user_name], 'งานผ่านการยืนยัน', `${t.task_name} (${t.task_id}) — งานเสร็จแล้ว`, t.task_id, {excludeActor:true, eventType:'WORK_COMPLETED'});
     toast('✓ งานเสร็จสมบูรณ์แล้ว — Capacity คืนทันที');
   }
   // My Work Kanban — Accidental Start correction ("เผลอย้ายการ์ดผิด จากงานใหม่ เป็น กำลังทำ", Krissha,
@@ -18864,7 +19159,7 @@ async function handleAction(act, id){
     // requested date) is a Workflow-affecting action and must be recorded even before Lead Designer rules
     // on it; approveExt/rejectExt below each log their own outcome on top of this.
     t.review_history.push({timestamp:new Date().toISOString(), action:'REQUEST_EXTENSION', comment:`${fmtDate(t.prefer_delivery_date)} → ${fmtDate(newDate)} — เหตุผล: ${reason}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(LEAD, 'คำขอเลื่อนกำหนดส่ง', `${t.assigned_user_name} ขอเลื่อน "${t.task_name}" เป็น ${fmtDate(newDate)} — ${reason}`, t.task_id);
+    notify(LEAD, 'คำขอเลื่อนกำหนดส่ง', `${t.assigned_user_name} ขอเลื่อน "${t.task_name}" เป็น ${fmtDate(newDate)} — ${reason}`, t.task_id, 'DEADLINE_EXTENSION_REQUESTED', {requestedDeadline:newDate, reason});
     toast('ส่งคำขอเลื่อนกำหนดส่งแล้ว รอ Lead Designer พิจารณา');
   }
   else if(act==='approveExt'){
@@ -18872,23 +19167,23 @@ async function handleAction(act, id){
     t.capacity_allocation = null; // old split (if any) pointed at dates before the extension — the new date starts fresh, single-day
     t.deadline_extension_request.status='APPROVED';
     t.review_history.push({timestamp:new Date().toISOString(), action:'APPROVE_EXTENSION', comment:`New date: ${t.prefer_delivery_date}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(t.assigned_user_name, 'อนุมัติเลื่อนกำหนดส่ง', `${t.task_name} — วันใหม่: ${fmtDate(t.prefer_delivery_date)}`, t.task_id);
+    notify(t.assigned_user_name, 'อนุมัติเลื่อนกำหนดส่ง', `${t.task_name} — วันใหม่: ${fmtDate(t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_APPROVED');
     // DEV MASTER REQUEST §11 — Extension Approved → PO + Designer (Designer kept as-is above).
-    notifyUsers([t.project_owner_email], 'อนุมัติเลื่อนกำหนดส่ง', `${t.task_name} (${t.task_id}) — วันใหม่: ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {excludeActor:true});
+    notifyUsers([t.project_owner_email], 'อนุมัติเลื่อนกำหนดส่ง', `${t.task_name} (${t.task_id}) — วันใหม่: ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_APPROVED'});
   }
   else if(act==='rejectExt'){
     t.deadline_extension_request.status='REJECTED';
     t.review_history.push({timestamp:new Date().toISOString(), action:'REJECT_EXTENSION', comment:'', by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(t.assigned_user_name, 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id);
+    notify(t.assigned_user_name, 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_REJECTED');
     // DEV MASTER REQUEST §11 — Extension Rejected → PO + Designer (Designer kept as-is above).
-    notifyUsers([t.project_owner_email], 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} (${t.task_id}) — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {excludeActor:true});
+    notifyUsers([t.project_owner_email], 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} (${t.task_id}) — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_REJECTED'});
   }
   else if(act==='approveUrgent'){
     t.review_status='new';
     t.assigned_user_name = t.suggested_designer || LEAD;
     t.review_history.push({timestamp:new Date().toISOString(), action:'APPROVE_QC', comment:'Approved & assigned by Lead Designer', by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(t.assigned_user_name, 'Lead Designer Approved', `"${t.task_name}" (${t.priority}) ได้รับอนุมัติแล้ว — เข้า Queue แล้ว`, t.task_id);
-    notify(t.project_owner_email, 'Brief Approved', `"${t.task_name}" ได้รับอนุมัติจาก Lead Designer แล้ว มอบหมายให้ ${t.assigned_user_name}`, t.task_id);
+    notify(t.assigned_user_name, 'Lead Designer Approved', `"${t.task_name}" (${t.priority}) ได้รับอนุมัติแล้ว — เข้า Queue แล้ว`, t.task_id, 'BRIEF_APPROVED', null, 'designer');
+    notify(t.project_owner_email, 'Brief Approved', `"${t.task_name}" ได้รับอนุมัติจาก Lead Designer แล้ว มอบหมายให้ ${t.assigned_user_name}`, t.task_id, 'BRIEF_APPROVED', null, 'owner');
     toast('✓ Approve & Assign แล้ว');
   }
   else if(act==='rejectUrgent'){
@@ -18896,13 +19191,13 @@ async function handleAction(act, id){
     if(!reason){ toast('ต้องระบุเหตุผล'); return; }
     t.review_status='rejected'; t.review_comment=reason;
     t.review_history.push({timestamp:new Date().toISOString(), action:'REJECT_TASK', comment:reason, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(t.project_owner_email, 'Brief ไม่ได้รับอนุมัติ', `"${t.task_name}" — ${reason} — กรุณาแก้ Priority หรือ Delivery Date แล้วส่งใหม่`, t.task_id);
+    notify(t.project_owner_email, 'Brief ไม่ได้รับอนุมัติ', `"${t.task_name}" — ${reason} — กรุณาแก้ Priority หรือ Delivery Date แล้วส่งใหม่`, t.task_id, 'BRIEF_APPROVAL_REJECTED', {reason});
   }
   else if(act==='requestDateChange'){
     const reason = prompt('แจ้งเหตุผล/วันที่แนะนำให้ผู้บรีฟทราบ:');
     if(!reason){ return; }
     t.review_history.push({timestamp:new Date().toISOString(), action:'REQUEST_REVISION', comment:'Requested date/priority change: '+reason, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(t.project_owner_email, 'Lead Designer ขอให้เปลี่ยนวันที่/Priority', `"${t.task_name}" — ${reason}`, t.task_id);
+    notify(t.project_owner_email, 'Lead Designer ขอให้เปลี่ยนวันที่/Priority', `"${t.task_name}" — ${reason}`, t.task_id, 'DATE_PRIORITY_CHANGE_REQUESTED', {reason});
     toast('แจ้งขอเปลี่ยนวันที่แล้ว');
   }
   // Reorder Dashboard dev spec, BUSINESS LOGIC — "Task Reopen": no code path used to be able to move a
@@ -18932,7 +19227,7 @@ async function handleAction(act, id){
     delete t.cycle_time_ms;
     delete t.actual_delivery_date;
     t.review_history.push({timestamp:new Date().toISOString(), action:'REOPEN_TASK', comment:`เปิดงานใหม่จาก "เสร็จแล้ว" (เดิมเสร็จเมื่อ ${prevCompletedAt?fmtDateTime(prevCompletedAt):'-'}) — เหตุผล: ${reason}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    notify(t.assigned_user_name, 'งานถูกเปิดใหม่', `"${t.task_name}" ถูกเปิดกลับเข้า Work Queue อีกครั้ง — เหตุผล: ${reason}`, t.task_id);
+    notify(t.assigned_user_name, 'งานถูกเปิดใหม่', `"${t.task_name}" ถูกเปิดกลับเข้า Work Queue อีกครั้ง — เหตุผล: ${reason}`, t.task_id, 'TASK_REOPENED', {reopenedBy: STATE.auth.user?.name || STATE.auth.identity || 'system', reason});
     toast('↺ เปิดงานใหม่แล้ว — กลับเข้า "แก้ไข" ใน Work Queue');
   }
   await saveTasks();
@@ -23507,7 +23802,13 @@ function ftExportAllIndividually(mode){
   // this is a static page with no server/cron, so there is no way to fire the instant a deadline passes
   // with every browser closed; approval_due_at is the real source of truth, checked here on load/interval.
   if(processApprovalAutoCompletes()) render();
-  setInterval(()=>{ if(processApprovalAutoCompletes()) render(); }, 60000);
+  if(processDeadlineReminders()) render();
+  setInterval(()=>{
+    let didChange = false;
+    if(processApprovalAutoCompletes()) didChange = true;
+    if(processDeadlineReminders()) didChange = true;
+    if(didChange) render();
+  }, 60000);
   render();
 })();
 
