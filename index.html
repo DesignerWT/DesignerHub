@@ -131,6 +131,7 @@ h1.pagetitle{font-family:var(--font-app);font-size:20px;margin:0 0 3px;letter-sp
 .grid-4{grid-template-columns:repeat(4,1fr)}
 @media(max-width:1000px){.grid-3,.grid-4{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.grid-3,.grid-4{grid-template-columns:1fr}.sidebar{display:none}.main{padding:16px}}
+@media(max-width:760px){.tcdrawer-cols{grid-template-columns:1fr!important}}
 
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
   padding:4px 10px;border-radius:999px;letter-spacing:.01em;white-space:nowrap}
@@ -1191,6 +1192,7 @@ hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 .vbe-savepill.editing{color:#B45309}
 .vbe-savepill.saving{color:#B45309}
 .vbe-savepill.saved{color:#16A34A}
+.vbe-savepill.error{color:var(--crit-tx, #DC2626)}
 .vbe-toolbar{display:flex;align-items:center;gap:5px;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:#fff}
 .vbe-tool{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);background:#fff;
   border-radius:8px;padding:7px 12px;cursor:pointer;font-size:11px;font-weight:700;color:var(--ink-soft);
@@ -2076,7 +2078,17 @@ const MASTER_TABLE = {
   "อื่นๆ (โปรดระบุ)": { role:"Pending Assignment", types:{} }
 };
 const REVISE_RATES = {"None":0, "Revise 25%":0.25, "Revise 50%":0.50, "Revise 75%":0.75, "Revise 100%":1.0};
-const KV_STATUS_LABEL = {HAS_WORKING_FILE:"มี KV / Working File", NEED_NEW_KV:"ไม่มี KV — ต้องสร้างใหม่"};
+// DEV FIX (Krissha — "เพิ่ม revise จากงานเก่าเข้ามาด้วย...revise ไม่เกิน50% (1 ชม) revise มากกว่า50% 2ชม"):
+// two new KV Status choices for work that's a revision of something already published / already has an
+// established platform-theme, rather than a brand-new KV build — REVISE_UNDER50/REVISE_OVER50 below
+// carry their own flat per-deliverable hour value (see pointsForTask()), separate from def.kv/def.noKv
+// and unrelated to the pre-existing REVISE_RATES (that one is a post-submit revision-round % multiplier,
+// a different feature — do not confuse the two).
+const KV_STATUS_LABEL = {
+  HAS_WORKING_FILE:"มี KV / Working File", NEED_NEW_KV:"ไม่มี KV — ต้องสร้างใหม่",
+  REVISE_UNDER50:"Revise จากงานเก่า ≤50%", REVISE_OVER50:"Revise จากงานเก่า >50%",
+};
+const KV_REVISE_HOURS = {REVISE_UNDER50:1.0, REVISE_OVER50:2.0};
 const STATUS_ORDER = ["pending_lead_approval","new","in_progress","pending_review","revision","pending_client_review","delivered","rejected","closed_max_revision"];
 const STATUS_LABEL = {
   pending_lead_approval:"Pending Lead Designer Approval",
@@ -2247,10 +2259,14 @@ function evaluateDelivery(person, dateStr, taskPoints, priority){
     return {allowed:false, hardLocked:true, needsApproval, overCapacity:false, projected, current:taskLoad, diff,
       reason: isFullLeave ? 'ดีไซเนอร์ลาเต็มวัน (Hard Lock)' : (isAllDayInternal ? 'ดีไซเนอร์ไม่ว่างทั้งวัน — Internal Task (Hard Lock)' : (weekend ? 'วันหยุดสุดสัปดาห์ (Hard Lock)' : 'วันหยุดนักขัตฤกษ์ (Hard Lock)'))};
   }
-  // Internal Task hours (logged, non-Brief time) shrink the effective daily ceiling for THIS day only —
-  // leave's effect on overCapacity is intentionally left exactly as before (unchanged pre-existing
-  // behavior, out of scope here) so this only ever adds a new reason to split/approve, never removes one.
-  const effectiveCap = Math.round((DAILY_CAP - (internalDeduct||0))*100)/100;
+  // DEV UPDATE per Krissha ("นับเป็นภาระงาน ไม่ต้องไปลบ 8 ชม ออก"): Internal Task hours are now already folded
+  // into `taskLoad` (and therefore `projected` above) by dayLoadFor() itself, so they must NOT also be
+  // subtracted from the ceiling here — that would double-count them. Comparing straight against DAILY_CAP
+  // keeps the exact same over-capacity THRESHOLD as before (Internal hours still count fully, just on the
+  // load side instead of the ceiling side) — leave's effect on overCapacity remains intentionally out of
+  // scope here, unchanged pre-existing behavior, so this only ever adds a new reason to split/approve, never
+  // removes one.
+  const effectiveCap = DAILY_CAP;
   const overCapacity = projected > effectiveCap;
   if(!needsApproval && overCapacity){
     // Auto Capacity Allocation (Dev Handoff spec): Standard priority cascades forward across as many
@@ -2469,6 +2485,10 @@ let STATE = {
   adminModeActive:false, adminModePanelOpen:false,
   usersUI:{editingId:null, search:'', roleFilter:'ALL'}, deptUI:{editingId:null}, designerUI:{editingId:null},
   briefAutosaveState:'idle', briefAutosaveAt:null, editingDraftId:null,
+  // BUG FIX (Krissha dev-report §4 — "ป้องกัน Double Submit"): idle/submitting/success/error. Checked at
+  // the top of submitBrief() to reject a re-entrant call (double-click, double Enter) outright, and used
+  // by scheduleBriefDraftAutosave() (§3) to refuse arming a new autosave while a Submit is in flight.
+  briefSubmitState:'idle',
   poWs:{briefsSearch:'', briefsStatus:'ALL', briefsSort:'latest'},
   // Completed History / "ประวัติงาน" (Designer/Lead) — Krissha, follow-up to "แล้วจะดูงานเก่ายังไง แบบ
   // DATA อ่ะ" then the fuller dev prompt "ปรับหน้า 'งานของฉัน' ให้เห็นงานที่เสร็จแล้วชัดเจน": own bucket
@@ -2508,7 +2528,7 @@ let STATE = {
   // Timeline operational page (own state, own filters — never reuses STATE.dash, which belonged to the
   // old single-view Team Dashboard). anchorDate defaults to today every time the page is (re)entered —
   // "Today" always re-anchors here, matching §2 "Default View ต้องล็อกมุมไปข้างหน้าเสมอ".
-  teamCapacity:{anchorDate:null, search:'', roleFilter:'ALL', statusFilter:'ALL', drawerDesigner:null},
+  teamCapacity:{anchorDate:null, search:'', roleFilter:'ALL', statusFilter:'ALL', drawerDesigner:null, drawerDate:null},
   // §11/§13 — Monthly Overview is the new fixed-month Summary page (own state; the selected month here
   // is its own Source of Truth and never affects Team Capacity's rolling view, per §19/§21).
   monthlyOverview:{month:null, drawerDate:null},
@@ -3666,7 +3686,23 @@ async function loadData(){
   }catch(e){ /* keep the default skuRunConfig already set on STATE */ }
 }
 const saveLastDesignerLogin = (email)=>saveKey('wt_last_designer_login', email);
-async function saveKey(key, val){ try{ await window.storage.set(key, JSON.stringify(val), true); }catch(e){ toast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"); } }
+// BUG FIX P0 (Krissha dev-report, 2026-09-21 — "Storage Save Failure ต้องตรวจผลจริง") — window.storage.set()
+// resolves to `false` on a failed Firestore write WITHOUT throwing (see its definition above), so the old
+// version of this function — `try{ await window.storage.set(...) }catch(e){...}` — never saw that failure:
+// no exception means no catch, no toast, and the caller's `await saveTasks()` (etc) resolves as if it had
+// succeeded even though nothing was actually written. That's exactly how Submit Brief could delete a Draft
+// / show "ส่งบรีฟสำเร็จ" right after a save that silently failed — a real data-loss path. saveKey() (and
+// therefore every saveX() built on it: saveTasks, saveDrafts, saveUsers, …) now returns a real boolean —
+// true only when window.storage.set() itself returned true — so any call site that needs a *confirmed*
+// write (Submit Brief, Draft deletion, Save Draft) can check it before proceeding. Callers that don't check
+// the return value keep working exactly as before (fire-and-forget), so this is purely additive.
+async function saveKey(key, val){
+  try{
+    const ok = await window.storage.set(key, JSON.stringify(val), true);
+    if(ok===false){ toast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"); return false; }
+    return true;
+  }catch(e){ toast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"); return false; }
+}
 const saveTasks = ()=>saveKey('wt_tasks', STATE.tasks);
 const saveUsers = ()=>saveKey('wt_users', STATE.users);
 const saveDepartments = ()=>saveKey('wt_departments', STATE.departments);
@@ -3922,6 +3958,13 @@ function pointsForTask(t){
   if(t.task_category === "E-Commerce" && def.kv !== undefined && t.kv_status_check === "NEED_NEW_KV"){
     return Math.round((3 + (deliverables - 1)) * 100) / 100;
   }
+  // DEV FIX (Krissha — Revise จากงานเก่า, "ปรับใช้ทุก Category/Type"): flat 1ชม./2ชม. per deliverable —
+  // never def.kv/def.noKv/def.base, whatever the category's own numbers are, since these two are fixed
+  // values she set directly. Applies to EVERY Category/Type now (no def.kv!==undefined gate), matching
+  // kvVisible in refreshBriefForm() showing the KV/Revise question everywhere except def.custom types.
+  if(KV_REVISE_HOURS[t.kv_status_check] !== undefined){
+    return Math.round(KV_REVISE_HOURS[t.kv_status_check] * deliverables * 100) / 100;
+  }
   let base = 0;
   if(def.kv !== undefined) base = t.kv_status_check === "HAS_WORKING_FILE" ? def.kv : def.noKv;
   else base = def.base || 0;
@@ -4049,13 +4092,18 @@ function dayLoadFor(person, dateStr, excludeId){
     .reduce((s,t)=>s+taskLoadOnDate(t,dateStr),0);
   const leave = STATE.leaves.find(l=>l.person===person && l.date===dateStr);
   const leaveDeduct = leave ? (leave.type==="full" ? DAILY_CAP : DAILY_CAP/2) : 0;
-  // Internal Task hours (Dev Handoff — Capacity, Internal Task & Performance System): logged Internal Task
-  // time shrinks the day's available Capacity exactly like leave does — every call site below reads `cap`,
-  // never the literal DAILY_CAP, so Auto-Split/Reassign/Assignment/Calendar all respect it automatically.
+  // Internal Task hours (Dev Handoff — Capacity, Internal Task & Performance System). DEV UPDATE per Krissha
+  // ("นับเป็นภาระงาน ไม่ต้องไปลบ 8 ชม ออก" — count it AS workload, don't subtract it from the 8-hour ceiling):
+  // logged Internal Task time is folded straight into `taskLoad` below (so the 7-Day Strip, the My Workspace
+  // Capacity gauge, Calendar cell colors, Reassign candidate list, etc. all show it as hours already spoken
+  // for, exactly like a real task's points) instead of quietly shrinking `cap`. `cap` itself now only reflects
+  // Leave. Every call site compares `taskLoad` against `cap` the same way as before, so the actual
+  // lock/split/over-capacity THRESHOLD is unchanged — Internal Task hours simply moved from the denominator
+  // to the numerator, they didn't stop counting.
   const internalDeduct = Math.min(DAILY_CAP, internalLoadFor(person, dateStr, excludeId));
   const isAllDayInternal = isAllDayUnavailable(person, dateStr, excludeId);
-  return {taskLoad: Math.round(taskLoad*100)/100, leaveDeduct, internalDeduct,
-    cap: Math.round((DAILY_CAP - leaveDeduct - internalDeduct)*100)/100,
+  return {taskLoad: Math.round((taskLoad + internalDeduct)*100)/100, leaveDeduct, internalDeduct,
+    cap: Math.round((DAILY_CAP - leaveDeduct)*100)/100,
     isFullLeave: leave && leave.type==="full", isAllDayInternal};
 }
 
@@ -4071,12 +4119,20 @@ const DASH_STATUS_META = {
   nearlyfull:{label:'Nearly Full',    rank:5, cls:'st-nearly'},
   available:{label:'Available',       rank:6, cls:'st-avail'},
 };
-function capacityStatusKey(points){
-  if(points<=5) return 'available';
-  if(points<=7) return 'nearlyfull';
-  if(points===8) return 'full';
-  if(points<=10) return 'over';
-  if(points<=12) return 'high';
+// BUG FIX (bug audit — Krissha: "มีบัคตรงไหนอีกมั้ย"): this used to take only `points` and compare against
+// hardcoded absolute-hour bands (5/7/8/10/12) that assume every day has the full 8.0 ชม. ceiling — so a
+// half-day leave (real ceiling 4.0 ชม., via dayLoadFor's leaveDeduct) was invisible: someone with 5 hours
+// booked on a half-day-leave day (1 hour OVER their real limit) read as "available" (green), the lowest-
+// urgency badge, on every dashboard that calls this. `cap` is now an optional second argument — the bands
+// shift by the same fixed offsets from whatever the day's real ceiling is (defaults to DAILY_CAP when the
+// caller has no better number, so every pre-existing call with just `points` is completely unaffected).
+function capacityStatusKey(points, cap){
+  const c = (cap===undefined || cap===null) ? DAILY_CAP : cap;
+  if(points<=c-3) return 'available';
+  if(points<=c-1) return 'nearlyfull';
+  if(Math.abs(points-c)<0.005) return 'full';
+  if(points<=c+2) return 'over';
+  if(points<=c+4) return 'high';
   return 'critical';
 }
 // Which tasks actually load onto dateStr, and how much — a split task shows up (with its per-day
@@ -4126,12 +4182,12 @@ function actualActivityFor(person, dateStr){
 }
 // Single shared status computation for a designer on a given date.
 function designerDayStatus(person, dateStr){
-  const {taskLoad, isFullLeave} = dayLoadFor(person, dateStr);
+  const {taskLoad, cap, isFullLeave} = dayLoadFor(person, dateStr);
   const holiday = isWeekend(dateStr) || isPublicHoliday(dateStr);
   let key;
   if(isFullLeave) key='leave';
   else if(holiday) key='holiday';
-  else key = capacityStatusKey(taskLoad);
+  else key = capacityStatusKey(taskLoad, cap);
   const meta = DASH_STATUS_META[key];
   // DEV UPDATE — Weekend / OFF Day Data Logic: an OFF day (weekend/holiday/leave) still reports Planned
   // Capacity = 0 above (key/points untouched) — but must never make real submitted work on that day
@@ -6528,7 +6584,6 @@ function renderWorkspace(){
       <h1 class="pagetitle" style="margin-bottom:2px">สวัสดี, ${me} 👋</h1>
       <p class="pagesub" style="margin-bottom:0">${role} · นี่คือภาพรวมงานของคุณวันนี้ (${fmtDate(today)})</p>
     </div>
-    <button type="button" class="btn btn-primary btn-sm" data-addinternal="${me}" data-addinternaldate="${today}">+ Add Internal Task</button>
   </div>
 
   <div class="ws-stats-5">
@@ -6563,6 +6618,10 @@ function renderWorkspace(){
         <span class="week-bar-label">${w.lbl}${w.hasActivity?' · OFF':''}</span>
       </div>`).join('')}
     </div>
+    <!-- Krissha feedback: "ปุ่มนี้ไว้ทางซ้าย ล่าง ภาระงาน" — + Add Internal Task moved out of the page header
+         and down here, left-aligned right under the workload strip it feeds (was floated top-right of the
+         page title before, disconnected from what it actually affects). -->
+    <button type="button" class="btn btn-primary btn-sm" style="margin-top:12px" data-addinternal="${me}" data-addinternaldate="${today}">+ Add Internal Task</button>
   </div>
   <div class="card" style="margin-bottom:16px">
     <div class="section-title" style="margin-bottom:0">แจ้งเตือนล่าสุด</div>
@@ -7007,7 +7066,7 @@ function bindMyCompletedJobs(){
 }
 
 /* ---------- Brief & Intake Form (v3 layout) ---------- */
-let BRIEF_DRAFT = { platforms:new Set(), customPlatform:'', kv:'', priority:'STANDARD', prioritySource:'system_default', urgencyReason:'', urgencyNote:'', attachments:[], deptOther:'', typeOther:'', categoryOther:'',
+let BRIEF_DRAFT = { platforms:new Set(), customPlatform:'', kv:'', kvAssetLink:'', priority:'STANDARD', prioritySource:'system_default', urgencyReason:'', urgencyNote:'', attachments:[], deptOther:'', typeOther:'', categoryOther:'',
   // MASTER DEV REQUEST §1/§3/§9 — ephemeral UI-only state for the "Capacity เต็ม" 3-option panel
   // (เลือกวันถัดไป / ขอปรับคิวงานในวันนี้ / ขอ Designer รับงานวันที่นี้). Never persisted to the task —
   // capacityFlow picks which of the two exception panels (if any) is open below the date lock message;
@@ -7236,7 +7295,7 @@ function defaultVisualBrief(){
 }
 function resetBriefDraft(){
   BRIEF_DRAFT = {
-    platforms:new Set(), customPlatform:'', kv:'', priority:'STANDARD', prioritySource:'system_default',
+    platforms:new Set(), customPlatform:'', kv:'', kvAssetLink:'', priority:'STANDARD', prioritySource:'system_default',
     urgencyReason:'', urgencyNote:'', deptOther:'', typeOther:'', categoryOther:'',
     // extraLinks = External Brief Links (Task-level: Master Brief/Campaign Brief/Client Brief/etc — DEV
     // SPEC: Brief Links / Reference Split). Filled once per Task, shown above the Artwork Tabs, never
@@ -7308,6 +7367,11 @@ function loadBriefDraftFromTask(t, startArtworkIndex){
   }));
   BRIEF_DRAFT = {
     platforms: new Set(t.platform||[]), customPlatform:'',
+    // BUG FIX P0 (Krissha dev-report §8): kvAssetLink is now the real state source of truth for the KV
+    // Asset Link field (see buildDraftSnapshot / refreshBriefForm) — hydrate it here on Resume Draft /
+    // Edit Brief exactly like every other field on this object, instead of stashing it in the dead
+    // `prefill.kvlink` below (which nothing ever actually read back out).
+    kvAssetLink: t.kv_asset_link || '',
     kv: t.kv_status_check || '', priority: t.priority || 'STANDARD', prioritySource: t.prioritySource||'manual',
     urgencyReason: t.urgencyReason||'', urgencyNote: t.urgencyNote||'',
     deptOther: t.department_other || '', typeOther: t.task_type_other || '', categoryOther:'',
@@ -7318,6 +7382,15 @@ function loadBriefDraftFromTask(t, startArtworkIndex){
     artworks: artworksRehydrated,
     activeArtworkIndex: (typeof startArtworkIndex==='number' && startArtworkIndex>=0 && startArtworkIndex<artworksRehydrated.length) ? startArtworkIndex : 0,
     applyAllFields:[],
+    // BUG FIX (Krissha dev-report — "กด ขอ Designer รับงานวันนี้ กดไม่ติดเลย"): resetBriefDraft() (a brand
+    // new Brief) always seeds capacityFlow/overrideForm, but this rehydration path (Edit Brief / Resume
+    // Draft) never did — so opening an existing Task/Draft whose Requested Delivery Date landed on a
+    // Capacity-full (not hard-locked) day, then clicking "ขอ Designer รับงานวันที่นี้", called
+    // renderCapacityOverridePanel() with BRIEF_DRAFT.overrideForm still undefined. Reading `of.reason` on
+    // undefined threw a silent, uncaught TypeError inside the click handler — the panel never re-rendered
+    // and nothing else in that handler ran, so the button looked completely dead with no visible error.
+    // Seeding the exact same shape resetBriefDraft() uses fixes it for both Edit Brief and Resume Draft.
+    capacityFlow: null, overrideForm: {reason:'', reasonOther:'', note:'', ack:false},
     prefill: {
       owner: t.project_owner_email||'', department: t.department_other ? OTHER_CATEGORY : (t.department||''),
       project: t.project_name||'', taskname: t.task_name||'', category: t.task_category||'',
@@ -7352,15 +7425,27 @@ function buildDraftSnapshot(){
     created_by_name: STATE.auth.user?.name || STATE.auth.identity,
     created_by_role: STATE.auth.user?.role || STATE.auth.role,
     project_owner_email: ownerEmailField || STATE.auth.identity,
-    department: STATE.auth.user?.department || '',
-    department_other: null,
+    // BUG FIX (Krissha dev-report §7 — "Draft บันทึก Department ผิด"): this used to read
+    // STATE.auth.user?.department — the DRAFTER's own department — which is wrong the moment a
+    // Designer/Lead creates a brief on behalf of a different Project Owner: it saved the Designer's
+    // department instead of the Brief Owner's. submitBrief() itself already gets this right (reads the
+    // #f_dept field, resolving to BRIEF_DRAFT.deptOther when "Other" is selected) — buildDraftSnapshot()
+    // now follows that exact same rule so Draft and Submit never disagree about whose department this is.
+    department: (()=>{ const d = document.getElementById('f_dept')?.value || ''; return d===OTHER_CATEGORY ? (BRIEF_DRAFT.deptOther||'').trim() : d; })(),
+    department_other: document.getElementById('f_dept')?.value===OTHER_CATEGORY ? (BRIEF_DRAFT.deptOther||'').trim() : null,
     project_name: document.getElementById('f_project')?.value?.trim() || '',
     task_name: document.getElementById('f_taskname')?.value || '',
     task_category: document.getElementById('f_category')?.value || '',
     task_type: document.getElementById('f_type')?.value || '',
     task_type_other: BRIEF_DRAFT.typeOther || null,
     kv_status_check: BRIEF_DRAFT.kv || null,
-    kv_asset_link: document.getElementById('f_kvlink_input')?.value || '',
+    // BUG FIX P0 (Krissha dev-report §8 — "KV Asset Link ห้ามหายตอน Refresh"): read from
+    // BRIEF_DRAFT.kvAssetLink (the state source of truth kept in sync on every keystroke — see the
+    // input's own `input` listener in refreshBriefForm) rather than the live DOM node, which
+    // refreshBriefForm() recreates with an EMPTY value on every Priority/Category change or re-render —
+    // reading the DOM directly here would silently snapshot that emptiness into the Draft. Falls back to
+    // the DOM value only for the brief instant before BRIEF_DRAFT.kvAssetLink exists yet.
+    kv_asset_link: BRIEF_DRAFT.kvAssetLink ?? (document.getElementById('f_kvlink_input')?.value || ''),
     // Deliverables (Dev Spec §2/§22/§26): always artworks.length — never a value the user typed. The
     // hidden #f_deliverables field is kept in sync by syncDeliverablesField() after every structural
     // artwork change, so reading its .value here still returns the correct derived count.
@@ -7408,49 +7493,105 @@ function legacyBriefDetailsMirror(){
     },
   };
 }
-function isBriefFormEffectivelyEmpty(snap){
-  return !snap.task_name && !snap.project_name && !snap.task_category && !snap.brief_details.detail && !snap.brief_details.header;
+// BUG FIX (Krissha dev-report §9 — "แก้ Save Draft Logic"): the old check only looked at task_name/
+// project_name/task_category/brief_details.detail/header — so a Draft with a filled Reference Link,
+// an uploaded Image, a Canvas/Visual Brief, a chosen Platform, a Delivery Date or a KV Asset Link (but
+// no Task Name yet) was wrongly treated as "empty": Autosave silently skipped it, and manual Save Draft
+// refused with a message ("กรอกข้อมูลอย่างน้อยชื่องานก่อน...") that didn't even match this rule. The
+// real promise of a Draft is "กรอกไม่เสร็จก็เก็บได้" — save whatever exists, only refuse when the form
+// is GENUINELY empty. hasAnyDraftContent() now checks everything a user could plausibly fill in first.
+function hasAnyDraftContent(snap){
+  if(snap.task_name || snap.project_name || snap.task_category || snap.task_type) return true;
+  if(snap.kv_asset_link || snap.brief_link) return true;
+  if((snap.platform||[]).length) return true;
+  if(snap.prefer_delivery_date) return true;
+  if((snap.external_brief_links||[]).length) return true;
+  if(snap.resize_quantity>0) return true;
+  const bd = snap.brief_details||{};
+  if(bd.header || bd.detail || bd.cta || bd.disclaimer || (bd.attachments||[]).length || (bd.references||[]).length) return true;
+  if((bd.visual_brief?.pages||[]).some(p=>(p.elements||[]).length)) return true;
+  return (snap.artworks||[]).some(aw=>
+    aw.name || aw.brief || aw.brieflink || aw.product ||
+    (aw.references||[]).length || (aw.attachments||[]).length ||
+    ((aw.canvas?.pages)||[]).some(p=>(p.elements||[]).length)
+  );
 }
+function isBriefFormEffectivelyEmpty(snap){ return !hasAnyDraftContent(snap); }
+// BUG FIX P0 (Krissha dev-report §2 — "Storage Save Failure ต้องตรวจผลจริง"): upsertDraft() now checks
+// saveDrafts()'s real result (saveKey() itself was fixed to return a real boolean — see its definition
+// above) instead of assuming the write succeeded just because the await resolved. On a confirmed
+// failure the in-memory STATE.drafts list is rolled back to what it was before this call, so a failed
+// write can't leave the UI showing a Draft that doesn't actually exist in Storage, and callers get
+// {draft, ok:false} so they know not to report success or clear anything.
 async function upsertDraft(){
   const snap = buildDraftSnapshot();
   const id = STATE.editingDraftId || genId('DRAFT');
   const draft = {id, task_id:id, owner_email: STATE.auth.identity, updated_at: new Date().toISOString(), ...snap};
+  const prevDrafts = STATE.drafts.slice();
   const idx = STATE.drafts.findIndex(d=>d.id===id);
   if(idx>=0) STATE.drafts[idx] = draft; else STATE.drafts.push(draft);
+  const ok = await saveDrafts();
+  if(ok===false){ STATE.drafts = prevDrafts; return {draft, ok:false}; }
   STATE.editingDraftId = id;
-  await saveDrafts();
-  return draft;
+  return {draft, ok:true};
 }
 function updateBriefAutosavePill(){
   const pill = document.getElementById('briefAutosavePill');
   if(!pill) return;
+  // BUG FIX (Krissha dev-report §11 — "ห้ามขึ้น Saved automatically ถ้า Storage Save fail"): a real
+  // 'error' state now exists (see scheduleBriefDraftAutosave) and gets its own message instead of either
+  // silently reusing the 'editing'/'saved' label or, worse, falling through to 'saved' just because the
+  // await resolved. Never claim a save happened unless STATE.briefAutosaveState itself confirms it did.
   const label = STATE.briefAutosaveState==='editing' ? 'Saving…'
     : STATE.briefAutosaveState==='saved' ? `Saved automatically ${STATE.briefAutosaveAt ? new Date(STATE.briefAutosaveAt).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}) : ''}`
+    : STATE.briefAutosaveState==='error' ? 'บันทึกไม่สำเร็จ — ลองอีกครั้ง'
     : '';
   pill.textContent = label;
-  pill.className = 'vbe-savepill ' + (STATE.briefAutosaveState==='editing' ? 'editing' : STATE.briefAutosaveState==='saved' ? 'saved' : '');
+  pill.className = 'vbe-savepill ' + (STATE.briefAutosaveState==='editing' ? 'editing' : STATE.briefAutosaveState==='saved' ? 'saved' : STATE.briefAutosaveState==='error' ? 'error' : '');
   pill.style.display = label ? 'inline-block' : 'none';
 }
 let briefDraftAutosaveTimer = null;
+// BUG FIX P0 (Krissha dev-report §3 — "Autosave ชนกับ Submit"): tracks the in-flight upsertDraft()
+// Promise (if any) so submitBrief() can actually WAIT for a write that's already underway to finish —
+// and see whether it succeeded — before it goes on to save the real Task and delete this Draft. Without
+// this, a Submit that started right as the 1.5s autosave timer fired could delete the Draft while that
+// write was still in the middle of recreating it, or race the deletion outright.
+let briefDraftAutosaveInFlight = null;
 function scheduleBriefDraftAutosave(){
-  // Autosave-as-Draft only applies to a Project Owner composing a NEW brief — editing an already-submitted
-  // brief (STATE.editingTaskId set) goes through its own Revision history instead, unchanged.
-  if(STATE.auth.role!=='po' || STATE.editingTaskId) return;
+  // BUG FIX (Krissha dev-report §10 — "Autosave ต้องรองรับทุก Role ที่สร้าง Brief ได้"): Autosave used to
+  // gate on STATE.auth.role==='po' only, but a Designer/Lead with brief.create can also compose a brief
+  // on someone else's behalf and deserves the exact same protection against losing typed work. Still
+  // excluded whenever STATE.editingTaskId is set — a Submitted Brief being edited goes through the
+  // Revision/Edit-log flow instead, never the Draft flow.
+  if(!hasPermission(STATE.auth.role,'brief.create') || STATE.editingTaskId) return;
+  // BUG FIX P0 (Krissha dev-report §3): never arm a new autosave while a Submit is actually in flight —
+  // Submit is about to delete this very Draft, so a timer that fires mid-Submit and writes it back would
+  // exactly recreate the race being fixed here.
+  if(STATE.briefSubmitState==='submitting') return;
   STATE.briefAutosaveState = 'editing'; updateBriefAutosavePill();
   if(briefDraftAutosaveTimer) clearTimeout(briefDraftAutosaveTimer);
-  briefDraftAutosaveTimer = setTimeout(async ()=>{
+  briefDraftAutosaveTimer = setTimeout(()=>{
+    briefDraftAutosaveTimer = null;
     const snap = buildDraftSnapshot();
-    if(isBriefFormEffectivelyEmpty(snap)){ STATE.briefAutosaveState='idle'; updateBriefAutosavePill(); return; }
-    await upsertDraft();
-    STATE.briefAutosaveState = 'saved'; STATE.briefAutosaveAt = new Date().toISOString();
-    updateBriefAutosavePill();
+    if(!hasAnyDraftContent(snap)){ STATE.briefAutosaveState='idle'; updateBriefAutosavePill(); return; }
+    briefDraftAutosaveInFlight = upsertDraft().then(({ok})=>{
+      STATE.briefAutosaveState = ok ? 'saved' : 'error';
+      if(ok) STATE.briefAutosaveAt = new Date().toISOString();
+      updateBriefAutosavePill();
+    }).finally(()=>{ briefDraftAutosaveInFlight = null; });
   }, 1500);
 }
 async function saveDraftManually(){
   if(!commitPendingQuickAddLinks()) return;
   const snap = buildDraftSnapshot();
-  if(isBriefFormEffectivelyEmpty(snap)){ toast('กรอกข้อมูลอย่างน้อยชื่องานก่อนบันทึกฉบับร่าง'); return; }
-  await upsertDraft();
+  // BUG FIX (Krissha dev-report §9): message now matches the actual rule above ("any content" — not
+  // specifically the Task Name), and the button + pill only ever claim success once Storage confirms it.
+  if(!hasAnyDraftContent(snap)){ toast('กรอกข้อมูลอย่างน้อย 1 อย่างก่อนบันทึกฉบับร่าง'); return; }
+  const btn = document.getElementById('saveDraftBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'กำลังบันทึก...'; }
+  const {ok} = await upsertDraft();
+  if(btn){ btn.disabled = false; btn.textContent = '💾 บันทึกฉบับร่าง (Save Draft)'; }
+  if(!ok){ STATE.briefAutosaveState='error'; updateBriefAutosavePill(); toast('บันทึกฉบับร่างไม่สำเร็จ — ลองอีกครั้ง'); return; }
   STATE.briefAutosaveState='saved'; STATE.briefAutosaveAt=new Date().toISOString(); updateBriefAutosavePill();
   toast('💾 บันทึกฉบับร่างแล้ว — ดูได้ที่ Drafts');
 }
@@ -7756,7 +7897,7 @@ function renderBriefForm(){
             <div class="hint">จำนวนดีไซน์หลัก ไม่รวม Resize</div>
             <span class="hint" id="deliverCountDisplay" style="display:none"></span>
           </div>
-          <div class="field"><label>Resize</label>
+          <div class="field"><label>Resize / Adapt AW</label>
             <input type="number" id="f_resize" min="0" step="1" value="${pf?(pf.resize||0):0}">
             <div class="hint">จำนวนไฟล์ที่ปรับขนาดเพิ่มเติมจาก Artwork หลัก</div>
             <div id="resizePointPreview" class="hint" style="display:none"></div>
@@ -7770,11 +7911,20 @@ function renderBriefForm(){
             <div id="platformPillsWrap"></div>
           </div>
           <div class="field" id="kvSection" style="display:none;margin-bottom:0">
-            <label>KV Status <span class="req-badge">บังคับ (เฉพาะ E-Commerce)</span></label>
+            <!-- DEV FIX (Krissha — "เปลี่ยนชื่อ Status (KV and Revise) ปรับใช้ทุก Category/Type"): this
+                 question used to only appear for the Banner/Platform types that already had a def.kv/
+                 def.noKv split, badge said "เฉพาะ E-Commerce" from when only E-Commerce had any. Now
+                 shown (and required) for every Category/Type except "อื่นๆ ระบุ" (custom, Lead sets
+                 hours manually there instead) — see kvVisible in refreshBriefForm(). -->
+            <label>KV / Revise Status <span class="req-badge">บังคับ (ทุก Category)</span></label>
             <select id="f_kv">
               <option value="">เลือก Status</option>
               <option value="HAS_WORKING_FILE" ${BRIEF_DRAFT.kv==='HAS_WORKING_FILE'?'selected':''}>มี KV / Working File</option>
               <option value="NEED_NEW_KV" ${BRIEF_DRAFT.kv==='NEED_NEW_KV'?'selected':''}>ไม่มี KV — ต้องสร้างใหม่</option>
+              <!-- DEV FIX (Krissha — Revise จากงานเก่า): งานที่แก้ไขจากของเดิม/มี Platform-Theme อยู่แล้ว —
+                   เวลาคงที่ 1/2 ชม. ต่อ Artwork ไม่ผูกกับ def.kv/def.noKv ของ Type นั้นๆ (ดู pointsForTask). -->
+              <option value="REVISE_UNDER50" ${BRIEF_DRAFT.kv==='REVISE_UNDER50'?'selected':''}>Revise จากงานเก่า ≤50%</option>
+              <option value="REVISE_OVER50" ${BRIEF_DRAFT.kv==='REVISE_OVER50'?'selected':''}>Revise จากงานเก่า &gt;50%</option>
             </select>
             <div id="kvLinkField" class="field" style="display:none;margin-bottom:0;margin-top:8px"></div>
           </div>
@@ -8385,7 +8535,7 @@ function renderBackdatedTaskForm(){
             <select id="bt_type" disabled><option value="">— เลือกประเภท Artwork —</option></select>
           </div>
           <div class="field"><label>จำนวน Artwork หลัก *</label><input type="number" id="f_deliverables" min="1" step="1" value="1"></div>
-          <div class="field"><label>Resize</label><input type="number" id="bt_resize" min="0" step="1" value="0"></div>
+          <div class="field"><label>Resize / Adapt AW</label><input type="number" id="bt_resize" min="0" step="1" value="0"></div>
         </div>
         <div class="bt-grid-2">
           <!-- Platform (DEV FIX — same field Normal Task uses: #platformField/#platformPillsWrap, driven by
@@ -9060,10 +9210,18 @@ function renderReferencesAssetsHTML(aw){
     </div>
     <div class="refquickadd">
       <label class="refquickadd-label">Reference Link</label>
-      <input type="url" class="refquickadd-input" id="refQuickAdd_${aw.artworkId}" data-refquickaddinput="${aw.artworkId}" placeholder="วางลิงก์ Reference / Google Drive / Website / Pinterest...">
-      <button type="button" class="refquickadd-more" data-refquickadd="${aw.artworkId}">+ Add another reference</button>
+      <!-- DEV FIX (Krissha — "ทุกที่ที่กรอกลิงก์ ให้เพิ่มปุ่มบันทึกลิงก์"): brought up to the same
+           "บันทึกลิงก์" Primary Action convention as External Brief Links (DEV MASTER REQUEST §2) —
+           "บันทึกลิงก์" is now the one button that confirms/commits the link (disabled until something
+           is typed); "+ Add another reference" never confirms anything, it only refocuses the input,
+           exactly like "+ เพิ่มลิงก์" does for External Brief Links. Enter still commits too. -->
+      <div class="refquickadd-row">
+        <input type="url" class="refquickadd-input" id="refQuickAdd_${aw.artworkId}" data-refquickaddinput="${aw.artworkId}" placeholder="วางลิงก์ Reference / Google Drive / Website / Pinterest...">
+        <button type="button" class="refquickadd-save" id="saveRefBtn_${aw.artworkId}" data-refquickadd="${aw.artworkId}" disabled>บันทึกลิงก์</button>
+      </div>
+      <button type="button" class="refquickadd-more" data-refquickaddfocus="${aw.artworkId}">+ Add another reference</button>
     </div>
-    <div class="hint" style="margin-top:2px;margin-bottom:10px">กด Enter หรือปุ่ม "+ Add another reference" เพื่อยืนยันลิงก์ก่อนบันทึก</div>
+    <div class="hint" style="margin-top:2px;margin-bottom:10px">กด Enter หรือปุ่ม "บันทึกลิงก์" เพื่อยืนยันลิงก์ก่อนบันทึก</div>
     <div class="reflist" id="refList_${aw.artworkId}">
       ${all.length ? shown.map(r=>renderRefItemHTML(r)).join('') : '<div class="refempty">ยังไม่มี Reference</div>'}
     </div>
@@ -9163,9 +9321,19 @@ function bindReferencesAssetsEvents(aw){
     inp.addEventListener('keydown', e=>{
       if(e.key==='Enter'){ e.preventDefault(); commitRefQuickAdd(aw, inp); }
     });
+    // Keep "บันทึกลิงก์" disabled/enabled live as the user types — same pattern as saveExtraLinkBtn.
+    inp.addEventListener('input', e=>{
+      const saveBtn = document.getElementById('saveRefBtn_'+inp.dataset.refquickaddinput);
+      if(saveBtn) saveBtn.disabled = !e.target.value.trim();
+    });
   });
   document.querySelectorAll('[data-refquickadd]').forEach(b=>b.onclick=()=>{
     commitRefQuickAdd(aw, document.getElementById('refQuickAdd_'+b.dataset.refquickadd));
+  });
+  // "+ Add another reference" never confirms anything — it only focuses the input, ready for the next
+  // paste, exactly like "+ เพิ่มลิงก์" does for External Brief Links (DEV MASTER REQUEST §2).
+  document.querySelectorAll('[data-refquickaddfocus]').forEach(b=>b.onclick=()=>{
+    document.getElementById('refQuickAdd_'+b.dataset.refquickaddfocus)?.focus();
   });
   document.querySelectorAll('[data-refviewall]').forEach(b=>b.onclick=()=>{
     const set = refListExpandedSet();
@@ -9773,8 +9941,25 @@ function renderColorPickerPopover(){
     </div>
   </div>`;
 }
+// TEMP DISABLE (Krissha — Canvas causing failed submits, 2026-09): every image dropped onto the
+// drag/drop Canvas gets embedded as an inline base64 data URL straight into the Task/Draft document
+// (see handleImageUpload's readAsDataURL/toDataURL). A brief with even a few images on the Canvas can
+// push that document past Firestore's ~1MB per-document limit, so the save fails outright — this is
+// the reported case of a brief filled in using the Canvas never showing up as a Task at all. Flipping
+// this flag off hides the Canvas toolbar/page surface (new Canvas content can't be created) while
+// leaving Brief Inputs (Header/Sub-header/Detail/CTA/Disclaimer, Product, References, Attachments)
+// completely untouched, so briefs can still be filled in and submitted normally. Nothing already saved
+// on an existing Task/Draft's canvas is touched or deleted — it's simply not editable here until this
+// is flipped back on (after images move to real file storage instead of being inlined). Flip back to
+// true to re-enable.
+const CANVAS_EDITOR_ENABLED = false;
 function renderVisualEditorRoot(){
   const vb = activeVB();
+  if(!CANVAS_EDITOR_ENABLED){
+    // Per Krissha's follow-up: hide the Canvas surface entirely (no placeholder/notice box) rather than
+    // showing a "temporarily disabled" message — Brief Inputs above is the only thing rendered here now.
+    return `<div class="vbe">${renderVBInputsPanel()}</div>`;
+  }
   if(vb.preview) return `<div class="vbe ${vb.fullscreen?'vbe-fullscreen':''}">${renderVBTopbar()}${renderVBPreview()}</div>`;
   // Layout per Master Dev Request §6-20: Topbar -> Brief Inputs (collapsible) -> Top Editor Toolbar
   // (Add tools / Undo-Redo-Zoom-Full Screen / Page-Canvas-Background-Arrange-More ▾) -> Page Bar (§18-22:
@@ -11654,7 +11839,7 @@ function renderPreflightModal(){
       <div class="hint" style="margin-bottom:6px">Scope จาก Brief — Artwork หลัก <strong>${sc.brief.artwork_count}</strong> · Resize <strong>${sc.brief.resize_count}</strong></div>
       <p class="hint" style="margin-bottom:10px">คุณสามารถแก้ไข Artwork/Resize ให้ตรงกับงานจริงได้เองก่อนเริ่มงาน — ไม่ต้องรอ Owner Approve</p>
       <div class="field" style="margin-bottom:10px"><label>Artwork หลัก *</label><input type="number" min="1" id="pf_artwork" value="${STATE.preflightUI.artwork}"></div>
-      <div class="field" style="margin-bottom:10px"><label>Resize</label><input type="number" min="0" id="pf_resize" value="${STATE.preflightUI.resize}"></div>
+      <div class="field" style="margin-bottom:10px"><label>Resize / Adapt AW</label><input type="number" min="0" id="pf_resize" value="${STATE.preflightUI.resize}"></div>
       <div class="hint" style="margin-bottom:10px">Estimated Output: <strong>${est} files</strong>${changed?' · <span style="color:var(--accent,#4A47E0)">Scope ถูกแก้ไขจาก Brief</span>':''}</div>
       ${err ? `<div class="field-error" style="display:block;margin-bottom:10px">${err}</div>` : ''}
       <div style="display:flex;gap:8px">
@@ -12067,6 +12252,20 @@ function renderCollapsibleSection(id, title, bodyHtml, opts){
     ${isOpen ? `<div class="taskws-section-body">${bodyHtml}</div>` : ''}
   </div>`;
 }
+// DEV FIX (Krissha — "กล่องลิงก์ทุกกล่อง ห้ามมีลูกศรย่อหุบกล่อง ใช้โชว์ขึ้นมาเลย"): the link cards a
+// Designer needs immediately (External Brief Links / Reference Links / Key Visual) must never be
+// collapsed or collapsible — no caret, no click-to-toggle, always fully expanded. Same visual shell as
+// renderCollapsibleSection (same classes/padding) minus the toggle button and the
+// STATE.taskWs.sectionOpen persistence, since there's nothing here to remember or toggle.
+function renderStaticLinkSection(title, bodyHtml, opts){
+  opts = opts || {};
+  return `<div class="taskws-card taskws-section open">
+    <div class="taskws-section-head" style="cursor:default">
+      <span class="taskws-card-title" style="margin-bottom:0">${title}${opts.badge?` <span class="chip" style="margin-left:6px">${opts.badge}</span>`:''}</span>
+    </div>
+    <div class="taskws-section-body">${bodyHtml}</div>
+  </div>`;
+}
 /* Best-effort source label for a brief/reference link, purely from its URL shape (Dev Requirement §14:
    "BRIEF LINKS" must show a recognizable source — Google Drive / Slides / Docs / Sheets / Canva / Figma —
    instead of a raw long URL). Falls back to a generic "Link" label for anything else so an unrecognized
@@ -12377,7 +12576,7 @@ function renderKeyVisualCard(t){
   const hasLink = !!(t.kv_asset_link && t.kv_asset_link.trim());
   if(!hasStatus && !hasLink) return '<div class="hint">ไม่มีข้อมูล Key Visual</div>';
   return `
-    ${hasStatus ? `<div style="${hasLink?'margin-bottom:12px':''}"><div class="hint">KV Status</div><strong>${KV_STATUS_LABEL[t.kv_status_check]||t.kv_status_check}</strong></div>` : ''}
+    ${hasStatus ? `<div style="${hasLink?'margin-bottom:12px':''}"><div class="hint">KV / Revise Status</div><strong>${KV_STATUS_LABEL[t.kv_status_check]||t.kv_status_check}</strong></div>` : ''}
     ${hasLink ? `<div><div class="hint" style="margin-bottom:4px">KV Reference / Mood &amp; Tone Link</div>
       <a href="${t.kv_asset_link}" target="_blank" rel="noopener" class="drivebtn">🔗 ${detectLinkSource(t.kv_asset_link)}</a>
     </div>` : ''}
@@ -12714,6 +12913,17 @@ function renderTaskWorkspacePage(t){
              Reviewer must open goes above External Brief Links / Brief / Reference Links / Images. Hidden
              once delivered, where the Final Work Folder card above takes its place at the top instead. -->
         ${renderArtworkLinkHeroCard(t)}
+        <!-- DEV FIX (Krissha — "ลิงก์บรีฟ เอาไปไว้บนสุด ดีไซนเนอร์จะได้ไม่ต้องหา รวมถึงลิงค์เรฟด้วย" +
+             "Link KV ด้วย เอาไว้ด้านบน" + "กล่องลิงก์ทุกกล่อง ห้ามมีลูกศรย่อหุบกล่อง ใช้โชว์ขึ้นมาเลย"):
+             External Brief Links / Reference Links / Key Visual used to sit further down (Key Visual
+             was even after Task Info/Backdated/Artworks), each collapsible — a Designer had to scroll
+             past a wall of metadata AND click each one open to find the links they need to start work.
+             All three are now moved up to right under the work-link hero cards above (Final Work Folder /
+             Artwork Link Hero), before everything else on the page, and rendered with renderStaticLinkSection
+             (no caret, never collapsible, always fully expanded) instead of renderCollapsibleSection. -->
+        ${renderStaticLinkSection('External Brief Links', renderExternalBriefLinksCard(t))}
+        ${renderStaticLinkSection('Reference Links', renderReferenceLinksCard(t, wsAw))}
+        ${renderStaticLinkSection('Key Visual', renderKeyVisualCard(t))}
         <!-- Feedback: this page felt unfriendly/incomplete-at-a-glance for a Project Owner because the one
              thing they open it for — "where is my job right now" — used to sit BELOW Task Info + Artworks,
              so it required scrolling past a wall of field labels first. Status now leads the panel, with a
@@ -12737,12 +12947,9 @@ function renderTaskWorkspacePage(t){
              against or switch to. Both only earn their place once a Brief actually HAS more than one. -->
         ${(t.artworks && t.artworks.length>1) ? renderCollapsibleSection('artworks', `Artworks (${t.artworks.length})`, renderArtworkChecklistCard(t), {defaultOpen:true}) : ''}
         ${(wsAw && t.artworks.length>1) ? `<div class="taskws-card"><div class="hint">กำลังดู Brief Content / Images ของ <strong>AW ${artworkSeqLabel(activeTaskWsArtworkIndex(t))}${wsAw.name?' — '+wsAw.name:''}</strong> — สลับได้จากปุ่ม AW เหนือ Canvas หรือคลิกในรายการ Artworks ด้านบน</div></div>` : ''}
-        <!-- DEV SPEC point 7 order from here down: External Brief Links → Brief (of active AW) → Reference
-             Links (of active AW) → Images/Assets (of active AW). -->
-        ${renderCollapsibleSection('externalbrieflinks', 'External Brief Links', renderExternalBriefLinksCard(t), {defaultOpen:hasExternalLinks})}
-        ${renderCollapsibleSection('keyvisual', 'Key Visual', renderKeyVisualCard(t), {defaultOpen:kvHasData})}
+        <!-- DEV SPEC point 7 order (External Brief Links / Reference Links / Key Visual now moved to the
+             top of the page — see comment above): Brief (of active AW) → Images/Assets (of active AW). -->
         ${renderCollapsibleSection('briefcontent', 'Brief Content', renderBriefContentCard(briefContentSrc), {defaultOpen:true})}
-        ${renderCollapsibleSection('referencelinks', 'Reference Links', renderReferenceLinksCard(t, wsAw), {defaultOpen:hasReferenceLinks})}
         ${renderCollapsibleSection('images', `Images${hasImages?` (${briefImagesSrc.length})`:''}`, renderImagesCard(briefImagesSrc), {defaultOpen:hasImages})}
         ${ext ? `<div class="info-box">🕒 Extension Request: ${fmtDate(ext.requested_date)} — ${ext.reason} <strong>[${ext.status}]</strong></div>` : ''}
         ${renderAwaitingApprovalCard(t)}
@@ -13254,9 +13461,14 @@ function getDesignerDailyLoad(designer, dateStr){
 }
 function getDesignerDailyCapacity(designer, dateStr){
   if(isWeekend(dateStr) || isPublicHoliday(dateStr)) return 0;
-  const { isFullLeave } = dayLoadFor(designer, dateStr);
+  const { isFullLeave, leaveDeduct } = dayLoadFor(designer, dateStr);
   if(isFullLeave) return 0;
-  return ((STATE.users||[]).find(u=>u.name===designer)?.capacity) ?? DAILY_CAP;
+  const base = ((STATE.users||[]).find(u=>u.name===designer)?.capacity) ?? DAILY_CAP;
+  // BUG FIX (bug audit — Krissha: "มีบัคตรงไหนอีกมั้ย"): a half-day leave was invisible here — only full-day
+  // leave zeroed out capacity, so Team Capacity / Monthly Overview both showed this designer's FULL 8.0 ชม.
+  // ceiling on a half-day-leave day, silently missing anyone who was actually over their real (halved)
+  // capacity that day and inflating the month's total capacity/utilization numbers.
+  return Math.max(0, Math.round((base - (leaveDeduct||0))*100)/100);
 }
 function getCapacityStatus(load, capacity){
   if(capacity<=0) return load>0 ? 'over' : 'off';
@@ -13332,7 +13544,15 @@ function getMonthlyCapacitySummary(monthStr){
 // helpers Monthly Overview uses, per §19.
 function renderTeamCapacityPage(){
   const tc = STATE.teamCapacity;
-  if(!tc.anchorDate) tc.anchorDate = todayISO();
+  if(!tc.anchorDate){
+    tc.anchorDate = todayISO();
+    // Krissha feedback: "กดเข้ามา โชวข้อมูลของวันนี้เลยค่ะ" — the very first time this page loads in a session
+    // (no anchorDate set yet), open today's own workload breakdown right away instead of making her click a
+    // cell first. Same re-entry as the anchorDate reset above via the sidebar nav (dataset.side==='dashboard')
+    // keeps this in sync on every fresh visit, not just first load; closing it with "✕ ปิด" still works for
+    // the rest of that visit exactly like before.
+    if(STATE.auth.identity && PEOPLE[STATE.auth.identity]){ tc.drawerDesigner = STATE.auth.identity; tc.drawerDate = todayISO(); }
+  }
   const people = Object.keys(PEOPLE);
   const roles = Array.from(new Set(people.map(p=>PEOPLE[p].role)));
   const RANGE_DAYS = 30; // §2 "โหลดข้อมูลล่วงหน้าอย่างน้อย Today → Next 30 Days"
@@ -13378,7 +13598,7 @@ function renderTeamCapacityPage(){
   <div class="dash-filters">
     <input id="tcSearch" placeholder="ค้นหา Designer..." value="${escAttr(tc.search)}">
     <select id="tcRoleFilter">
-      <option value="ALL">All Roles</option>
+      <option value="ALL">All Designer</option>
       ${roles.map(r=>`<option value="${r}" ${tc.roleFilter===r?'selected':''}>${r}</option>`).join('')}
     </select>
     <select id="tcStatusFilter">
@@ -13395,6 +13615,8 @@ function renderTeamCapacityPage(){
   </div>
 
   ${renderTeamCapacityTimeline(range, designerList, today)}
+
+  ${tc.drawerDesigner ? renderDesignerWorkloadInline(tc.drawerDesigner, tc.drawerDate) : ''}
 
   <div class="grid grid-3" style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
     ${renderTeamCapacityInsights(range)}
@@ -13437,7 +13659,7 @@ function renderTeamCapacityTimeline(range, designerList, today){
             const isToday = day.date===today;
             const isOff = dd.status.key==='leave'||dd.status.key==='holiday';
             const tier = isOff ? 'off' : getCapacityStatus(dd.load, dd.capacity);
-            return `<td style="text-align:center;${isToday?'background:#F0F4FF':''}" data-matrixcell="${p}|${day.date}">
+            return `<td style="text-align:center;cursor:pointer;${isToday?'background:#F0F4FF':''}" data-tcmatrixcell="${p}|${day.date}" title="ดูรายละเอียดภาระงานของ ${p} วันที่ ${fmtDate(day.date)}">
               <div style="font-size:11px;font-weight:700;${tier==='over'?'color:#991B1B':''}">${dd.load.toFixed(0)}</div>
               <div style="width:6px;height:6px;border-radius:50%;background:${dotColor[tier]};margin:2px auto 0"></div>
             </td>`;
@@ -13574,24 +13796,45 @@ function renderMonthlyHeatmap(monthStr){
         </div>`;
       }).join('')}
     </div>
-    ${STATE.monthlyOverview.drawerDate ? renderMonthlyOverviewDrawer(STATE.monthlyOverview.drawerDate) : ''}
+    ${STATE.monthlyOverview.drawerDate ? renderMonthlyOverviewDayBreakdown(STATE.monthlyOverview.drawerDate) : ''}
   </div>`;
 }
-// §16 detail drawer.
-function renderMonthlyOverviewDrawer(dateStr){
+// §16 detail — Krissha feedback: "เมื่อกดดูวันต่างๆ ให้โชว์ ลิสว่า มีภาระงานอะไรบ้าง ของใครบ้าง...ดูได้ทั้งงาน
+// ย้อนหลัง งานปัจจุบัน และงานอนาคต" — this used to be an aggregate hours-only list (no task names/assignees)
+// in a fixed-overlay side panel (same popup pattern she already asked off Team Capacity's inline card).
+// Now it's an inline card right under the heatmap grid, per-designer status PLUS the actual named task list
+// (task + who it's assigned to + hours) for that day. taskLoadOnDate()/STATE.tasks are never restricted to
+// a date range, so this reads exactly the same whether the clicked day is in the past, today, or the future.
+function renderMonthlyOverviewDayBreakdown(dateStr){
   const people = Object.keys(PEOPLE);
-  const rows = people.map(p=>({p, load:getDesignerDailyLoad(p,dateStr), cap:getDesignerDailyCapacity(p,dateStr)}));
-  const overRows = rows.filter(r=>r.cap>0 && r.load>r.cap);
-  return `<div class="panel-scrim" data-closemodrawer="1"></div>
-  <div class="panel">
-    <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center">
-      <div style="font-weight:800;font-size:15px">${fmtDate(dateStr)}</div>
-      <button type="button" class="iconbtn" data-closemodrawer="1">✕</button>
+  const rows = people.map(p=>{
+    const st = designerDayStatus(p, dateStr);
+    const bd = taskBreakdownFor(p, dateStr);
+    return {person:p, st, bd};
+  });
+  const teamTotal = rows.reduce((s,r)=>s+((r.st.key==='leave'||r.st.key==='holiday')?0:r.st.points),0);
+  const allTasksThatDay = STATE.tasks.filter(t=>taskLoadOnDate(t,dateStr)>0)
+    .sort((a,b)=>(a.assigned_user_name||'').localeCompare(b.assigned_user_name||''));
+  return `<div class="card" id="moDayBreakdown" style="margin-top:14px;position:relative">
+    <button type="button" class="btn btn-ghost btn-sm" data-closemodrawer="1" style="position:absolute;top:14px;right:14px">✕ ปิด</button>
+    <div style="font-weight:800;font-size:15px">${fmtDate(dateStr)}</div>
+    <div class="hint" style="margin-bottom:12px">TEAM CAPACITY ${teamTotal.toFixed(1)} / ${(people.length*DAILY_CAP).toFixed(0)} ชม.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px">
+      ${rows.map(r=>`<div class="section-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>${r.person}</strong>
+          <span class="status-pill ${r.st.cls}">${r.st.label}</span>
+        </div>
+        <div class="hint">${(r.st.key==='leave'||r.st.key==='holiday')?'OFF':`${r.st.points.toFixed(1)} / ${DAILY_CAP} ชม.`} · ${r.bd.tasks.length} Tasks</div>
+      </div>`).join('')}
     </div>
-    <div class="panel-body">
-      ${rows.map(r=>`<div class="sl-row"><span class="sl-k">${r.p}</span><span class="sl-v">${r.load.toFixed(1)} / ${r.cap.toFixed(1)} ชม.</span></div>`).join('')}
-      ${overRows.length ? `<div class="hint" style="font-weight:700;margin-top:10px">Over Capacity</div>${overRows.map(r=>`<div class="hint">${r.p} +${(r.load-r.cap).toFixed(1)} ชม.</div>`).join('')}` : ''}
-    </div>
+    <div class="hint" style="font-weight:700;margin-bottom:4px">Tasks (${allTasksThatDay.length})</div>
+    ${allTasksThatDay.length ? allTasksThatDay.map(t=>`<div class="sl-row">
+      <span class="sl-k">${taskDisplayName(t)} ${priorityBadgeSm(t.priority)}${t.capacity_override?' 🟠 Override':''} <span class="hint">— ${t.assigned_user_name||'ไม่ระบุ'}</span></span>
+      <span class="sl-v">${taskLoadOnDate(t,dateStr).toFixed(1)} ชม.</span>
+    </div>`).join('') : `<div class="hint">ไม่มีงานวันนี้</div>`}
+    ${(isWeekend(dateStr)||isPublicHoliday(dateStr)) ? `<div class="hint" style="margin-top:8px">📅 Holiday / Weekend</div>` : ''}
+    ${STATE.leaves.filter(l=>l.date===dateStr).length ? `<div class="hint" style="margin-top:6px">🌴 Leave: ${STATE.leaves.filter(l=>l.date===dateStr).map(l=>l.person).join(', ')}</div>` : ''}
   </div>`;
 }
 // §17 — Monthly Insights, real data only, never generic filler when the numbers say otherwise.
@@ -14663,17 +14906,19 @@ function renderPdpPageEditRow(pg, i, active){
     </td>
   </tr>`;
 }
-function renderDesignerDrawer(){
-  const person = STATE.dash.drawerDesigner;
-  const drawerDate = STATE.dash.drawerDate || STATE.dash.date;
+// Shared body markup for the designer workload breakdown — used both by the popup drawer (legacy Team
+// Status calendar) and the inline card (Team Capacity page, per Krissha: "ขอแบบไม่เป็น ป๊อปอัพ โชวขึ้นมาเลย" —
+// she wants this shown right in the page flow, not a fixed overlay panel). Keeping the content in ONE place
+// means both surfaces always agree on what a day's workload actually contains.
+function renderDesignerDrawerBody(person, drawerDate, opts){
+  opts = opts || {};
   const status = designerDayStatus(person, drawerDate);
   const bd = taskBreakdownFor(person, drawerDate);
   const upcoming = STATE.tasks.filter(t=>t.assigned_user_name===person && t.prefer_delivery_date>=todayISO()
     && !['delivered','rejected','closed_max_revision'].includes(t.review_status))
     .sort((a,b)=>a.prefer_delivery_date.localeCompare(b.prefer_delivery_date)).slice(0,5);
-  return `<div class="drawer-bg" id="drawerBg">
-    <div class="drawer">
-      <button class="drawer-close" id="closeDrawer">✕</button>
+  // Left column: who/status + the Monthly Calendar (the two "at a glance" pieces).
+  const leftHtml = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <div class="avatar" style="width:40px;height:40px;font-size:16px">${person[0]}</div>
         <div><div style="font-weight:700;font-size:14px">${person}</div><div class="hint">${PEOPLE[person].role}</div></div>
@@ -14691,11 +14936,13 @@ function renderDesignerDrawer(){
 
       <div class="eyebrow" style="margin-top:16px">Monthly Calendar</div>
       <div class="card">${renderMonthCalendar(person, 'drawer')}</div>
-
-      ${bd.tasks.length ? `<div class="eyebrow" style="margin-top:14px">Tasks on ${fmtDate(drawerDate)}</div>
+  `;
+  // Right column: the actual line-item breakdown (what/whose — the part Krissha asked this drawer for).
+  const rightHtml = `
+      ${bd.tasks.length ? `<div class="eyebrow"${opts.twoColumn?'':' style="margin-top:14px"'}>Tasks on ${fmtDate(drawerDate)}</div>
         ${bd.master.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Master</div>${bd.master.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${taskLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
         ${bd.revision.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Revision</div>${bd.revision.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${taskLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
-      ` : `<div class="hint" style="margin-top:10px">ไม่มีงานในวันนี้</div>`}
+      ` : `<div class="hint"${opts.twoColumn?'':' style="margin-top:10px"'}>ไม่มีงานในวันนี้</div>`}
 
       <div class="eyebrow" style="margin-top:16px;display:flex;align-items:center;justify-content:space-between">
         <span>Internal Tasks on ${fmtDate(drawerDate)}</span>
@@ -14705,9 +14952,38 @@ function renderDesignerDrawer(){
 
       ${upcoming.length ? `<div class="eyebrow" style="margin-top:16px">Upcoming Work</div>
         ${upcoming.map(t=>`<div class="sl-row"><span class="sl-k">${fmtDate(t.prefer_delivery_date)} — ${taskDisplayName(t)}</span><span class="sl-v">${appliedPoints(t).toFixed(1)} ชม. · ${t.priority}</span></div>`).join('')}` : ''}
-
+  `;
+  // Krissha feedback on the inline (Team Capacity) card: "แบ่งซ้ายขวา ไม่ต้องการให้ยาว" — the card has the full
+  // page width available there (unlike the narrow 480px side-panel drawer, which stays single-column), so
+  // split into two columns instead of stacking everything into one long scroll.
+  if(opts.twoColumn){
+    return `<div class="tcdrawer-cols" style="display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:28px;align-items:start">
+      <div>${leftHtml}</div>
+      <div>${rightHtml}</div>
+    </div>`;
+  }
+  return leftHtml + rightHtml;
+}
+function renderDesignerDrawer(personArg, dateArg){
+  // Popup/overlay version — kept for the legacy Team Status calendar call site, unchanged behavior.
+  const person = personArg || STATE.dash.drawerDesigner;
+  const drawerDate = dateArg || STATE.dash.drawerDate || STATE.dash.date;
+  return `<div class="drawer-bg" id="drawerBg">
+    <div class="drawer">
+      <button class="drawer-close" id="closeDrawer">✕</button>
+      ${renderDesignerDrawerBody(person, drawerDate)}
       <button type="button" class="btn btn-ghost" style="width:100%;margin-top:16px" id="drawerViewBoard">View Process Board</button>
     </div>
+  </div>`;
+}
+// Inline (non-popup) version for Team Capacity's Rolling Future matrix — per Krissha: "ขอแบบไม่เป็น ป๊อปอัพ
+// โชวขึ้นมาเลย" (don't want a popup, show it right in the page). Renders as a normal card in the page flow,
+// right under the matrix, with its own dismiss button instead of a fixed-overlay close.
+function renderDesignerWorkloadInline(person, drawerDate){
+  return `<div class="card" id="tcInlineBreakdown" style="margin-top:14px;position:relative">
+    <button type="button" class="btn btn-ghost btn-sm" id="tcCloseInline" style="position:absolute;top:14px;right:14px">✕ ปิด</button>
+    ${renderDesignerDrawerBody(person, drawerDate, {twoColumn:true})}
+    <button type="button" class="btn btn-ghost" style="width:100%;margin-top:16px" id="drawerViewBoard">View Process Board</button>
   </div>`;
 }
 
@@ -15712,7 +15988,12 @@ function bindEvents(){
     STATE.sideSection=b.dataset.side;
     // DEV FINAL — TEAM CAPACITY §2 "กลับเข้าหน้า Team Capacity ให้ Focus ที่ Today + Future เสมอ" —
     // every time this menu item is clicked (not only a hard refresh), re-anchor to today.
-    if(b.dataset.side==='dashboard') STATE.teamCapacity.anchorDate = todayISO();
+    if(b.dataset.side==='dashboard'){
+      STATE.teamCapacity.anchorDate = todayISO();
+      // Krissha feedback: "กดเข้ามา โชวข้อมูลของวันนี้เลยค่ะ" — re-open today's own breakdown every time she
+      // clicks into Team Capacity from the sidebar, same "always re-anchor on entry" behavior as anchorDate.
+      if(STATE.auth.identity && PEOPLE[STATE.auth.identity]){ STATE.teamCapacity.drawerDesigner = STATE.auth.identity; STATE.teamCapacity.drawerDate = todayISO(); }
+    }
     // DEV SUMMARY — Create New Brief Entry Points §9/§10 — records which page the Create Brief flow was
     // opened from, for "back to entry point" navigation and analytics only — never used to branch Form/
     // Validation/Submit logic, which stays the single shared flow regardless of source.
@@ -15816,9 +16097,17 @@ function bindEvents(){
       refreshArtworkSection();
     };
     cat.onchange = ()=>onCategoryChange(false);
-    const isEditingBrief = !!STATE.editingTaskId;
-    onCategoryChange(isEditingBrief);
-    if(isEditingBrief && BRIEF_DRAFT.prefill){
+    // BUG FIX (Krissha dev-report — "ประเภท aw ไม่ auto save"): both "Edit Brief" (STATE.editingTaskId)
+    // AND "Resume Draft" (STATE.editingDraftId) rehydrate through the same loadBriefDraftFromTask(),
+    // which always populates BRIEF_DRAFT.prefill.type and BRIEF_DRAFT.platforms correctly. But this
+    // restore block used to gate on editingTaskId alone, so every Resume Draft silently reset the
+    // Artwork Type dropdown back to the blank placeholder even though Category/Platform/quantity all
+    // came back fine. Using the same flag for onCategoryChange()'s skipPlatformReset argument also
+    // stops it from wiping BRIEF_DRAFT.platforms immediately after correctly rendering it selected —
+    // the same root cause was quietly dropping the saved Platform on Resume Draft too.
+    const isRestoringExisting = !!(STATE.editingTaskId || STATE.editingDraftId);
+    onCategoryChange(isRestoringExisting);
+    if(isRestoringExisting && BRIEF_DRAFT.prefill){
       const pf0 = BRIEF_DRAFT.prefill;
       if(pf0.type && !type.disabled){
         type.value = pf0.type;
@@ -16200,12 +16489,24 @@ function bindEvents(){
     const [person,ds] = el.dataset.matrixcell.split('|');
     STATE.dash.drawerDesigner=person; STATE.dash.drawerDate=ds; render();
   });
-  document.getElementById('closeDrawer')?.addEventListener('click', ()=>{ STATE.dash.drawerDesigner=null; render(); });
-  document.getElementById('drawerBg')?.addEventListener('click', (e)=>{ if(e.target.id==='drawerBg'){ STATE.dash.drawerDesigner=null; render(); } });
-  document.getElementById('drawerViewBoard')?.addEventListener('click', ()=>{ STATE.dash.drawerDesigner=null; STATE.sideSection='board'; render(); });
+  // Team Capacity (Rolling Future) matrix — own click target/state so it never crosses wires with the
+  // legacy Team Status matrix above (STATE.dash.*): see Krissha feedback "หน้านี้ให้ขึ้นลิสว่า มีภาระงาน
+  // อะไรบ้าง ของใครบ้าง" — clicking a day's number now opens the same breakdown drawer, scoped to this page.
+  document.querySelectorAll('[data-tcmatrixcell]').forEach(el=>el.onclick=()=>{
+    const [person,ds] = el.dataset.tcmatrixcell.split('|');
+    STATE.teamCapacity.drawerDesigner=person; STATE.teamCapacity.drawerDate=ds; render();
+  });
+  document.getElementById('tcCloseInline')?.addEventListener('click', ()=>{ STATE.teamCapacity.drawerDesigner=null; render(); });
+  document.getElementById('closeDrawer')?.addEventListener('click', ()=>{ STATE.dash.drawerDesigner=null; STATE.teamCapacity.drawerDesigner=null; render(); });
+  document.getElementById('drawerBg')?.addEventListener('click', (e)=>{ if(e.target.id==='drawerBg'){ STATE.dash.drawerDesigner=null; STATE.teamCapacity.drawerDesigner=null; render(); } });
+  document.getElementById('drawerViewBoard')?.addEventListener('click', ()=>{ STATE.dash.drawerDesigner=null; STATE.teamCapacity.drawerDesigner=null; STATE.sideSection='board'; render(); });
   document.querySelectorAll('[data-caldate][data-calmode="drawer"]').forEach(c=>c.onclick=()=>{
     if(c.classList.contains('past')||c.classList.contains('empty')) return;
-    STATE.dash.drawerDate = c.dataset.caldate; render();
+    // Route to whichever page's drawer is actually open (Team Capacity vs legacy Team Status) — see the
+    // renderDesignerDrawer()/tcmatrixcell notes above.
+    if(STATE.teamCapacity.drawerDesigner) STATE.teamCapacity.drawerDate = c.dataset.caldate;
+    else STATE.dash.drawerDate = c.dataset.caldate;
+    render();
   });
   document.querySelectorAll('[data-calnav][data-calmode="drawer"]').forEach(b=>b.onclick=()=>{
     STATE.cal.month += Number(b.dataset.calnav);
@@ -16808,15 +17109,28 @@ function bindEvents(){
     };
   });
 
-  document.body.addEventListener('click', (e)=>{
-    if(document.getElementById('notifPortal') && !e.target.closest('#notifBell') && !e.target.closest('.notifdrop')){ closeNotifPortal(); render(); }
-    if(document.getElementById('userMenuPortal') && !e.target.closest('#userMenuBtn') && !e.target.closest('.usermenu-drop')){ closeUserMenuPortal(); render(); }
-    if(STATE.pui.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.pui.menuOpenFor=null; render(); }
-    if(STATE.platUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.platUI.menuOpenFor=null; render(); }
-    if(STATE.assetUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.assetUI.menuOpenFor=null; render(); }
-    if(STATE.colorUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.colorUI.menuOpenFor=null; render(); }
-    if(STATE.ciUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.ciUI.menuOpenFor=null; render(); }
-  }, {once:true});
+  // BUG FIX (found during a general bug audit — Krissha: "มีบัคตรงไหนอีกมั้ย"): document.body is never
+  // destroyed/replaced by the innerHTML re-render that every other listener in this file relies on to stay
+  // "fresh" each render — so this listener was being re-added on EVERY render() call, and {once:true} only
+  // removes a listener after it fires, not before a new one stacks on top. Any render that happens without
+  // an intervening body click (the 60s auto-complete poller, oninput handlers, async saves, etc.) added one
+  // more permanent listener; the next real click then fired all of them at once, each calling render() again
+  // (which re-entered bindEvents() and queued yet another one) — a compounding leak the longer a session
+  // stayed open. Guarded like every other window/document-level listener in this file (__vbKeyboardBound,
+  // __fcKebabOutsideBound, __fcGestureGuardBound) so it's attached exactly once, ever, and removed the
+  // {once:true} since its whole job is to keep listening for outside clicks for the life of the session.
+  if(!window.__bodyOutsideClickBound){
+    window.__bodyOutsideClickBound = true;
+    document.body.addEventListener('click', (e)=>{
+      if(document.getElementById('notifPortal') && !e.target.closest('#notifBell') && !e.target.closest('.notifdrop')){ closeNotifPortal(); render(); }
+      if(document.getElementById('userMenuPortal') && !e.target.closest('#userMenuBtn') && !e.target.closest('.usermenu-drop')){ closeUserMenuPortal(); render(); }
+      if(STATE.pui.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.pui.menuOpenFor=null; render(); }
+      if(STATE.platUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.platUI.menuOpenFor=null; render(); }
+      if(STATE.assetUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.assetUI.menuOpenFor=null; render(); }
+      if(STATE.colorUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.colorUI.menuOpenFor=null; render(); }
+      if(STATE.ciUI.menuOpenFor && !e.target.closest('.kebab') && !e.target.closest('.pcard-menu')){ STATE.ciUI.menuOpenFor=null; render(); }
+    });
+  }
   ensureStudioFlowFrame();
 }
 
@@ -17075,10 +17389,24 @@ function bindCapacityExceptionPanel(assignee, dateVal, pts, priority){
       if(!reasonSel){ toast('กรุณาเลือกเหตุผล'); return; }
       if(reasonSel==='Other' && !reasonOther.trim()){ toast('กรุณาระบุเหตุผลเพิ่มเติม'); return; }
       if(!ack){ toast('กรุณารับทราบเงื่อนไขก่อนส่งคำขอ'); return; }
+      // BUG FIX (Krissha dev-report §6 — "Capacity Override กับ Final Check"): this button used to call
+      // submitBrief() directly, completely bypassing the same computeFinalCheckState().canSubmit gate the
+      // normal Submit button is disabled behind — so a Capacity Override request could be fired with the
+      // rest of the Brief (Task Name, Category, Department, …) still incomplete, or even throw outright
+      // if Category/Type were never picked (submitBrief reads MASTER_TABLE[catName].types[typeName]
+      // assuming they're already set). Reusing the exact same check here means the Override path can
+      // never submit anything the normal path would have blocked — one shared source of truth for
+      // "is this Brief ready", exactly like Final Check's own header comment already promises.
+      const fc = computeFinalCheckState();
+      if(!fc.canSubmit){
+        toast(`⚠ กรอกข้อมูลที่จำเป็นให้ครบก่อนส่งคำขอ (ขาด ${fc.missingFields.length} รายการ)`);
+        updateBriefReadiness();
+        return;
+      }
       BRIEF_DRAFT.overrideForm = {reason:reasonSel, reasonOther, note, ack:true};
-      // §12 "ปุ่ม Request ต้อง Disabled ป้องกันการกดซ้ำ" — disabled immediately, then submits the whole
-      // Brief directly (submitBrief re-checks evaluateDelivery itself and reads this exact form state).
-      b.disabled = true; b.textContent = 'กำลังส่งคำขอ...';
+      // §12 "ปุ่ม Request ต้อง Disabled ป้องกันการกดซ้ำ" — submitBrief()'s own lock (STATE.briefSubmitState)
+      // + setBriefSubmitButtonsBusy() now own disabling/relabeling this exact button (and restoring it on
+      // any failure path), so this call site no longer hand-manages b.disabled/b.textContent itself.
       submitBrief({preventDefault:()=>{}});
     }
   });
@@ -17118,18 +17446,62 @@ function refreshBriefForm(){
   const def = isOtherCat ? {custom:true} : MASTER_TABLE[catVal].types[typeEl.value];
   const customWrap = document.getElementById('customWrap');
   const kvSection = document.getElementById('kvSection');
-  const kvVisible = !!(def && def.kv!==undefined);
+  // DEV FIX (Krissha — "ปรับใช้ทุก Category/Type"): used to gate on def.kv!==undefined (only the
+  // Banner/Platform types that already had a 2-tier kv/noKv hour split) — now shown for every
+  // Category/Type except "อื่นๆ ระบุ" (def.custom — Lead sets the hours manually there instead, a
+  // KV/Revise question wouldn't change anything). See pointsForTask() for how each answer affects hours
+  // on a type that has no def.kv/def.noKv of its own: "มี KV"/"ไม่มี KV" make no difference there (still
+  // def.base either way, since there's no premium number defined for those types) — only Revise ≤50%/
+  // >50% actually changes the hours, with the same flat 1/2ชม. value regardless of type.
+  const kvVisible = !!(def && !def.custom);
   if(kvSection) kvSection.style.display = kvVisible ? 'block':'none';
   customWrap.style.display = (def && def.custom) ? 'block':'none';
   // Reference Link only makes sense when there IS an existing KV/working file to point to.
   // "ไม่มี KV — ต้องสร้างใหม่" (NEED_NEW_KV) means there's nothing to reference yet, so the field
   // (and its space) is removed entirely rather than shown as optional — no field, no leftover gap.
   const kvLinkField = document.getElementById('kvLinkField');
+  // DEV FIX (Krissha — Revise จากงานเก่า, "ไม่บังคับกรอกลิงก์"): Revise ≤50%/>50% also show this field
+  // (a link to the old work is genuinely useful for the Designer) but never require it — only
+  // "มี KV / Working File" is mandatory. kvLinkOk in computeFinalCheckState() already defaults to `true`
+  // for any status other than HAS_WORKING_FILE, so no change needed there.
+  const kvLinkRequired = BRIEF_DRAFT.kv==='HAS_WORKING_FILE';
+  const kvLinkOptionalVisible = BRIEF_DRAFT.kv==='REVISE_UNDER50' || BRIEF_DRAFT.kv==='REVISE_OVER50';
   if(kvLinkField){
-    if(kvVisible && BRIEF_DRAFT.kv==='HAS_WORKING_FILE'){
+    if(kvVisible && (kvLinkRequired || kvLinkOptionalVisible)){
       kvLinkField.style.display='block';
-      kvLinkField.innerHTML = `<label>KV Asset Link *</label><input type="url" id="f_kvlink_input" required placeholder="Google Drive / Figma / Canva / Working File">`;
-      document.getElementById('f_kvlink_input').addEventListener('input', updateBriefReadiness);
+      // BUG FIX P0 (Krissha dev-report §8 — "KV Asset Link ห้ามหายตอน Refresh"): this innerHTML rebuild
+      // runs on every refreshBriefForm() call (Priority/Category/Type change, etc — not just the first
+      // time this field appears), which used to recreate the <input> with NO value at all, silently
+      // wiping out anything already typed. It now (a) hydrates the new node from BRIEF_DRAFT.kvAssetLink
+      // — the real state, kept live below — instead of always starting blank, and (b) writes every
+      // keystroke straight into BRIEF_DRAFT.kvAssetLink so the value survives the next rebuild even if
+      // the user never blurs the field. escAttr() so a link containing e.g. `"` can't break the attribute.
+      // DEV FIX (Krissha — "ทุกที่ที่กรอกลิงก์ ให้เพิ่มปุ่มบันทึกลิงก์"): brings this single-value link
+      // field up to the same "บันทึกลิงก์" Primary Action convention already used by External Brief
+      // Links / Reference Link (DEV MASTER REQUEST §2) — the input still syncs into BRIEF_DRAFT.kvAssetLink
+      // on every keystroke exactly as before (P0 §8 fix, unchanged — the button is an added confirmation
+      // affordance, not a replacement for the live sync, so nothing typed can be lost by forgetting to
+      // click it), but clicking "บันทึกลิงก์" (or it being enabled) now gives an explicit, validated
+      // confirmation that the link was recorded, matching every other link field in this form.
+      kvLinkField.innerHTML = `<label>KV Asset Link${kvLinkRequired?' *':''}</label>
+        <div class="refquickadd-row">
+          <input type="url" class="refquickadd-input" id="f_kvlink_input" ${kvLinkRequired?'required':''} value="${escAttr(BRIEF_DRAFT.kvAssetLink||'')}" placeholder="${kvLinkRequired?'Google Drive / Figma / Canva / Working File':'Google Drive / Figma / Canva / Working File (ไม่บังคับ)'}">
+          <button type="button" class="refquickadd-save" id="saveKvLinkBtn" ${(BRIEF_DRAFT.kvAssetLink||'').trim()?'':'disabled'}>บันทึกลิงก์</button>
+        </div>`;
+      document.getElementById('f_kvlink_input').addEventListener('input', e=>{
+        BRIEF_DRAFT.kvAssetLink = e.target.value; updateBriefReadiness();
+        const saveBtn = document.getElementById('saveKvLinkBtn');
+        if(saveBtn) saveBtn.disabled = !e.target.value.trim();
+      });
+      document.getElementById('saveKvLinkBtn')?.addEventListener('click', ()=>{
+        const inp = document.getElementById('f_kvlink_input');
+        const val = (inp?.value||'').trim();
+        if(!val){ toast('กรุณากรอกลิงก์'); return; }
+        if(!isLikelyValidUrl(val)){ toast('⚠ รูปแบบลิงก์ไม่ถูกต้อง'); inp?.focus(); return; }
+        BRIEF_DRAFT.kvAssetLink = val;
+        updateBriefReadiness();
+        toast('💾 บันทึกลิงก์แล้ว');
+      });
     } else {
       // Covers NEED_NEW_KV and any other/empty state — hidden, no DOM node, so its value can never be submitted.
       kvLinkField.style.display='none';
@@ -17335,7 +17707,7 @@ function computeFinalCheckState(){
   const kvSection = document.getElementById('kvSection');
   const kvSectionVisible = kvSection && kvSection.style.display!=='none';
   const kvOk = !kvSectionVisible ? true : !!BRIEF_DRAFT.kv;
-  const kvLinkOk = !kvSectionVisible ? true : (BRIEF_DRAFT.kv==='HAS_WORKING_FILE' ? !!document.getElementById('f_kvlink_input')?.value.trim() : true);
+  const kvLinkOk = !kvSectionVisible ? true : (BRIEF_DRAFT.kv==='HAS_WORKING_FILE' ? !!(BRIEF_DRAFT.kvAssetLink ?? document.getElementById('f_kvlink_input')?.value ?? '').trim() : true);
 
   const priority = BRIEF_DRAFT.priority;
   const needsApproval = PRIORITY_NEEDS_APPROVAL[priority];
@@ -17357,7 +17729,7 @@ function computeFinalCheckState(){
   fields.push({ok:!!catVal, label:'Task Category', target:'#f_category'});
   if(catVal) fields.push({ok:typeOk, label:'Artwork Type', target:'#f_type'});
   fields.push({ok:!(!deliverables || Number(deliverables)<1), label:'จำนวน Artwork หลัก', target:'#f_deliverables'});
-  if(kvSectionVisible) fields.push({ok:kvOk, label:'KV Status', target:'#f_kv'});
+  if(kvSectionVisible) fields.push({ok:kvOk, label:'KV / Revise Status', target:'#f_kv'});
   if(kvSectionVisible && kvOk) fields.push({ok:kvLinkOk, label:'KV Asset Link', target:'#f_kvlink_input'});
   fields.push({ok:!!dateVal, label:'Delivery Date', target:'#briefCalendar'});
   if(dateVal) fields.push({ok:dateAllowed, label:'Requested Delivery Date (วันที่เลือกไม่ผ่านเงื่อนไข)', target:'#briefCalendar'});
@@ -17393,7 +17765,14 @@ function computeFinalCheckState(){
 function renderFinalCheckPanel(state){
   const editing = !!STATE.editingTaskId;
   const { missingFields, pct, canSubmit, needsApproval, artworks, platforms, dateVal } = state;
-  const submitLabel = needsApproval ? '📨 ส่งขออนุมัติจาก Lead Designer' : '🚀 ส่งบรีฟ (Submit Brief)';
+  // BUG FIX (Krissha dev-report §14 — "Edit Brief UX"): a Submitted Brief being edited is not a Draft —
+  // its Primary Action must read as a save of an existing Task, never "ส่งบรีฟ (Submit Brief)" (which
+  // implies a brand-new brief is about to be created), and must call out when the edit itself now
+  // requires Lead approval (e.g. Priority raised into an approval tier — see the enteringApproval routing
+  // fix in submitBriefInner()).
+  const submitLabel = editing
+    ? (needsApproval ? '📨 บันทึกและส่งขออนุมัติ Lead' : '💾 บันทึกการแก้ไข')
+    : (needsApproval ? '📨 ส่งขออนุมัติจาก Lead Designer' : '🚀 ส่งบรีฟ (Submit Brief)');
   const missingCount = missingFields.length;
 
   const headerStatHtml = canSubmit
@@ -17423,7 +17802,11 @@ function renderFinalCheckPanel(state){
       </div>`;
   }
 
-  const savePermission = hasPermission(STATE.auth.role,'brief.create')||hasPermission(STATE.auth.role,'brief.edit');
+  // BUG FIX (Krissha dev-report §14 — "ถ้าเป็น STATE.editingTaskId นี่ไม่ใช่ Draft แล้ว...Final Check
+  // ต้องไม่แสดง บันทึกฉบับร่าง"): a Submitted Brief has no Draft to save — showing this button here risked
+  // silently spinning up a brand-new, unrelated Draft object off of an already-submitted Task's form
+  // state (buildDraftSnapshot()/upsertDraft() have no awareness of "editing an existing Task" at all).
+  const savePermission = !editing && (hasPermission(STATE.auth.role,'brief.create')||hasPermission(STATE.auth.role,'brief.edit'));
   const clearLabel = editing ? 'ยกเลิกการแก้ไข' : 'ล้างข้อมูลทั้งหมด';
 
   return `<div class="fc-header">
@@ -17563,8 +17946,49 @@ function bindCalendarPick(){
   });
 }
 
+// BUG FIX P0 (Krissha dev-report §3/§4 — Autosave/Submit race + Double Submit): submitBrief(e) is now a
+// thin, always-safe wrapper. It (1) refuses a re-entrant call outright — the actual double-submit lock;
+// (2) freezes Autosave immediately — cancels the pending 1.5s timer AND, if a write from an earlier fire
+// is already in flight, WAITS for it to actually finish before letting the real submit proceed, so a
+// Submit that starts right as Autosave fires can never race it or get its Draft deletion undone by a
+// late-arriving autosave write; (3) always releases the lock and re-enables the buttons in `finally`, on
+// every path — success, a validation toast-and-return, or a thrown error — via submitBriefInner(), whose
+// body is the original submitBrief() logic completely unchanged in structure.
 async function submitBrief(e){
   e.preventDefault();
+  if(STATE.briefSubmitState==='submitting') return; // already submitting — ignore the extra click/Enter
+  STATE.briefSubmitState = 'submitting';
+  setBriefSubmitButtonsBusy(true);
+  if(briefDraftAutosaveTimer){ clearTimeout(briefDraftAutosaveTimer); briefDraftAutosaveTimer=null; }
+  if(briefDraftAutosaveInFlight){ try{ await briefDraftAutosaveInFlight; }catch(err){} }
+  try{
+    await submitBriefInner();
+  } finally {
+    STATE.briefSubmitState = 'idle';
+    setBriefSubmitButtonsBusy(false);
+  }
+}
+// Disables/relabels the Submit Brief button, the Capacity Override "sendoverride" button, and Save Draft
+// while a submission is in flight, and restores each one's own original label afterward (stashed on
+// .dataset.busyLabel the first time it goes busy). Runs unconditionally from the wrapper's `finally`, so
+// it fires on every path — success (where these nodes are usually already gone since submitBriefInner()
+// navigated away, making this a harmless no-op), an early validation toast-and-return, or a thrown error
+// — meaning a validation failure can never leave a button stuck disabled/"กำลังส่ง...".
+function setBriefSubmitButtonsBusy(busy){
+  const submitBtn = document.getElementById('submitBriefBtn');
+  if(submitBtn){
+    if(busy){ if(submitBtn.dataset.busyLabel===undefined) submitBtn.dataset.busyLabel = submitBtn.textContent; submitBtn.disabled = true; submitBtn.textContent = 'กำลังส่ง...'; }
+    else { submitBtn.disabled = false; if(submitBtn.dataset.busyLabel!==undefined){ submitBtn.textContent = submitBtn.dataset.busyLabel; delete submitBtn.dataset.busyLabel; } }
+  }
+  const overrideBtn = document.querySelector('[data-cepaction="sendoverride"]');
+  if(overrideBtn){
+    if(busy){ if(overrideBtn.dataset.busyLabel===undefined) overrideBtn.dataset.busyLabel = overrideBtn.textContent; overrideBtn.disabled = true; overrideBtn.textContent = 'กำลังส่งคำขอ...'; }
+    else { overrideBtn.disabled = false; if(overrideBtn.dataset.busyLabel!==undefined){ overrideBtn.textContent = overrideBtn.dataset.busyLabel; delete overrideBtn.dataset.busyLabel; } }
+  }
+  const draftBtn = document.getElementById('saveDraftBtn');
+  if(draftBtn) draftBtn.disabled = busy;
+}
+async function submitBriefInner(){
   // DEV MASTER CORRECTION §1 — capture the source Draft's id up front, BEFORE any task is created.
   // The draft is only ever consumed AFTER saveTasks() succeeds (see the new-task branch below) — never
   // before, so a network/Firestore failure never loses the brief on both sides at once.
@@ -17666,6 +18090,12 @@ async function submitBrief(e){
     if(editedDuringProduction && !confirm('งานนี้เริ่ม Production แล้ว\n\nการแก้ Brief อาจกระทบ Scope, Capacity หรือ Deadline\n\nยืนยันบันทึกการแก้ไข?')){
       return;
     }
+    // BUG FIX P0 (Krissha dev-report §2 — Storage Save Failure): a full deep-clone snapshot of `existing`
+    // taken before ANY of the mutations below, so a confirmed saveTasks() failure further down can put
+    // `existing` back EXACTLY as it was — including edit_history/review_history — rather than leaving the
+    // in-memory Task silently ahead of whatever actually made it into Storage.
+    const fullSnapshotBeforeSave = JSON.parse(JSON.stringify(existing));
+    const pendingNotifications = [];
     const before = JSON.parse(JSON.stringify({task_name:existing.task_name, project_name:existing.project_name,
       deliverables:existing.deliverables, resize_quantity:existing.resize_quantity||0, platform:existing.platform,
       task_type:existing.task_type, task_category:existing.task_category, department:existing.department,
@@ -17676,7 +18106,7 @@ async function submitBrief(e){
     const newOwnerEmail = document.getElementById('f_owner').value;
     const after = {task_name:taskName, project_name:document.getElementById('f_project').value.trim(),
       deliverables, resize_quantity:resizeQty, platform:platforms, task_type:typeName, task_category:catName, department,
-      priority, prefer_delivery_date:date, kv_asset_link:document.getElementById('f_kvlink_input')?.value||'',
+      priority, prefer_delivery_date:date, kv_asset_link: BRIEF_DRAFT.kvAssetLink ?? (document.getElementById('f_kvlink_input')?.value||''),
       brief_link:legacyMirror.brief_link, project_owner_email:newOwnerEmail, external_brief_links:externalBriefLinks,
       artworks:newArtworksSnapshot, base_points:base};
 
@@ -17697,7 +18127,9 @@ async function submitBrief(e){
       task_name: taskName, priority, needsApproval, platform: platforms,
       task_category: catName, task_type: typeName,
       task_type_other: isOtherCat ? BRIEF_DRAFT.typeOther.trim() : null,
-      kv_status_check: (def && def.kv!==undefined) ? kv : null,
+      // DEV FIX (Krissha — "ปรับใช้ทุก Category/Type"): matches kvVisible in refreshBriefForm() — save
+      // the answer for every non-custom Category/Type now, not only ones with a def.kv/def.noKv split.
+      kv_status_check: (def && !def.custom) ? kv : null,
       kv_asset_link: after.kv_asset_link,
       deliverables, resize_quantity: resizeQty, customPoints,
       // Multi-Artwork Brief §26: artworks is the Source of Truth this Brief's deliverables count derives
@@ -17749,8 +18181,10 @@ async function submitBrief(e){
         by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
       if(isImportant && existing.assigned_user_name){
         // DEV MASTER REQUEST §11 / MASTER DEV FINAL §2 — Important Change → Designer + Lead.
+        // BUG FIX (Krissha dev-report §13 — "Notification ต้องเกิดหลัง Save เท่านั้น"): deferred into
+        // pendingNotifications, fired only after saveTasks() below is confirmed to have succeeded.
         const importantDiff = changedFields.filter(f=>f.important).map(f=>`${f.label}: ${f.before} → ${f.after}`).join(' · ');
-        notifyUsers([existing.assigned_user_name, LEAD], 'Brief Updated — Important Changes', `"${existing.task_name}" (${existing.task_id}) — ${importantDiff}`, existing.task_id, {excludeActor:true});
+        pendingNotifications.push(()=>notifyUsers([existing.assigned_user_name, LEAD], 'Brief Updated — Important Changes', `"${existing.task_name}" (${existing.task_id}) — ${importantDiff}`, existing.task_id, {excludeActor:true}));
       }
     }
     if(wasRejected){
@@ -17766,11 +18200,24 @@ async function submitBrief(e){
       existing.review_history.push({timestamp: nowIso(), action:'REQUEST_LEAD_APPROVAL',
         comment: `${priority} — ${existing.urgencyReason}${existing.urgencyNote?' — '+existing.urgencyNote:''} (แก้ไข Brief แล้ว Priority ต้องขออนุมัติ)`,
         by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-      notifyUsers([LEAD, existing.project_owner_email], 'Lead Designer Approval Required',
+      pendingNotifications.push(()=>notifyUsers([LEAD, existing.project_owner_email], 'Lead Designer Approval Required',
         `"${existing.task_name}" (${priority}) — Suggested: ${existing.suggested_designer||'—'} — ${fmtDate(existing.prefer_delivery_date)} — เหตุผล: ${existing.urgencyReason}${existing.overCapacity?' (เกิน Capacity ปกติ)':''}`,
-        existing.task_id);
+        existing.task_id));
     }
-    await saveTasks();
+    // BUG FIX P0 (Krissha dev-report §2/§13 — Storage Save Failure + Notification ordering): saveTasks()
+    // now returns a real success/failure boolean (see saveKey()). A confirmed failure rolls `existing`
+    // back to fullSnapshotBeforeSave (undoing every mutation made above, including edit_history/
+    // review_history), skips every queued notification, never clears STATE.editingTaskId, never
+    // navigates, and shows an explicit retry-able error instead of "บันทึกแล้ว" — exactly §15's rule
+    // "Save ต้องไม่แปลว่า Submit สำเร็จ" applied to the Edit path, not just first-time Submit.
+    const savedOk = await saveTasks();
+    if(!savedOk){
+      Object.keys(existing).forEach(k=>{ if(!(k in fullSnapshotBeforeSave)) delete existing[k]; });
+      Object.assign(existing, fullSnapshotBeforeSave);
+      toast('❌ บันทึกไม่สำเร็จ — ข้อมูลของคุณยังอยู่ในฟอร์ม กรุณาลองส่งอีกครั้ง');
+      return;
+    }
+    pendingNotifications.forEach(fn=>fn());
     toast((enteringApproval?'📨 Priority เปลี่ยนเป็นต้องขออนุมัติ — ส่งเข้าคิว Pending Lead Designer Approval แล้ว · ':'') + (wasRejected?'📨 ส่ง Brief ใหม่อีกครั้งแล้ว · ':'') + (changedFields.length ? `💾 บันทึกเป็น Revision ${existing.edit_revision}` + (isImportant?' · แจ้งเตือน Designer แล้ว':'') : '💾 บันทึกแล้ว — ไม่มีการเปลี่ยนแปลง'));
     STATE.editingTaskId = null;
     STATE.tab='workflow'; STATE.sideSection='board'; STATE.cal.selectedDate=null;
@@ -17804,8 +18251,12 @@ async function submitBrief(e){
     priority, needsApproval, platform: platforms,
     task_category: catName, task_type: typeName,
     task_type_other: isOtherCat ? BRIEF_DRAFT.typeOther.trim() : null,
-    kv_status_check: (def && def.kv!==undefined) ? kv : null,
-    kv_asset_link: document.getElementById('f_kvlink_input')?.value || '',
+    // DEV FIX (Krissha — "ปรับใช้ทุก Category/Type"): matches kvVisible in refreshBriefForm() — save the
+    // answer for every non-custom Category/Type now, not only ones with a def.kv/def.noKv split.
+    kv_status_check: (def && !def.custom) ? kv : null,
+    // BUG FIX P0 (Krissha dev-report §8): read BRIEF_DRAFT.kvAssetLink (kept live on every keystroke —
+    // see refreshBriefForm) rather than the DOM node directly, same reasoning as buildDraftSnapshot above.
+    kv_asset_link: BRIEF_DRAFT.kvAssetLink ?? (document.getElementById('f_kvlink_input')?.value || ''),
     // Original (Brief) Quantity vs Actual Quantity (Master Dev Spec Phase E): original_deliverables is a
     // permanent snapshot of what the brief asked for at submit time and never changes; deliverables itself
     // is the ACTUAL/current quantity — the one pointsForTask()/appliedPoints()/Capacity always read — and
@@ -17846,14 +18297,43 @@ async function submitBrief(e){
     overrideBy: needsApproval ? STATE.auth.identity : null,
     overrideAt: needsApproval ? new Date().toISOString() : null,
     review_history: [{timestamp:new Date().toISOString(), action: needsApproval ? 'REQUEST_LEAD_APPROVAL' : 'SUBMIT_BRIEF', comment: needsApproval ? `${priority} — ${BRIEF_DRAFT.urgencyReason}` : '', by: STATE.auth.user?.name || STATE.auth.identity || 'system'}],
+    // BUG FIX (Krissha dev-report §12 — "Draft → Submitted Task ต้องมี Trace"): records which Draft (if
+    // any) this Task was submitted from, so a Task can always be traced back to its origin, and a stray
+    // Draft that fails to delete after a successful Task save (see below) can be identified later by it.
+    source_draft_id: submittedDraftId || null,
   };
   STATE.tasks.push(task);
-  await saveTasks();
+  // BUG FIX P0 (Krissha dev-report §2/§15 — Storage Save Failure): saveTasks() now returns a real
+  // success/failure boolean (see saveKey()). On a confirmed failure the just-pushed Task is popped back
+  // off STATE.tasks, the Draft below is deliberately left completely untouched (exactly what the comment
+  // below already promised — it just couldn't actually detect a failure before saveKey() was fixed), the
+  // form state (BRIEF_DRAFT) is never reset, nothing navigates, and no Notification fires.
+  const taskSavedOk = await saveTasks();
+  if(!taskSavedOk){
+    STATE.tasks = STATE.tasks.filter(t=>t.task_id!==task.task_id);
+    toast('❌ บันทึกบรีฟไม่สำเร็จ — ข้อมูลของคุณยังอยู่ (Draft ไม่ถูกลบ) กรุณาลองส่งอีกครั้ง');
+    return;
+  }
   // DEV MASTER CORRECTION §1 — consume the source Draft only now that the Task is genuinely saved.
   // Save Task FAIL → this never runs → Draft stays exactly as it was, nothing lost on either side.
+  // BUG FIX (Krissha dev-report §12 — safe cleanup ordering): "Duplicate Draft ปลอดภัยกว่า Data Loss" —
+  // the Task above is ALREADY safely saved by this point, so a failure deleting the Draft must never
+  // undo or block that success; the stray Draft is tagged with the Task it was superseded by and left
+  // for a later cleanup pass instead.
   if(submittedDraftId){
-    STATE.drafts = STATE.drafts.filter(d=>d.id!==submittedDraftId);
-    await saveDrafts();
+    const staleDraft = STATE.drafts.find(d=>d.id===submittedDraftId);
+    if(staleDraft) staleDraft.submitted_task_id = task.task_id;
+    const remainingDrafts = STATE.drafts.filter(d=>d.id!==submittedDraftId);
+    const draftCleanupOk = await saveKey('wt_drafts', remainingDrafts);
+    if(draftCleanupOk){
+      STATE.drafts = remainingDrafts;
+    } else {
+      console.warn('Draft cleanup failed after successful Task save — leaving stale Draft', submittedDraftId, 'for later cleanup');
+      // Best-effort only: try to at least persist the submitted_task_id tag on the still-present stale
+      // Draft so a later cleanup pass can find it — never retried beyond this, and never allowed to touch
+      // or roll back the Task above, which is already safely saved either way.
+      await saveDrafts();
+    }
     if(briefDraftAutosaveTimer){ clearTimeout(briefDraftAutosaveTimer); briefDraftAutosaveTimer=null; }
     STATE.editingDraftId = null;
     STATE.briefAutosaveState = 'idle';
