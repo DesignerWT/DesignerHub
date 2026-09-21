@@ -6286,29 +6286,28 @@ function formatElapsedTime(ms){
   const sec = String(s%60).padStart(2,'0');
   return `${h}:${m}:${sec}`;
 }
-// One persistent interval, set up once at script load, instead of a full render() every second — a Kanban
-// card's ticking timer only needs its own text node updated, and re-running render() every second would
-// rebuild the entire page (losing scroll position/focus/open dropdowns) just to change a few digits.
-// querySelectorAll returns nothing when no timer is on screen, so this is a no-op everywhere else.
-setInterval(()=>{
-  document.querySelectorAll('[data-timer-live]').forEach(el=>{
-    const startedAt = el.dataset.timerLive;
-    if(!startedAt) return;
-    el.textContent = formatElapsedTime(Date.now() - new Date(startedAt).getTime());
-  });
-}, 1000);
-// §7 Card Design — the time status line. Timer keeps ticking through In Progress/Waiting Review/Revision
-// (only stops at Completed, per Core Logic), so only the label + color change between those three; a card
-// still in "งานใหม่" hasn't started a timer yet at all.
+// §7 Card Design — Krissha feedback: "ไม่ต้องนับเวลา เดี๋ยว Designer เครียด วัดแค่ ส่งทันเดทไลน์มั้ย" — this used
+// to be a live-ticking HH:MM:SS stopwatch (updated every second via a persistent setInterval on
+// [data-timer-live], removed along with this rewrite since nothing renders that attribute anymore) that sat
+// on every In Progress/Waiting Review/Revision card, visibly counting up while the Designer worked. Replaced
+// with a plain on-time/overdue readout against the real Deadline (prefer_delivery_date) instead — no ticking
+// numbers, just "is this going to make it". started_at/cycle_time_ms are still recorded exactly as before in
+// handleAction() below (in case Lead-side reporting ever wants real cycle-time data) — this only changes
+// what's shown on the card itself.
 function myWorkKanbanTimerHTML(t, colKey){
-  if(colKey==='new') return `<div class="kanban-timer kanban-timer-idle">ยังไม่เริ่มจับเวลา</div>`;
-  if(colKey==='completed') return `<div class="kanban-timer kanban-timer-done">✓ Completed · ${formatElapsedTime(t.cycle_time_ms)}</div>`;
+  if(colKey==='new') return `<div class="kanban-timer kanban-timer-idle">ยังไม่เริ่มทำ</div>`;
+  if(colKey==='completed'){
+    const delivered = deliveredDateOf(t);
+    const onTime = !t.prefer_delivery_date || !delivered || delivered<=t.prefer_delivery_date;
+    return `<div class="kanban-timer ${onTime?'kanban-timer-active':'kanban-timer-revision'}">${onTime?'✓ ส่งทันเดทไลน์':'⚠ ส่งช้ากว่าเดทไลน์'}</div>`;
+  }
   if(!t.started_at) return ''; // defensive only — every non-"new" task should have started_at once "start" ran
-  const elapsedNow = formatElapsedTime(Date.now() - new Date(t.started_at).getTime());
-  if(colKey==='in_progress') return `<div class="kanban-timer kanban-timer-active">● <span data-timer-live="${t.started_at}">${elapsedNow}</span></div>`;
-  if(colKey==='waiting_review') return `<div class="kanban-timer kanban-timer-review">Waiting Review · <span data-timer-live="${t.started_at}">${elapsedNow}</span></div>`;
-  if(colKey==='revision') return `<div class="kanban-timer kanban-timer-revision">Revision · <span data-timer-live="${t.started_at}">${elapsedNow}</span></div>`;
-  return '';
+  const phase = colKey==='in_progress' ? 'กำลังทำ' : colKey==='waiting_review' ? 'Waiting Review' : colKey==='revision' ? 'Revision' : '';
+  if(!t.prefer_delivery_date) return `<div class="kanban-timer kanban-timer-active">${phase}</div>`;
+  const today = todayISO();
+  if(t.prefer_delivery_date<today) return `<div class="kanban-timer kanban-timer-revision">${phase?phase+' · ':''}⚠ เลยเดทไลน์แล้ว</div>`;
+  if(t.prefer_delivery_date===today) return `<div class="kanban-timer kanban-timer-review">${phase?phase+' · ':''}ครบกำหนดวันนี้</div>`;
+  return `<div class="kanban-timer kanban-timer-active">${phase?phase+' · ':''}🟢 ทันเดทไลน์</div>`;
 }
 // §7 Card Design: "ไม่ควรใส่ข้อมูลเยอะเกินไป" — task name, type/platform, priority, deadline, requester,
 // points, time status only.
@@ -9387,11 +9386,18 @@ function renderVBInputsPanel(){
     </div>
     <div class="refimg-row">
       ${renderReferencesAssetsHTML(aw)}
-      <div class="field vif-refimgs">
+      ${CANVAS_EDITOR_ENABLED ? `<div class="field vif-refimgs">
         <label>Images (สูงสุด 10 รูป)</label>
         <div class="upload-grid ref-upload-grid" id="uploadGrid">${uploadGridHTML()}</div>
         <div class="hint">ลากรูป หรือกดปุ่ม "＋ Canvas" บนรูป เพื่อวางลงบน Canvas</div>
-      </div>
+      </div>` : ''}
+      <!-- Krissha: "Hide แอดรูป ไว้" — hidden together with the Canvas editor (CANVAS_EDITOR_ENABLED=false):
+           its hint text points at a "+ Canvas" button that no longer exists while Canvas is off, and this
+           upload stores full base64 images straight onto the brief document — the same overflow risk that
+           made a colleague's Canvas brief fail to save in the first place, so it stays off until Canvas
+           itself comes back (or moves to real file storage instead of inline base64). Already-uploaded
+           images on older artworks are untouched and still show up for the Designer on Task Workspace
+           (renderKeyVisualCard/briefImagesSrc) — this only hides the "add more" upload box. -->
     </div>
     <div class="field" id="templateBtnWrap" style="margin-top:8px"></div>
     <div class="vbe-autosync-note">✓ ข้อมูลด้านบนอัปเดต Visual Brief Summary อัตโนมัติ — แยกเป็นรายชิ้นต่อ Artwork (ไม่ใช้ร่วมกัน)</div>
@@ -17716,6 +17722,21 @@ function computeFinalCheckState(){
   if(dateVal && assignee){
     const ev = evaluateDelivery(assignee, dateVal, currentTaskPoints(), priority);
     dateAllowed = ev.allowed;
+    // BUG FIX (Krissha: "ทำไมส่งไม่ได้" on the Capacity Override request panel): the Capacity Override flow
+    // exists specifically for a date evaluateDelivery is BLOCKING as over-capacity (that's the whole reason
+    // the 3-choice exception panel shows up at all) — so this date check would always fail Final Check for
+    // exactly the date the requester is trying to push through, and the "sendoverride" button's own
+    // fc.canSubmit gate (added in an earlier fix) would then always bounce it right back, making the entire
+    // Capacity Override feature unable to ever actually submit. Once the requester has picked "ขอ Designer
+    // รับงานวันที่นี้" for this date and filled in a valid reason + ticked the acknowledgement, treat the date
+    // as satisfied for Final Check too. Hard locks (weekend/holiday/full leave/all-day Internal Task) are
+    // deliberately NOT included — Capacity Override was only ever meant to bypass the soft "over capacity"
+    // block, never those, and the exception panel itself never offers this path for a hard-locked date.
+    if(!dateAllowed && !ev.hardLocked && BRIEF_DRAFT.capacityFlow==='override'){
+      const of = BRIEF_DRAFT.overrideForm;
+      const overrideReady = !!of.reason && (of.reason!=='Other' || !!of.reasonOther.trim()) && !!of.ack;
+      if(overrideReady) dateAllowed = true;
+    }
   }
   const urgencyOk = !needsApproval ? true : (BRIEF_DRAFT.urgencyReason && (BRIEF_DRAFT.urgencyReason!=='Other' || BRIEF_DRAFT.urgencyNote.trim()));
 
