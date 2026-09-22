@@ -12239,20 +12239,26 @@ function renderBoardQueue(filtered){
     </div>
     <div style="height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:10px">
       <table class="dash-matrix" style="text-align:left;width:100%">
-        <thead style="position:sticky;top:0;background:#fff;z-index:1"><tr><th>#</th><th>DL</th><th>ชื่องาน / Campaign</th><th>ผู้สั่ง</th><th>Designer</th><th>Status</th></tr></thead>
+        <thead style="position:sticky;top:0;background:#fff;z-index:1"><tr><th>#</th><th>DL</th><th>ชื่องาน / Campaign</th><th>ประเภทงานย่อย</th><th>ผู้สั่ง</th><th>Designer</th><th>Status</th></tr></thead>
         <tbody>
           ${list.length ? list.map((t,i)=>{
             const requesterName = findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '—';
             // §6 — subline is Campaign/Project + Platform, never Project + Task Category.
             const subline = [t.project_name||'', (t.platform||[]).join(', ')].filter(Boolean).join(' · ');
+            // Krissha follow-up ("อยากเพิ่ม ให้เห็น ประเภทงานย่อยด้วยค่ะ") — task_type is the granular
+            // Artwork Type under task_category (e.g. "Banner Campaign Post" under "Content"); falls back to
+            // task_category itself for the rare task with no task_type set, matching the fallback pattern
+            // already used everywhere else in this file (e.g. myCompletedFilterOptions/renderMyCompletedJobs).
+            const subType = t.task_type || t.task_category || '—';
             return `<tr data-opentask="${t.task_id}" style="cursor:pointer;height:54px">
             <td>${String(i+1).padStart(2,'0')}</td>
             <td>${fmtDate(t.prefer_delivery_date)}</td>
             <td><div style="font-weight:700">${escAttr(taskDisplayName(t))}</div><div class="hint">${escAttr(subline)}</div></td>
+            <td>${escAttr(subType)}</td>
             <td>${escAttr(requesterName)}</td>
             <td>${escAttr(t.assigned_user_name||t.suggested_designer||'—')}</td>
             <td>${STATUS_LABEL[t.review_status]||t.review_status}</td>
-          </tr>`;}).join('') : `<tr><td colspan="6" class="hint" style="padding:20px;text-align:center">ไม่มีงาน</td></tr>`}
+          </tr>`;}).join('') : `<tr><td colspan="7" class="hint" style="padding:20px;text-align:center">ไม่มีงาน</td></tr>`}
         </tbody>
       </table>
     </div>
@@ -14669,7 +14675,7 @@ function renderMonthlyOverviewDayBreakdown(dateStr){
         </div>
         <div class="hint" style="margin-bottom:8px">${(r.st.key==='leave'||r.st.key==='holiday')?'OFF':`${r.st.points.toFixed(1)} / ${DAILY_CAP} ชม.`} · ${r.myTasks.length} Tasks</div>
         ${r.myTasks.length ? r.myTasks.map(t=>`<div class="sl-row">
-          <span class="sl-k">${taskDisplayName(t)} ${priorityBadgeSm(t.priority)}${t.capacity_override?' 🟠 Override':''}</span>
+          <span class="sl-k">${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''} ${priorityBadgeSm(t.priority)}${t.capacity_override?' 🟠 Override':''}</span>
           <span class="sl-v">${taskLoadOnDate(t,dateStr).toFixed(1)} ชม.</span>
         </div>`).join('') : `<div class="hint">ไม่มีงานวันนี้</div>`}
       </div>`).join('')}
@@ -15053,7 +15059,7 @@ function renderDashDateDrawer(dateStr){
       </div>`).join('')}
       <div class="hint" style="font-weight:700;margin:10px 0 4px">Tasks (${allTasksToday.length})</div>
       ${allTasksToday.length ? allTasksToday.map(t=>`<div class="sl-row">
-        <span class="sl-k">${taskDisplayName(t)} ${priorityBadgeSm(t.priority)}${t.capacity_override?' 🟠 Override':''}</span>
+        <span class="sl-k">${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''} ${priorityBadgeSm(t.priority)}${t.capacity_override?' 🟠 Override':''}</span>
         <span class="sl-v">${taskLoadOnDate(t,dateStr).toFixed(1)} ชม.</span>
       </div>`).join('') : `<div class="hint">ไม่มีงานวันนี้</div>`}
       ${(isWeekend(dateStr)||isPublicHoliday(dateStr)) ? `<div class="hint" style="margin-top:8px">📅 Holiday / Weekend</div>` : ''}
@@ -15781,8 +15787,8 @@ function renderDesignerDrawerBody(person, drawerDate, opts){
   // Right column: the actual line-item breakdown (what/whose — the part Krissha asked this drawer for).
   const rightHtml = `
       ${bd.tasks.length ? `<div class="eyebrow"${opts.twoColumn?'':' style="margin-top:14px"'}>Tasks on ${fmtDate(drawerDate)}</div>
-        ${bd.master.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Master</div>${bd.master.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${taskLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
-        ${bd.revision.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Revision</div>${bd.revision.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${taskLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
+        ${bd.master.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Master</div>${bd.master.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${taskLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
+        ${bd.revision.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Revision</div>${bd.revision.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${taskLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
       ` : `<div class="hint"${opts.twoColumn?'':' style="margin-top:10px"'}>ไม่มีงานในวันนี้</div>`}
 
       <div class="eyebrow" style="margin-top:16px;display:flex;align-items:center;justify-content:space-between">
@@ -15792,7 +15798,7 @@ function renderDesignerDrawerBody(person, drawerDate, opts){
       ${canViewInternalDetail({person}) ? renderMyWorkTimelineInternalOnly(person, drawerDate) : renderInternalTasksAggregateOnly(person, drawerDate)}
 
       ${upcoming.length ? `<div class="eyebrow" style="margin-top:16px">Upcoming Work</div>
-        ${upcoming.map(t=>`<div class="sl-row"><span class="sl-k">${fmtDate(t.prefer_delivery_date)} — ${taskDisplayName(t)}</span><span class="sl-v">${appliedPoints(t).toFixed(1)} ชม. · ${t.priority}</span></div>`).join('')}` : ''}
+        ${upcoming.map(t=>`<div class="sl-row"><span class="sl-k">${fmtDate(t.prefer_delivery_date)} — ${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''}</span><span class="sl-v">${appliedPoints(t).toFixed(1)} ชม. · ${t.priority}</span></div>`).join('')}` : ''}
   `;
   // Krissha feedback on the inline (Team Capacity) card: "แบ่งซ้ายขวา ไม่ต้องการให้ยาว" — the card has the full
   // page width available there (unlike the narrow 480px side-panel drawer, which stays single-column), so
