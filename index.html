@@ -77,6 +77,8 @@ body{
 }
 .avatar{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));
   color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+/* Hidden by default (desktop) — shown only under the @media(max-width:640px) mobile-nav rule above. */
+.navhamburger{display:none;flex-shrink:0;margin-right:4px;font-size:16px}
 .usermenu-drop{position:fixed;top:46px;right:18px;width:220px;background:#fff;border-radius:16px;box-shadow:var(--shadow-md);
   border:1px solid var(--line);overflow:hidden;z-index:50}
 .usermenu-head{padding:12px 14px;border-bottom:1px solid var(--line)}
@@ -108,7 +110,14 @@ body{
 .sidenav-chev{display:inline-block;width:12px;font-size:10px;color:var(--ink-faint)}
 .sidenav-child{padding-left:26px;font-size:12.5px}
 .admin-pin{margin-top:auto;text-align:center;font-size:10px;color:var(--ink-faint);padding:8px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
-.main{flex:1;padding:22px 26px 60px;overflow-y:auto;min-width:0}
+/* overflow-x:hidden here is a page-wide safety net (Krissha, "แก้ทั้งระบบ ให้ใช้งานได้ทั้งบนเว็บและโมบาย")
+   — .main is already the app's real scroll container (min-width:0 already stops it blowing out its flex
+   parent), so if any one page's content ever refuses to shrink below the phone's viewport width, it now
+   just clips/wraps inside this container instead of forcing the WHOLE page to scroll sideways. A
+   genuinely wide element inside a page (a table, the Kanban board, the Task Workspace canvas strip) should
+   keep scrolling horizontally within its own card via its own overflow-x:auto, same as before — this only
+   stops an accidental one from taking the rest of the page with it. */
+.main{flex:1;padding:22px 26px 60px;overflow-y:auto;overflow-x:hidden;min-width:0}
 /* Studio Flow bridge (Krissha, request): the whole "Studio Flow" reference system embedded verbatim in a
    sandboxed iframe — see ensureStudioFlowFrame()/renderStudioFlowPage() near the bottom of the script. This
    page renders only an invisible layout placeholder; the real <iframe> lives outside the innerHTML-managed
@@ -130,7 +139,27 @@ h1.pagetitle{font-family:var(--font-app);font-size:20px;margin:0 0 3px;letter-sp
 .grid-3{grid-template-columns:repeat(3,1fr)}
 .grid-4{grid-template-columns:repeat(4,1fr)}
 @media(max-width:1000px){.grid-3,.grid-4{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:640px){.grid-3,.grid-4{grid-template-columns:1fr}.sidebar{display:none}.main{padding:16px}}
+/* Mobile nav (Krissha, "แก้ทั้งระบบ ให้ใช้งานได้ทั้งบนเว็บและโมบาย"): the Sidebar used to just vanish
+   below 640px with nothing to replace it — fine for pages reachable from the Top Nav categories alone,
+   but every Sidebar-only sub-page (CI Reference Center, Brand/Design Assets, Studio Flow, Frame, Image
+   Stitching, Team Capacity, Monthly Overview, etc.) became completely unreachable on a phone. It's now a
+   slide-in overlay drawer instead: hidden off-screen by default, toggled by the hamburger button in the
+   Top Nav (#mobileNavToggle, see renderTopNav) which only exists in the DOM below this same breakpoint,
+   and closed again by tapping the dimmed backdrop or any nav item inside it (every existing [data-side]/
+   [data-navtool] click already runs resetLeftPageEphemeralState(), which now also closes the drawer — see
+   that function — so no per-item wiring was needed). Desktop layout (>640px) is completely untouched. */
+@media(max-width:640px){
+  .grid-3,.grid-4{grid-template-columns:1fr}
+  .main{padding:16px}
+  .navhamburger{display:flex}
+  .sidebar{
+    display:flex;position:fixed;top:0;left:0;bottom:0;width:min(78vw,300px);z-index:150;
+    transform:translateX(-100%);transition:transform .22s ease-out;box-shadow:var(--shadow-md);
+    background:#fff;backdrop-filter:none;overflow-y:auto;
+  }
+  .sidebar.mobile-open{transform:translateX(0)}
+  .sidebar-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.4);z-index:149}
+}
 @media(max-width:760px){.tcdrawer-cols{grid-template-columns:1fr!important}}
 
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
@@ -180,10 +209,27 @@ textarea{resize:vertical;min-height:64px}
 .mywork-list{display:flex;flex-direction:column;gap:2px}
 .mywork-row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px dashed var(--line)}
 .mywork-row:last-child{border-bottom:none}
+.mywork-tier{font-weight:700;flex-shrink:0;min-width:120px;font-size:11px}
 .mywork-name{font-weight:700;font-size:12px;flex:1;min-width:0}
 .mywork-meta{color:var(--ink-faint);font-size:11px;flex-shrink:0}
 .mywork-pts{font-weight:700;font-size:11px;flex-shrink:0;white-space:nowrap}
 .mywork-actions{display:flex;gap:4px;flex-shrink:0}
+/* Mobile (Krissha, screenshot from gdwtworking.netlify.app on iPhone Safari — "งานที่ต้องจัดการวันนี้"
+   rows were overlapping/cut off): every .mywork-row is a single flex line with several flex-shrink:0
+   items (tier label, meta, date/points) plus one flexible name — on a phone-width screen there just isn't
+   room for all of them side by side, so text wrapped inside its own narrow column and visually collided
+   with its neighbors. Below 640px (same breakpoint the rest of the app already uses for mobile), the row
+   wraps onto its own lines instead: tier label full-width on top (when present), task name full-width
+   below it (free to wrap normally, no more overlap), then meta + date share a line with the date pushed
+   to the right — nothing gets clipped or hidden, it just stacks instead of forcing one cramped row. */
+@media(max-width:640px){
+  .mywork-row{flex-wrap:wrap;row-gap:3px}
+  .mywork-tier{min-width:0;width:100%}
+  .mywork-name{flex:1 1 100%;white-space:normal}
+  .mywork-meta{flex:1 1 auto}
+  .mywork-pts{margin-left:auto}
+  .mywork-actions{width:100%;justify-content:flex-end}
+}
 .perf-table{width:100%;border-collapse:collapse}
 .perf-table th{text-align:left;font-size:11px;color:var(--ink-faint);padding:6px 8px;border-bottom:1px solid var(--line)}
 .perf-table td{padding:8px;border-bottom:1px dashed var(--line);font-size:12px}
@@ -1904,10 +1950,17 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
       // this page view. set() always writes straight through (never served from cache).
       const __fbCache = {};
       window.storage = {
-        get: async (key) => {
+        // bypassCache (Krissha dev-report, 2026-09-22 — "Owner Project's device showed a brief came in,
+        // but nowhere else — not even reloading the same account — showed it anymore"): every existing
+        // call site already passes a 2nd argument of `true` here, but this function used to ignore it
+        // entirely and always serve from __fbCache once warm. saveTasks() below needs a genuinely FRESH
+        // read right before it writes (see there for why), so this now actually honors that 2nd argument
+        // as "skip the cache, hit Firestore directly" — every pre-existing call site's behavior is
+        // unchanged (the cache is always empty on their first read anyway, at boot).
+        get: async (key, bypassCache) => {
           if (!__fbReady) { window.__storageOffline = true; return null; }
           try {
-            if (key in __fbCache) { __sawStorageSuccess = true; return __fbCache[key]; }
+            if (!bypassCache && key in __fbCache) { __sawStorageSuccess = true; return __fbCache[key]; }
             const snap = await window.__fbDb.collection(FIRESTORE_COLLECTION).doc(key).get();
             const result = snap.exists ? { value: snap.data().value } : null;
             __fbCache[key] = result;
@@ -2059,7 +2112,7 @@ const MASTER_TABLE = {
   "Content": { role:"Content Designer", types:{
     "Content Single Post":{base:3.0}, "Content Album Post":{base:4.0}, "Video Content":{base:6.0},
     "Facebook Ads":{base:3.0}, "Cover FB":{base:3.0}, "Frame Live Motion":{base:1.0},
-    "Banner Campaign Post":{kv:1.0, noKv:3.0}, "Promotion Platform (Content)":{base:3.0},
+    "Banner Campaign Post":{base:3.0}, "Promotion Platform (Content)":{base:3.0},
     "Planner Content":{base:8.0}, "Apply Frame Automation (→ Product)":{base:1.0, reroute:"Product"},
     "อื่นๆ ระบุ":{custom:true},
   }},
@@ -2090,9 +2143,26 @@ const REVISE_RATES = {"None":0, "Revise 25%":0.25, "Revise 50%":0.50, "Revise 75
 // a different feature — do not confuse the two).
 const KV_STATUS_LABEL = {
   HAS_WORKING_FILE:"มี KV / Working File", NEED_NEW_KV:"ไม่มี KV — ต้องสร้างใหม่",
-  REVISE_UNDER50:"Revise จากงานเก่า ≤50%", REVISE_OVER50:"Revise จากงานเก่า >50%",
+  REVISE_UNDER50:"Revise น้อยกว่า 50%", REVISE_OVER50:"Revise มากกว่า 50%",
+  NORMAL_NEW:"งานใหม่ (ไม่มี Revise)",
 };
 const KV_REVISE_HOURS = {REVISE_UNDER50:1.0, REVISE_OVER50:2.0};
+// DEV FIX (Krissha — "เอา KV ออกจาก Content กับ Product, เปลี่ยน Revise เป็น % ของแต้มปกติ" then later
+// "revise แบบใหม่ ใช้กับทุกหมวด อีคอมเมิซ คอนเทน โปรดัก"): Revise จากงานเก่า is a % of the Type's own
+// normal point value instead of the flat 1ชม./2ชม. in KV_REVISE_HOURS above — Revise มากกว่า 50% = 100%
+// of normal (same points as a normal full build), Revise น้อยกว่า 50% = 1/3 (33%) of normal. Applies to
+// E-Commerce, Content & Product (Krissha explicitly listed these three); Offline Artwork still isn't
+// mentioned so it keeps KV_REVISE_HOURS above unchanged. "มี KV"/"ไม่มี KV" itself is only dropped for
+// Content & Product (see refreshBriefForm() — those two options hidden from #f_kv for those categories,
+// replaced by the neutral NORMAL_NEW status below); E-Commerce/Offline Artwork keep asking it as before,
+// it's only how Revise is computed that now also applies to E-Commerce. See pointsForTask().
+const KV_REVISE_PERCENT_CATEGORIES = ["E-Commerce","Content","Product"];
+const KV_REVISE_PERCENT = {REVISE_UNDER50: 1/3, REVISE_OVER50: 1.0};
+// Content/Product's own neutral "no revise, brand-new build" status — kept as its own distinct value
+// (not reusing NEED_NEW_KV) so it never trips briefIntakeIsWaitingBrief()'s "waiting for a KV asset"
+// flag, which checks specifically for NEED_NEW_KV — that flag stays scoped to E-Commerce/Offline
+// Artwork's unchanged มี KV/ไม่มี KV question.
+const KV_STATUS_NORMAL_NEW = "NORMAL_NEW";
 const STATUS_ORDER = ["pending_lead_approval","new","in_progress","pending_review","revision","pending_client_review","delivered","rejected","closed_max_revision"];
 const STATUS_LABEL = {
   pending_lead_approval:"Pending Lead Designer Approval",
@@ -2446,6 +2516,10 @@ async function confirmCapacityOverrideProposedDate(taskId){
 let STATE = {
   auth:{loggedIn:false, role:null, identity:null, isAdminUnlocked:false, user:null},
   tab:"workflow", sideSection:"board",
+  // Mobile nav (Krissha, "แก้ทั้งระบบ ให้ใช้งานได้ทั้งบนเว็บและโมบาย") — whether the Sidebar's slide-in
+  // overlay drawer is open on a phone-width screen; irrelevant/unused above the 640px breakpoint where the
+  // Sidebar is a normal flex column again. Reset to false on every navigation — see resetLeftPageEphemeralState().
+  mobileSidebarOpen:false,
   tasks:[], leaves:[], products:[], notifications:[],
   // DEV MASTER REQUEST §12 — Admin Notification Delivery Log: one entry per notifyUsers() call, each
   // holding the per-recipient in-app/email delivery outcome, so a failure can be told apart as a
@@ -3707,7 +3781,95 @@ async function saveKey(key, val){
     return true;
   }catch(e){ toast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง"); return false; }
 }
-const saveTasks = ()=>saveKey('wt_tasks', STATE.tasks);
+// BUG FIX P0 (Krissha dev-report, 2026-09-22 — "เครื่องของ Owner Project ขึ้นคิวงาน แต่ในระบบที่เข้ามาดูไม่
+// เจอ" — Supply Chain Worldtech's own device showed her 3 new briefs land successfully, but they had
+// silently vanished everywhere else, including her own account on reload): root cause was saveTasks()
+// unconditionally overwriting the ENTIRE `wt_tasks` Firestore document with whatever STATE.tasks this one
+// browser tab happened to hold — there is no realtime listener anywhere in this app, so a tab loaded
+// BEFORE those briefs were created still has a stale, brief-less STATE.tasks in memory. The very next time
+// that stale tab does ANYTHING that calls saveTasks() (any Designer/Lead action at all — approving QC,
+// editing scope, submitting a delivery link…), it would blindly write its stale array over the newly
+// created briefs, erasing them for everyone, permanently — a last-write-wins race across the WHOLE task
+// list rather than per-task. Fix: saveTasks() now fetches the current server copy immediately before
+// writing (bypassCache:true — see window.storage.get above, a cached read here would defeat the entire
+// point) and merges by task_id instead of blindly replacing: a task this client doesn't know about yet
+// (created/edited by someone else since this tab last loaded) is preserved rather than dropped, a task
+// this client is actively saving overwrites the server's copy of just that one task (last-write-wins is
+// now scoped to a single task, never the whole list), and STATE.tasks is updated to match what was
+// actually written so this tab's own view — and its next save — stay consistent with reality. This can't
+// fully solve two people editing the exact same task at the same instant (that one task's edit still
+// last-write-wins), but it eliminates the failure mode reported here: an unrelated task quietly wiping out
+// someone else's brand-new brief. `deletedIds` (optional) lists task_id's this specific call is
+// intentionally removing — WITHOUT it, a task present on the server but absent from STATE.tasks reads as
+// "some other tab already has it, I just haven't loaded it" and gets restored; deleteBriefTask() and
+// adminPurgeTasks() below pass their deleted id(s) explicitly so a real, intentional delete still sticks.
+// Krissha — "รีเช็คว่างานจะเป็นปัจจุบัน เรียลทามกับผู้ใช้คนอื่นๆ": incremented for the duration of every
+// saveTasks() call (synchronously, before its first await, so there's no gap another tick could slip
+// into) so refreshTasksFromServer() below knows never to overwrite STATE.tasks while a save from THIS
+// tab is genuinely in flight — that save already does its own fetch-merge-write against the live server
+// copy, so a concurrent blind refresh here could only ever cause a harmless flicker at best, or step on
+// the save's own merge at worst.
+let TASKS_SAVE_INFLIGHT = 0;
+async function saveTasks(deletedIds){
+  TASKS_SAVE_INFLIGHT++;
+  try{
+    const delSet = new Set(deletedIds||[]);
+    try{
+      const serverRaw = await window.storage.get('wt_tasks', true);
+      const serverTasks = serverRaw ? JSON.parse(serverRaw.value) : [];
+      const localById = new Map(STATE.tasks.map(t=>[t.task_id, t]));
+      const merged = []; const seen = new Set();
+      serverTasks.forEach(st=>{
+        if(delSet.has(st.task_id)) return; // this call is the one deleting it — let it stay gone
+        merged.push(localById.has(st.task_id) ? localById.get(st.task_id) : st);
+        seen.add(st.task_id);
+      });
+      STATE.tasks.forEach(t=>{ if(!seen.has(t.task_id) && !delSet.has(t.task_id)) merged.push(t); });
+      STATE.tasks = merged;
+    }catch(e){
+      console.error('saveTasks: pre-write merge fetch failed, writing local state as-is', e);
+    }
+    return await saveKey('wt_tasks', STATE.tasks);
+  } finally {
+    TASKS_SAVE_INFLIGHT--;
+  }
+}
+// DEV FIX (Krissha — "รีเช็คว่างานจะเป็นปัจจุบัน เรียลทามกับผู้ใช้คนอื่นๆ"): saveTasks()'s fetch-merge-write
+// (above) only protects the moment THIS tab writes — it doesn't stop a tab that's just been sitting open
+// for hours from showing everyone else's stale data in between saves (this app has no onSnapshot/realtime
+// listener — STATE.tasks is otherwise only ever loaded once, at boot). This polls the server copy (see
+// boot()) and adopts it wholesale — safe to fully trust the server here (unlike saveTasks()'s own merge,
+// which must protect an in-flight local edit) specifically BECAUSE it's skipped outright whenever
+// TASKS_SAVE_INFLIGHT says this tab has one of its own edits mid-flight; that save's own merge already
+// re-fetches fresh, so no data can be lost.
+// BUG FIX (Krissha report — "Message rate limit exceeded" in console after this shipped): the first
+// version polled every 60s AND refetched on every tab-focus with no cooldown between the two, which was
+// simply too many Firestore reads too close together once a few tabs were open and someone was switching
+// between them — TASKS_REFRESH_MIN_GAP_MS below is a hard floor between ANY two actual server reads,
+// whatever triggered them (the 5-minute interval in boot() or a tab regaining focus), so switching tabs
+// rapidly or having several tabs open can no longer pile up requests. Still not true instant realtime (an
+// idle tab can be up to 5 minutes stale, and two tabs saving the exact same task at the exact same instant
+// is still last-write-wins on that one task, same limitation saveTasks() itself documents) but it no
+// longer risks tripping a rate limit to get there.
+let lastTasksRefreshAt = 0;
+const TASKS_REFRESH_MIN_GAP_MS = 90000;
+async function refreshTasksFromServer(){
+  if(TASKS_SAVE_INFLIGHT>0) return false; // a save from this tab is mid-flight — let it finish undisturbed
+  if(Date.now() - lastTasksRefreshAt < TASKS_REFRESH_MIN_GAP_MS) return false; // too soon since the last real check
+  lastTasksRefreshAt = Date.now();
+  try{
+    const raw = await window.storage.get('wt_tasks', true);
+    if(!raw) return false;
+    const serverTasks = JSON.parse(raw.value);
+    if(TASKS_SAVE_INFLIGHT>0) return false; // re-check — a save could have started while we awaited above
+    if(JSON.stringify(serverTasks)===JSON.stringify(STATE.tasks)) return false; // nothing actually changed
+    STATE.tasks = serverTasks;
+    return true;
+  }catch(e){
+    console.error('refreshTasksFromServer failed (non-fatal — next 60s poll or manual reload will retry)', e);
+    return false;
+  }
+}
 const saveUsers = ()=>saveKey('wt_users', STATE.users);
 const saveDepartments = ()=>saveKey('wt_departments', STATE.departments);
 const saveDrafts = ()=>saveKey('wt_drafts', STATE.drafts);
@@ -3961,6 +4123,16 @@ function pointsForTask(t){
   // own kv/noKv types included) and any other KV status keep the original logic below untouched.
   if(t.task_category === "E-Commerce" && def.kv !== undefined && t.kv_status_check === "NEED_NEW_KV"){
     return Math.round((3 + (deliverables - 1)) * 100) / 100;
+  }
+  // DEV FIX (Krissha — "เอา KV ออกจาก Content กับ Product, Revise คิดเป็น % ของแต้มปกติแทน"): Content &
+  // Product only — Revise จากงานเก่า is a % of this Type's own normal value (def.noKv if it has one,
+  // else def.base), not a flat hour count. >50% revised = ×1.0 (full normal points), ≤50% revised =
+  // ×1/3. Checked BEFORE the universal KV_REVISE_HOURS block below so these two categories take this
+  // path instead; E-Commerce/Offline Artwork never match KV_REVISE_PERCENT_CATEGORIES and fall through
+  // to KV_REVISE_HOURS unchanged.
+  if(KV_REVISE_PERCENT_CATEGORIES.includes(t.task_category) && KV_REVISE_PERCENT[t.kv_status_check] !== undefined){
+    const normal = def.kv !== undefined ? def.noKv : (def.base || 0);
+    return Math.round(normal * KV_REVISE_PERCENT[t.kv_status_check] * deliverables * 100) / 100;
   }
   // DEV FIX (Krissha — Revise จากงานเก่า, "ปรับใช้ทุก Category/Type"): flat 1ชม./2ชม. per deliverable —
   // never def.kv/def.noKv/def.base, whatever the category's own numbers are, since these two are fixed
@@ -4301,15 +4473,30 @@ function emailTaskLink(t){
 }
 function emailLink(label, url){ return url ? `[ ${label} ] ${url}` : ''; }
 function emailBriefOwnerName(t){ return findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '-'; }
+// DEV FIX (Krissha — "อีเมลอ่านยาก อาจจะทำตัวหนา ตรงที่เป็นหัวข้อด้านหน้า"): emails go out as PLAIN TEXT
+// (deliverRawEmail() just passes `body` to the Apps Script proxy's MailApp.sendEmail — no htmlBody, see
+// the comment there), so there's no real bold formatting available. This swaps each label's normal ASCII
+// letters/digits for their Unicode "Mathematical Sans-Serif Bold" lookalikes instead — genuinely different
+// characters that render bold in any mail client (Gmail, Outlook, mobile) with zero change needed on the
+// Apps Script side, since as far as MailApp/SMTP is concerned it's still one plain string.
+function emailBoldLabel(str){
+  return String(str).replace(/[A-Za-z0-9]/g, ch=>{
+    const code = ch.codePointAt(0);
+    if(code>=65 && code<=90) return String.fromCodePoint(0x1D5D4 + (code-65));   // A-Z
+    if(code>=97 && code<=122) return String.fromCodePoint(0x1D5EE + (code-97));  // a-z
+    if(code>=48 && code<=57) return String.fromCodePoint(0x1D7EC + (code-48));   // 0-9
+    return ch;
+  });
+}
 function emailTaskBlock(t){
   return [
-    `Task: ${taskDisplayName(t)}`,
-    `Task ID: ${t.task_id}`,
-    t.project_name ? `Project: ${t.project_name}` : '',
-    `Priority: ${t.priority||'-'}`,
-    `Designer: ${t.assigned_user_name||'-'}`,
-    `Brief Owner: ${emailBriefOwnerName(t)}`,
-    `Deadline: ${fmtDate(t.prefer_delivery_date)}`
+    `${emailBoldLabel('Task')}: ${taskDisplayName(t)}`,
+    `${emailBoldLabel('Task ID')}: ${t.task_id}`,
+    t.project_name ? `${emailBoldLabel('Project')}: ${t.project_name}` : '',
+    `${emailBoldLabel('Priority')}: ${t.priority||'-'}`,
+    `${emailBoldLabel('Designer')}: ${t.assigned_user_name||'-'}`,
+    `${emailBoldLabel('Brief Owner')}: ${emailBriefOwnerName(t)}`,
+    `${emailBoldLabel('Deadline')}: ${fmtDate(t.prefer_delivery_date)}`
   ].filter(Boolean).join('\n');
 }
 const EMAIL_EVENT_TITLE = {
@@ -4453,7 +4640,7 @@ const EMAIL_EVENT_BODY = {
     return `Task ถูก Reopen\n\nงานที่เคย Completed ถูกนำกลับเข้าสู่ Revision Queue\n\nเปิดโดย: ${extra.reopenedBy||'-'}\n\nเหตุผล\n${extra.reason||'-'}\n\nกรุณาตรวจสอบ Feedback / Requirement ล่าสุดก่อนดำเนินงานต่อ\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
   },
   DEADLINE_DUE_SOON(t, extra){
-    return `งานใกล้ถึงกำหนดส่ง\n\nDeadline: ${fmtDate(t.prefer_delivery_date)}\n\nงานนี้ยังอยู่ในสถานะ ${extra.status||t.review_status||'-'}\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
+    return `งานใกล้ถึงกำหนดส่ง\n\n${emailBoldLabel('Deadline')}: ${fmtDate(t.prefer_delivery_date)}\n\nงานนี้ยังอยู่ในสถานะ ${extra.status||t.review_status||'-'}\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
   },
   DEADLINE_OVERDUE(t, extra){
     return `งานเลย Delivery Date แล้ว\n\nDeadline: ${fmtDate(t.prefer_delivery_date)}\nCurrent Status: ${extra.status||t.review_status||'-'}\n\nDesigner และ Lead Designer กรุณาตรวจสอบสถานะของงาน\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
@@ -4469,7 +4656,7 @@ function buildEventEmail(eventType, t, extra, role){
   if(!title || !bodyFn) return null;
   const subject = `WORLDTECH | ${title} — ${taskDisplayName(t)}`;
   const content = bodyFn(t, extra||{}, role||'');
-  const body = `WORLDTECH\nGraphic Workflow\n\n${emailTaskBlock(t)}\n\n${content}`;
+  const body = `${emailBoldLabel('WORLDTECH')}\nGraphic Workflow\n\n${emailTaskBlock(t)}\n\n${content}`;
   return {subject, body};
 }
 function sendEventEmail(to, eventType, t, extra, role){
@@ -5367,6 +5554,7 @@ function renderTopNav(){
   const canToggleAdminMode = hasAdminAccess() && STATE.auth.role!=='admin';
   return `
   <div class="topnav">
+    <button type="button" class="iconbtn navhamburger" id="mobileNavToggle" aria-label="เมนู">☰</button>
     <div class="brandmark"><span class="dot"></span>GD Worldtech</div>
     ${cats.map(c=>`<button class="tabbtn ${activeCat===c.id?'active':''}" data-navcat="${c.id}">${c.label}</button>`).join('')}
     <div class="spacer"></div>
@@ -5524,7 +5712,7 @@ function renderSidebar(){
     else if(cat==='tools') itemsHtml = renderToolsGroupHTML();
     else if(cat==='assets') itemsHtml = renderAssetsCenterGroupHTML();
     else if(cat==='product') itemsHtml = renderProductGroupHTML();
-    return `<div class="sidebar">${itemsHtml}</div>`;
+    return `${STATE.mobileSidebarOpen ? '<div class="sidebar-backdrop" id="sidebarBackdrop"></div>' : ''}<div class="sidebar${STATE.mobileSidebarOpen?' mobile-open':''}">${itemsHtml}</div>`;
   }
   // Designer/Lead/Admin keep exactly the sidebar items they always had.
   let itemsHtml = '';
@@ -5536,7 +5724,7 @@ function renderSidebar(){
   else if(cat==='assets') itemsHtml = renderAssetsCenterGroupHTML();
   else if(cat==='product') itemsHtml = renderProductGroupHTML();
   else if(cat==='admin') itemsHtml = navItemsHtml([['users','User Management'],['departments','Department Management'],['designers','Designer Management'],['admin','Admin Panel']]);
-  return `<div class="sidebar">${itemsHtml}</div>`;
+  return `${STATE.mobileSidebarOpen ? '<div class="sidebar-backdrop" id="sidebarBackdrop"></div>' : ''}<div class="sidebar${STATE.mobileSidebarOpen?' mobile-open':''}">${itemsHtml}</div>`;
 }
 
 // Sections that are internal-only (Designer/Lead/Admin) — a Project Owner must never render these, even if
@@ -6534,7 +6722,12 @@ function myWorkKanbanTimerHTML(t, colKey){
     return `<div class="kanban-timer ${onTime?'kanban-timer-active':'kanban-timer-revision'}">${onTime?'✓ ส่งทันเดทไลน์':'⚠ ส่งช้ากว่าเดทไลน์'}</div>`;
   }
   if(!t.started_at) return ''; // defensive only — every non-"new" task should have started_at once "start" ran
-  const phase = colKey==='in_progress' ? 'กำลังทำ' : colKey==='waiting_review' ? 'Waiting Review' : colKey==='revision' ? 'Revision' : '';
+  // DEV FIX (Krissha — "ถ้าส่งงานไปแล้ว เอาแจ้งเตือนเดทไลน์ออก เพราะถือว่าเคลียร์ออกทันเวลา อาจจะแค่ใส่สถานะรอตรวจ"):
+  // once the Designer has submitted for review, the deadline is considered met no matter how long Review
+  // itself takes afterwards — no more "⚠ เลยเดทไลน์แล้ว" while sitting in Waiting Review. Still shown for
+  // กำลังทำ/Revision below, since that work is genuinely still outstanding.
+  if(colKey==='waiting_review') return `<div class="kanban-timer kanban-timer-active">✓ Waiting Review</div>`;
+  const phase = colKey==='in_progress' ? 'กำลังทำ' : colKey==='revision' ? 'Revision' : '';
   if(!t.prefer_delivery_date) return `<div class="kanban-timer kanban-timer-active">${phase}</div>`;
   const today = todayISO();
   if(t.prefer_delivery_date<today) return `<div class="kanban-timer kanban-timer-revision">${phase?phase+' · ':''}⚠ เลยเดทไลน์แล้ว</div>`;
@@ -6552,7 +6745,9 @@ function myWorkKanbanTimerHTML(t, colKey){
 // new — so PO Recent Briefs/Drafts (the other .ws-task-row consumer) is completely untouched.
 function myWorkKanbanCardHTML(t, colKey){
   const today = todayISO();
-  const isOverdue = colKey!=='completed' && t.prefer_delivery_date && t.prefer_delivery_date<today;
+  // DEV FIX (Krissha — deadline warning should clear once submitted, not just once approved): matches
+  // myWorkKanbanTimerHTML() above — Waiting Review no longer counts as overdue.
+  const isOverdue = colKey!=='completed' && colKey!=='waiting_review' && t.prefer_delivery_date && t.prefer_delivery_date<today;
   const requester = findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '—';
   return `<div class="ws-task-row" draggable="true" data-opentask="${t.task_id}" data-kanban-card="${t.task_id}"
       style="border-left-color:${priorityAccentColor(t.priority)}">
@@ -6737,7 +6932,7 @@ function myTodayActionRowHTML(t, tier){
   const tierDef = MYWORK_TODAY_TIERS.find(x=>x.key===tier);
   const platformText = (t.platform||[]).length ? t.platform.join(', ') : '';
   return `<div class="mywork-row" data-opentask="${t.task_id}" style="cursor:pointer;border-left:3px solid ${tierDef?tierDef.color:'var(--line)'};padding-left:10px">
-    <span class="hint" style="font-weight:700;flex-shrink:0;min-width:120px;color:${tierDef?tierDef.color:'inherit'}">${tierDef?tierDef.label:''}</span>
+    <span class="mywork-tier" style="color:${tierDef?tierDef.color:'inherit'}">${tierDef?tierDef.label:''}</span>
     <span class="mywork-name">${taskDisplayName(t)}</span>
     <span class="mywork-meta">${t.task_type||''}${platformText?' · '+platformText:''}</span>
     <span class="mywork-pts">DL: ${fmtDate(t.prefer_delivery_date)}</span>
@@ -7298,6 +7493,10 @@ function bindMyCompletedJobs(){
 
 /* ---------- Brief & Intake Form (v3 layout) ---------- */
 let BRIEF_DRAFT = { platforms:new Set(), customPlatform:'', kv:'', kvAssetLink:'', priority:'STANDARD', prioritySource:'system_default', urgencyReason:'', urgencyNote:'', attachments:[], deptOther:'', typeOther:'', categoryOther:'',
+  // DEV FIX (Krissha — "ค่าตั้งต้นดีไซน์เนอร์ตาม Category แต่เปลี่ยนเป็นคนอื่นได้"): '' means "use the
+  // Category/Type's own default designer" (Krissha/Pongpoj/Suriya — see defaultDesignerForRole()); set to
+  // a specific name once the requester manually picks someone else from the Designer field.
+  designerOverride:'',
   // MASTER DEV REQUEST §1/§3/§9 — ephemeral UI-only state for the "Capacity เต็ม" 3-option panel
   // (เลือกวันถัดไป / ขอปรับคิวงานในวันนี้ / ขอ Designer รับงานวันที่นี้). Never persisted to the task —
   // capacityFlow picks which of the two exception panels (if any) is open below the date lock message;
@@ -7527,7 +7726,7 @@ function defaultVisualBrief(){
 function resetBriefDraft(){
   BRIEF_DRAFT = {
     platforms:new Set(), customPlatform:'', kv:'', kvAssetLink:'', priority:'STANDARD', prioritySource:'system_default',
-    urgencyReason:'', urgencyNote:'', deptOther:'', typeOther:'', categoryOther:'',
+    urgencyReason:'', urgencyNote:'', deptOther:'', typeOther:'', categoryOther:'', designerOverride:'',
     // extraLinks = External Brief Links (Task-level: Master Brief/Campaign Brief/Client Brief/etc — DEV
     // SPEC: Brief Links / Reference Split). Filled once per Task, shown above the Artwork Tabs, never
     // duplicated per-Artwork. Not to be confused with per-Artwork References (aw.references[]).
@@ -7604,6 +7803,9 @@ function loadBriefDraftFromTask(t, startArtworkIndex){
     // `prefill.kvlink` below (which nothing ever actually read back out).
     kvAssetLink: t.kv_asset_link || '',
     kv: t.kv_status_check || '', priority: t.priority || 'STANDARD', prioritySource: t.prioritySource||'manual',
+    // Rehydrate whoever was actually assigned/suggested, so re-opening an Edit doesn't silently snap a
+    // manually-overridden Designer back to the Category's default (see defaultDesignerForRole()).
+    designerOverride: t.assigned_user_name || t.suggested_designer || '',
     urgencyReason: t.urgencyReason||'', urgencyNote: t.urgencyNote||'',
     deptOther: t.department_other || '', typeOther: t.task_type_other || '', categoryOther:'',
     mode: 'unified',
@@ -8150,15 +8352,30 @@ function renderBriefForm(){
             <label>KV / Revise Status <span class="req-badge">บังคับ (ทุก Category)</span></label>
             <select id="f_kv">
               <option value="">เลือก Status</option>
-              <option value="HAS_WORKING_FILE" ${BRIEF_DRAFT.kv==='HAS_WORKING_FILE'?'selected':''}>มี KV / Working File</option>
-              <option value="NEED_NEW_KV" ${BRIEF_DRAFT.kv==='NEED_NEW_KV'?'selected':''}>ไม่มี KV — ต้องสร้างใหม่</option>
+              <option value="HAS_WORKING_FILE" data-kvopt="legacy" ${BRIEF_DRAFT.kv==='HAS_WORKING_FILE'?'selected':''}>มี KV / Working File</option>
+              <option value="NEED_NEW_KV" data-kvopt="legacy" ${BRIEF_DRAFT.kv==='NEED_NEW_KV'?'selected':''}>ไม่มี KV — ต้องสร้างใหม่</option>
+              <!-- DEV FIX (Krissha — "เอา KV ออกจาก Content กับ Product"): the two options above are hidden
+                   for Content/Product (see refreshBriefForm()) — this is their neutral "normal new build"
+                   status instead, only shown for those two categories. -->
+              <option value="NORMAL_NEW" data-kvopt="normalnew" ${BRIEF_DRAFT.kv==='NORMAL_NEW'?'selected':''}>งานใหม่ (ไม่มี Revise)</option>
               <!-- DEV FIX (Krissha — Revise จากงานเก่า): งานที่แก้ไขจากของเดิม/มี Platform-Theme อยู่แล้ว —
-                   เวลาคงที่ 1/2 ชม. ต่อ Artwork ไม่ผูกกับ def.kv/def.noKv ของ Type นั้นๆ (ดู pointsForTask). -->
-              <option value="REVISE_UNDER50" ${BRIEF_DRAFT.kv==='REVISE_UNDER50'?'selected':''}>Revise จากงานเก่า ≤50%</option>
-              <option value="REVISE_OVER50" ${BRIEF_DRAFT.kv==='REVISE_OVER50'?'selected':''}>Revise จากงานเก่า &gt;50%</option>
+                   เวลาคงที่ 1/2 ชม. ต่อ Artwork ไม่ผูกกับ def.kv/def.noKv ของ Type นั้นๆ (ดู pointsForTask).
+                   Content/Product เปลี่ยนเป็น % ของแต้มปกติแทนแล้ว — ดู KV_REVISE_PERCENT. -->
+              <option value="REVISE_UNDER50" ${BRIEF_DRAFT.kv==='REVISE_UNDER50'?'selected':''}>Revise น้อยกว่า 50%</option>
+              <option value="REVISE_OVER50" ${BRIEF_DRAFT.kv==='REVISE_OVER50'?'selected':''}>Revise มากกว่า 50%</option>
             </select>
             <div id="kvLinkField" class="field" style="display:none;margin-bottom:0;margin-top:8px"></div>
           </div>
+        </div>
+        <!-- DEV FIX (Krissha — "ค่าตั้งต้นดีไซน์เนอร์ตาม Category แต่เปลี่ยนเป็นคนอื่นๆได้"): pre-selects
+             defaultDesignerForRole(role) (Krissha=E-Commerce, Pongpoj=Content, Suriya=Product) but the
+             requester can pick any other active Designer/Lead instead — options populated live in
+             refreshBriefForm() since the default/available-designer list depend on Category+Type / live
+             STATE.users, neither of which BRIEF_DRAFT tracks directly (see f_category-based gating there).
+             Hidden entirely for Offline Artwork/"อื่นๆ ระบุ" (role has no default — Lead assigns manually). -->
+        <div class="field" id="designerField" style="display:none;margin-top:12px;margin-bottom:0">
+          <label>Designer <span class="hint" style="font-weight:400">(ค่าเริ่มต้นตาม Category — เลือกเปลี่ยนได้)</span></label>
+          <select id="f_designer"></select>
         </div>
       </div>
 
@@ -11458,6 +11675,26 @@ function isDesignerAvailableForAutoAssign(name){
   const rec = (STATE.users||[]).find(u=>u.name===name && (u.role==='designer'||u.role==='lead'));
   return !rec || !rec.designer_status || rec.designer_status==='active';
 }
+// The fixed per-Category/Role default (Krissha=E-Commerce, Pongpoj=Content, Suriya=Product) — the ONE
+// place this mapping lives now (computeAssigneeFromForm() and submitBriefInner() both call this instead
+// of each keeping their own copy of the same if/else, which is how they used to drift apart).
+function defaultDesignerForRole(role){
+  if(role==='E-Commerce Designer') return 'Krissha';
+  if(role==='Content Designer') return 'Pongpoj';
+  if(role==='Product Designer') return 'Suriya';
+  return null;
+}
+// DEV FIX (Krissha — "ค่าตั้งต้นดีไซน์เนอร์ตาม Category แต่เปลี่ยนเป็นคนอื่นได้"): the Designer field in
+// the Brief form (see refreshBriefForm()'s #f_designer) pre-selects defaultDesignerForRole(role) but lets
+// the requester pick any other active Designer/Lead instead — `override` is BRIEF_DRAFT.designerOverride.
+// A role with no default (Offline/Other → "Lead assigns manually") never offers an override at all.
+function resolveDesignerAssignee(role, override){
+  const def = defaultDesignerForRole(role);
+  if(!def) return null;
+  let name = (override && override.trim()) ? override.trim() : def;
+  if(!isDesignerAvailableForAutoAssign(name)) name = null; // Leave/Inactive -> Lead assigns manually
+  return name;
+}
 function computeAssigneeFromForm(){
   const cat = document.getElementById('f_category')?.value;
   const typeEl = document.getElementById('f_type');
@@ -11465,13 +11702,7 @@ function computeAssigneeFromForm(){
   const def = MASTER_TABLE[cat].types[typeEl.value];
   if(!def) return null;
   const role = def.reroute ? MASTER_TABLE[def.reroute].role : MASTER_TABLE[cat].role;
-  let name = null;
-  if(role==='E-Commerce Designer') name = 'Krissha';
-  else if(role==='Content Designer') name = 'Pongpoj';
-  else if(role==='Product Designer') name = 'Suriya';
-  if(!name) return null; // offline / other -> lead assigns
-  if(!isDesignerAvailableForAutoAssign(name)) return null;
-  return name;
+  return resolveDesignerAssignee(role, BRIEF_DRAFT.designerOverride);
 }
 function renderMonthCalendar(person, mode, priority, taskPoints){
   const {month, year} = STATE.cal;
@@ -11953,7 +12184,7 @@ async function deleteBriefTask(taskId){
   const t = STATE.tasks.find(x=>x.task_id===taskId);
   if(!t || !canDeleteBrief(t)) return;
   STATE.tasks = STATE.tasks.filter(x=>x.task_id!==taskId);
-  await saveTasks();
+  await saveTasks([taskId]);
   STATE.deleteBriefConfirmId = null;
   if(STATE.detailTaskId===taskId) STATE.detailTaskId = null;
   if(STATE.editingTaskId===taskId) STATE.editingTaskId = null;
@@ -11988,7 +12219,7 @@ async function adminPurgeTasks(taskIds){
   if(STATE.detailTaskId && ids.has(STATE.detailTaskId)) STATE.detailTaskId = null;
   if(STATE.editingTaskId && ids.has(STATE.editingTaskId)) STATE.editingTaskId = null;
   STATE.adminCleanupSelected = [];
-  await saveTasks();
+  await saveTasks(Array.from(ids));
   await saveNotifs();
   toast(`ลบข้อมูลทดสอบแล้ว ${ids.size} รายการ`);
   render();
@@ -16196,6 +16427,9 @@ function resetLeftPageEphemeralState(){
   STATE.taskWs = {zoom:'fit', activePageId:null, activeArtworkIndex:0, fullscreen:false, sectionOpen:{}};
   STATE.taskWsLightbox = null;
   STATE.vbProductPicker = null; STATE.vbReferenceForm = null; STATE.vbImgCrop = null;
+  // Mobile nav — every navigation (Top Nav category, or a Sidebar item itself) should close the mobile
+  // drawer it was opened from, same as tapping the backdrop would. Harmless no-op above 640px.
+  STATE.mobileSidebarOpen = false;
   clearOverlay();
 }
 function bindEvents(){
@@ -16211,6 +16445,18 @@ function bindEvents(){
   document.getElementById('notifBell')?.addEventListener('click', (e)=>{
     e.stopPropagation();
     if(document.getElementById('notifPortal')){ closeNotifPortal(); } else { openNotifPortal(); }
+    render();
+  });
+  // Mobile nav — hamburger opens/closes the Sidebar overlay drawer (see the @media(max-width:640px) rules
+  // and renderSidebar()); the dimmed backdrop behind it closes it again on tap. Both only ever exist in the
+  // DOM below that breakpoint, so this is a no-op on desktop.
+  document.getElementById('mobileNavToggle')?.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    STATE.mobileSidebarOpen = !STATE.mobileSidebarOpen;
+    render();
+  });
+  document.getElementById('sidebarBackdrop')?.addEventListener('click', ()=>{
+    STATE.mobileSidebarOpen = false;
     render();
   });
   // DEV FIX — Top Navigation categories must be real navigation, not decorative buttons: clicking one
@@ -16374,6 +16620,7 @@ function bindEvents(){
     document.getElementById('f_deliverables')?.addEventListener('change', e=>applyDeliverablesCount(Number(e.target.value)));
     document.getElementById('f_custom')?.addEventListener('input', refreshBriefForm);
     document.getElementById('f_kv')?.addEventListener('change', e=>{ BRIEF_DRAFT.kv = e.target.value; refreshBriefForm(); });
+    document.getElementById('f_designer')?.addEventListener('change', e=>{ BRIEF_DRAFT.designerOverride = e.target.value; refreshBriefForm(); });
 
     document.getElementById('f_dept')?.addEventListener('change', e=>{
       const otherWrap = document.getElementById('deptOtherWrap');
@@ -17702,6 +17949,49 @@ function refreshBriefForm(){
   const kvVisible = !!(def && !def.custom);
   if(kvSection) kvSection.style.display = kvVisible ? 'block':'none';
   customWrap.style.display = (def && def.custom) ? 'block':'none';
+  // DEV FIX (Krissha — "เอา KV ออกจาก Content กับ Product"): for THESE TWO categories only, hide the
+  // "มี KV"/"ไม่มี KV" options entirely and show the neutral "งานใหม่ (ไม่มี Revise)" one instead — only
+  // Revise น้อยกว่า/มากกว่า 50% (a % of the normal point value, see KV_REVISE_PERCENT) actually changes
+  // anything for them. NOTE: this UI list is deliberately separate from KV_REVISE_PERCENT_CATEGORIES —
+  // E-Commerce also computes Revise as a % now, but Krissha never asked to hide มี KV/ไม่มี KV for
+  // E-Commerce (it still needs that question for its own NEED_NEW_KV multi-deliverable formula above), so
+  // it keeps the original 4-option dropdown. Offline Artwork is untouched either way.
+  const KV_HIDE_LEGACY_OPTIONS_CATEGORIES = ["Content","Product"];
+  const kvSelectEl = document.getElementById('f_kv');
+  if(kvSelectEl){
+    const kvHideLegacy = KV_HIDE_LEGACY_OPTIONS_CATEGORIES.includes(catVal);
+    kvSelectEl.querySelectorAll('option[data-kvopt="legacy"]').forEach(o=>{ o.hidden = kvHideLegacy; });
+    const normalNewOpt = kvSelectEl.querySelector('option[data-kvopt="normalnew"]');
+    if(normalNewOpt) normalNewOpt.hidden = !kvHideLegacy;
+    // If switching Category leaves the current selection pointing at an option that's now hidden,
+    // clear it so the user must re-pick from what's actually shown (mirrors how Category/Type switches
+    // already reset other now-invalid fields elsewhere in this form).
+    const kvStillValid = !BRIEF_DRAFT.kv || (kvHideLegacy
+      ? (BRIEF_DRAFT.kv==='NORMAL_NEW' || BRIEF_DRAFT.kv==='REVISE_UNDER50' || BRIEF_DRAFT.kv==='REVISE_OVER50')
+      : BRIEF_DRAFT.kv!=='NORMAL_NEW');
+    if(!kvStillValid){ BRIEF_DRAFT.kv=''; kvSelectEl.value=''; }
+  }
+  // DEV FIX (Krissha — "ค่าตั้งต้นดีไซน์เนอร์ตาม Category แต่เปลี่ยนเป็นคนอื่นๆได้"): populate #f_designer
+  // with every active Designer/Lead, defaulting to defaultDesignerForRole(role) but letting the requester
+  // pick anyone else. Hidden for Offline Artwork/"อื่นๆ ระบุ" — those roles have no default (Lead assigns
+  // manually), so an override wouldn't mean anything.
+  const role = isOtherCat ? 'Pending Assignment' : (def.reroute ? MASTER_TABLE[def.reroute].role : MASTER_TABLE[catVal].role);
+  const defaultDesignerName = defaultDesignerForRole(role);
+  const designerField = document.getElementById('designerField');
+  const designerSelectEl = document.getElementById('f_designer');
+  if(designerField && designerSelectEl){
+    if(defaultDesignerName){
+      designerField.style.display = 'block';
+      const activeDesigners = (STATE.users||[]).filter(u=>(u.role==='designer'||u.role==='lead') && u.status==='active')
+        .map(u=>u.name).sort((a,b)=>a.localeCompare(b));
+      // Always offer the default itself even in the edge case it's missing from STATE.users.
+      const options = [defaultDesignerName, ...activeDesigners.filter(n=>n!==defaultDesignerName)];
+      const currentVal = (BRIEF_DRAFT.designerOverride && options.includes(BRIEF_DRAFT.designerOverride)) ? BRIEF_DRAFT.designerOverride : defaultDesignerName;
+      designerSelectEl.innerHTML = options.map(n=>`<option value="${escAttr(n)}" ${n===currentVal?'selected':''}>${n}${n===defaultDesignerName?' (ค่าเริ่มต้น)':''}</option>`).join('');
+    } else {
+      designerField.style.display = 'none';
+    }
+  }
   // Reference Link only makes sense when there IS an existing KV/working file to point to.
   // "ไม่มี KV — ต้องสร้างใหม่" (NEED_NEW_KV) means there's nothing to reference yet, so the field
   // (and its space) is removed entirely rather than shown as optional — no field, no leftover gap.
@@ -18291,11 +18581,11 @@ async function submitBriefInner(){
   }
 
   const role = isOtherCat ? 'Pending Assignment' : (def.reroute ? MASTER_TABLE[def.reroute].role : MASTER_TABLE[catName].role);
-  let assignee = null;
-  if(role==='E-Commerce Designer') assignee='Krissha';
-  else if(role==='Content Designer') assignee='Pongpoj';
-  else if(role==='Product Designer') assignee='Suriya';
-  if(!isDesignerAvailableForAutoAssign(assignee)) assignee = null; // Leave/Inactive -> Lead assigns manually
+  // DEV FIX (Krissha — "ค่าตั้งต้นดีไซน์เนอร์ตาม Category แต่เปลี่ยนเป็นคนอื่นได้"): was its own hardcoded
+  // copy of computeAssigneeFromForm()'s role→name mapping (the two had already drifted once — this is
+  // now the one shared resolveDesignerAssignee(), so the Designer field's override actually takes effect
+  // on the task that gets saved, not just in the live preview).
+  const assignee = resolveDesignerAssignee(role, BRIEF_DRAFT.designerOverride);
 
   // Resize (Master Dev Spec Phase E): a separate point pool from Deliverables, always summed on top —
   // never merged into pointsForTask()'s own formula. Applies to every task type/category.
@@ -18929,7 +19219,16 @@ function processApprovalAutoCompletes(){
 // it fired for, so a changed deadline/approval window naturally re-arms the reminder instead of staying
 // silently suppressed forever.
 const TERMINAL_REVIEW_STATUSES = ['delivered','rejected','closed_max_revision'];
+// DEV FIX (Krissha — "อีเมลแจ้งเตือนตอนเที่ยงคืน ปรับเป็นแจ้งเตือนในเวลางาน 9.00น.แทน"): the conditions
+// below can technically flip to "due" at any moment — DEADLINE_DUE_SOON's own 24h window, in particular,
+// opens at exactly 00:00 the day before a 23:59:59 deadline, so a tab left open overnight would otherwise
+// send it right at midnight. Holding the whole pass back until local time is 9 AM or later means the
+// first check at/after 9:00 is what actually sends it; the dedupe flags further down (e.g.
+// deadline_due_soon_notified_for) still guarantee it only ever fires once per day regardless of exactly
+// when after 9:00 that first check happens.
+function isWithinReminderSendWindow(){ return new Date().getHours() >= 9; }
 function processDeadlineReminders(){
+  if(!isWithinReminderSendWindow()) return false;
   const now = Date.now();
   const DAY_MS = 24*60*60*1000;
   let changed = false;
@@ -23809,6 +24108,19 @@ function ftExportAllIndividually(mode){
     if(processDeadlineReminders()) didChange = true;
     if(didChange) render();
   }, 60000);
+  // Krissha — "รีเช็คว่างานจะเป็นปัจจุบัน เรียลทามกับผู้ใช้คนอื่นๆ": a SEPARATE, slower interval from the
+  // local-only checks above, since this one is a real Firestore read. BUG FIX (Krissha report —
+  // "Message rate limit exceeded" in console): the first version piggybacked this on the 60s interval AND
+  // refetched on every tab-focus with no cooldown, which added up to too many reads too close together
+  // with a few tabs open. Every 5 minutes now, and refreshTasksFromServer()'s own TASKS_REFRESH_MIN_GAP_MS
+  // still protects the tab-focus listener below from firing right on top of this.
+  setInterval(async ()=>{ if(await refreshTasksFromServer()) render(); }, 300000);
+  // Same fix, instant-ish version: a tab that's been backgrounded/minimized for a while refreshes when the
+  // person actually switches back to it, instead of waiting out the rest of the 5-minute interval — throttled
+  // by the same TASKS_REFRESH_MIN_GAP_MS, so switching tabs back and forth repeatedly can't pile up requests.
+  document.addEventListener('visibilitychange', async ()=>{
+    if(document.visibilityState==='visible' && await refreshTasksFromServer()) render();
+  });
   render();
 })();
 
