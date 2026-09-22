@@ -1935,6 +1935,10 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
         appId: "1:59825125818:web:359944a52323d977fc0583",
       };
       const FIRESTORE_COLLECTION = 'worldtech_storage';
+      // Separate collection for automatic rolling backups (see window.storage.saveBackupSnapshot etc.
+      // below) — kept apart from the live data collection above so listing/pruning old snapshots is a
+      // plain query and can never accidentally touch a real, live app data document.
+      const FIRESTORE_BACKUP_COLLECTION = 'worldtech_storage_backups';
 
       let __fbReady = false;
       try {
@@ -1986,6 +1990,81 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
             window.__storageOffline = false;
             return true;
           } catch (e) { console.error('storage.set failed for', key, '— check Firestore Rules / project config:', e); window.__storageOffline = true; return false; }
+        },
+        // DEV FIX (Krissha dev-report, 2026-09-22 — "งานมันหายไปหมดเลย จากที่กรอกไปเมื่อกี้ น่าจะเพราะมีคนแก้
+        // งานเข้ามา"): get() then set() are two SEPARATE network round-trips — if two tabs each read the
+        // server copy before EITHER of them has written back yet, both merges happen against the same
+        // stale snapshot, and whichever tab's set() lands second silently overwrites the first tab's write
+        // in full, task-by-task merge logic and all (saveTasks()'s own merge only protects against a tab
+        // that's been open a while, not two saves racing within moments of each other — see its comment).
+        // transact() closes that gap using Firestore's actual transaction API: the read AND the write for
+        // one key happen as a single atomic unit against the server, and if another write to the same
+        // document sneaks in during that window, Firestore itself reruns `updater` against the fresh copy
+        // and retries the commit — automatically, no lost update possible. `updater(currentValueOrNull)`
+        // returns (or resolves to) the new string value to store; it must be a pure function of
+        // currentValue (never reach into outside mutable state) since it can genuinely run more than once
+        // per call.
+        transact: async (key, updater) => {
+          if (!__fbReady) { window.__storageOffline = true; return false; }
+          try {
+            const docRef = window.__fbDb.collection(FIRESTORE_COLLECTION).doc(key);
+            let finalValue;
+            await window.__fbDb.runTransaction(async (tx) => {
+              const snap = await tx.get(docRef);
+              const currentValue = snap.exists ? snap.data().value : null;
+              finalValue = await updater(currentValue);
+              tx.set(docRef, { value: finalValue, updated_at: new Date().toISOString() });
+            });
+            __fbCache[key] = { value: finalValue };
+            __sawStorageSuccess = true;
+            window.__storageOffline = false;
+            return true;
+          } catch (e) { console.error('storage.transact failed for', key, '— check Firestore Rules / project config:', e); window.__storageOffline = true; return false; }
+        },
+        // DEV FEATURE (Krissha — "ทำงานคอมหลายเครื่อง...ปัญหานี้ถือว่าค่อนข้างใหญ่ แบ็คอัพไฟล์ได้มั้ย ทุกๆ
+        // 30 นาที เก็บไว้แค่ 1 วัน"): a rolling safety net on top of the race-condition fix above — even
+        // with transact() closing the lost-update race, this gives a way to recover if something else ever
+        // goes wrong (a bad manual edit, a bug nobody's found yet, etc). Snapshots live in their OWN
+        // Firestore collection (never mixed into the live worldtech_storage docs), one doc per snapshot,
+        // so listing/pruning by age is a plain query — see runAutoBackup()/renderAutoBackupsCard() below
+        // for what actually gets snapshotted and the Admin-only restore UI.
+        saveBackupSnapshot: async (dataObj) => {
+          if (!__fbReady) { window.__storageOffline = true; return false; }
+          try {
+            const nowIso = new Date().toISOString();
+            await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).add({ created_at: nowIso, data: dataObj });
+            __sawStorageSuccess = true;
+            window.__storageOffline = false;
+            return true;
+          } catch (e) { console.error('storage.saveBackupSnapshot failed', e); window.__storageOffline = true; return false; }
+        },
+        listBackupSnapshots: async () => {
+          if (!__fbReady) return [];
+          try {
+            const snap = await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).orderBy('created_at', 'desc').get();
+            return snap.docs.map(d => ({ id: d.id, created_at: d.data().created_at }));
+          } catch (e) { console.error('storage.listBackupSnapshots failed', e); return []; }
+        },
+        getBackupSnapshot: async (id) => {
+          if (!__fbReady) return null;
+          try {
+            const doc = await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).doc(id).get();
+            return doc.exists ? doc.data().data : null;
+          } catch (e) { console.error('storage.getBackupSnapshot failed', e); return null; }
+        },
+        // Deletes every snapshot older than cutoffIso — called right after each successful automatic
+        // backup so the collection never grows past ~1 day's worth (roughly 48 snapshots at the 30-minute
+        // cadence) regardless of how long the app stays running.
+        pruneBackupSnapshotsOlderThan: async (cutoffIso) => {
+          if (!__fbReady) return false;
+          try {
+            const snap = await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).where('created_at', '<', cutoffIso).get();
+            if (snap.empty) return true;
+            const batch = window.__fbDb.batch();
+            snap.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            return true;
+          } catch (e) { console.error('storage.pruneBackupSnapshotsOlderThan failed', e); return false; }
         },
       };
 
@@ -2529,6 +2608,9 @@ let STATE = {
   // Sidebar is a normal flex column again. Reset to false on every navigation — see resetLeftPageEphemeralState().
   mobileSidebarOpen:false,
   tasks:[], leaves:[], products:[], notifications:[],
+  // Auto Backups admin card (see renderAutoBackupsCard()) — null means "not fetched yet this session",
+  // lazily loaded the first time that card is actually rendered rather than at boot.
+  autoBackupsList:null, autoBackupsLoading:false,
   // DEV MASTER REQUEST §12 — Admin Notification Delivery Log: one entry per notifyUsers() call, each
   // holding the per-recipient in-app/email delivery outcome, so a failure can be told apart as a
   // Recipient Logic problem (wrong/missing people) vs an Email Delivery problem (proxy/quota issue).
@@ -2596,7 +2678,11 @@ let STATE = {
   board:{month:null, designer:'ALL', project:'ALL', colScroll:{},
     // MASTER DEV FINAL §6 — All Work Queue's own Status/Search filters, separate from the Kanban's
     // Month/Designer/Project (which the queue still inherits, per spec: same 3 filters feed both).
-    queueStatus:'ALL_ACTIVE', queueSearch:''},
+    queueStatus:'ALL_ACTIVE', queueSearch:'',
+    // Krissha follow-up ("ตรงนี้ฟิวเตอร์ แพลตฟอร์ม ได้มั้ย ฟิวเตอร์ หมวดงาน หรือฟิวเตอร์ คนบรีฟ") — 3 more
+    // filters scoped to the All Work Queue table ONLY (not the Kanban columns below it, which is what she
+    // pointed at in her screenshot) — same 'ALL' sentinel pattern as queueStatus above.
+    queuePlatform:'ALL', queueCategory:'ALL', queueRequester:'ALL'},
   cal:{month:new Date().getMonth(), year:new Date().getFullYear(), selectedDate:null},
   detailTaskId:null, notifOpen:false, linkFormOpenId:null, userMenuOpen:false,
   gdriveBrowser:null, // set while the custom Drive image-browser portal (checkbox grid) is open — see openGdriveBrowser()
@@ -3822,24 +3908,101 @@ async function saveTasks(deletedIds){
   TASKS_SAVE_INFLIGHT++;
   try{
     const delSet = new Set(deletedIds||[]);
-    try{
-      const serverRaw = await window.storage.get('wt_tasks', true);
-      const serverTasks = serverRaw ? JSON.parse(serverRaw.value) : [];
-      const localById = new Map(STATE.tasks.map(t=>[t.task_id, t]));
+    // Snapshot this tab's own pending edits ONCE, up front — the merge below (mergeAgainstServer) may run
+    // more than once when using the transact() path (Firestore reruns it if another tab's write to
+    // 'wt_tasks' lands mid-transaction), so every run must merge the SAME local snapshot against whatever
+    // the latest server copy turns out to be, never re-read STATE.tasks live (nothing else mutates it
+    // mid-save, but a stray re-render/edit during an await must never change what this save is writing).
+    const localSnapshot = STATE.tasks;
+    const mergeAgainstServer = (serverTasks) => {
+      const localById = new Map(localSnapshot.map(t=>[t.task_id, t]));
       const merged = []; const seen = new Set();
       serverTasks.forEach(st=>{
         if(delSet.has(st.task_id)) return; // this call is the one deleting it — let it stay gone
         merged.push(localById.has(st.task_id) ? localById.get(st.task_id) : st);
         seen.add(st.task_id);
       });
-      STATE.tasks.forEach(t=>{ if(!seen.has(t.task_id) && !delSet.has(t.task_id)) merged.push(t); });
-      STATE.tasks = merged;
+      localSnapshot.forEach(t=>{ if(!seen.has(t.task_id) && !delSet.has(t.task_id)) merged.push(t); });
+      return merged;
+    };
+    // DEV FIX (Krissha dev-report, 2026-09-22 — "งานมันหายไปหมดเลย...น่าจะเพราะมีคนแก้งานเข้ามา"): the old
+    // version below (get() then, separately, set()) merges correctly but is still two round-trips — two
+    // tabs saving within moments of each other can both read the server BEFORE either has written back,
+    // so the second write erases the first's brand-new task even though the merge logic itself is sound.
+    // window.storage.transact() (see its own comment) makes the read+merge+write one atomic unit against
+    // the real Firestore document, with Firestore itself retrying `mergeAgainstServer` against a fresh
+    // server copy if another write sneaks in — this is what actually closes the race, not just narrows it.
+    if(typeof window.storage.transact === 'function'){
+      let mergedResult = localSnapshot;
+      const ok = await window.storage.transact('wt_tasks', (currentRaw) => {
+        const serverTasks = currentRaw ? JSON.parse(currentRaw) : [];
+        mergedResult = mergeAgainstServer(serverTasks);
+        return JSON.stringify(mergedResult);
+      });
+      if(ok) STATE.tasks = mergedResult;
+      else toast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+      return ok;
+    }
+    // Fallback for any storage bridge without a transact() (e.g. a test harness stub providing only
+    // get/set) — same merge, just not atomic against a same-instant concurrent save. Unchanged from before.
+    try{
+      const serverRaw = await window.storage.get('wt_tasks', true);
+      const serverTasks = serverRaw ? JSON.parse(serverRaw.value) : [];
+      STATE.tasks = mergeAgainstServer(serverTasks);
     }catch(e){
       console.error('saveTasks: pre-write merge fetch failed, writing local state as-is', e);
     }
     return await saveKey('wt_tasks', STATE.tasks);
   } finally {
     TASKS_SAVE_INFLIGHT--;
+  }
+}
+// DEV FIX (Krissha — "คนที่ 1 2 3 ที่เปิดบราวเซอร์ไม่ได้รี แล้วงานจะเวอร์ชั่นไม่ตรงกันหรือป่าว"): saveTasks()
+// above only protects the ONE collection that had actually broken (wt_tasks) — every other saveX() below
+// it (Leaves, Drafts, Notifications, Internal Tasks, Users) still did a blind overwrite with whatever this
+// tab's in-memory STATE happened to hold, which is the EXACT SAME bug class, just not yet reported for
+// these because they're edited by different people at the same instant less often than Tasks is. This
+// generic helper is saveTasks()'s own fetch-merge-transact logic, parameterized so any other collection of
+// records with a stable id field gets the identical protection: a record THIS tab knows about wins (its
+// own edit), a record only the SERVER knows about is preserved (someone else's concurrent add this tab
+// hasn't loaded yet), and only an id explicitly passed in `deletedIds` is allowed to actually disappear —
+// exactly the three rules saveTasks() documents above, just reusable. Every caller below that can delete a
+// record MUST pass that record's id via deletedIds, or a real delete would look identical to "some other
+// tab doesn't know about this yet" and the merge would silently resurrect it from the server copy.
+async function saveCollectionAtomic(storageKey, localArr, idField, deletedIds){
+  const delSet = new Set(deletedIds||[]);
+  const mergeAgainstServer = (serverArr) => {
+    const localById = new Map(localArr.map(r=>[r[idField], r]));
+    const merged = []; const seen = new Set();
+    serverArr.forEach(sr=>{
+      const key = sr[idField];
+      if(delSet.has(key)) return;
+      merged.push(localById.has(key) ? localById.get(key) : sr);
+      seen.add(key);
+    });
+    localArr.forEach(r=>{ if(!seen.has(r[idField]) && !delSet.has(r[idField])) merged.push(r); });
+    return merged;
+  };
+  if(typeof window.storage.transact === 'function'){
+    let mergedResult = localArr;
+    const ok = await window.storage.transact(storageKey, (currentRaw) => {
+      const serverArr = currentRaw ? JSON.parse(currentRaw) : [];
+      mergedResult = mergeAgainstServer(serverArr);
+      return JSON.stringify(mergedResult);
+    });
+    if(!ok) toast("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+    return {ok, merged: mergedResult};
+  }
+  try{
+    const serverRaw = await window.storage.get(storageKey, true);
+    const serverArr = serverRaw ? JSON.parse(serverRaw.value) : [];
+    const merged = mergeAgainstServer(serverArr);
+    const ok = await saveKey(storageKey, merged);
+    return {ok, merged};
+  }catch(e){
+    console.error('saveCollectionAtomic: pre-write merge fetch failed for', storageKey, '— writing local state as-is', e);
+    const ok = await saveKey(storageKey, localArr);
+    return {ok, merged: localArr};
   }
 }
 // DEV FIX (Krissha — "รีเช็คว่างานจะเป็นปัจจุบัน เรียลทามกับผู้ใช้คนอื่นๆ"): saveTasks()'s fetch-merge-write
@@ -3851,16 +4014,21 @@ async function saveTasks(deletedIds){
 // TASKS_SAVE_INFLIGHT says this tab has one of its own edits mid-flight; that save's own merge already
 // re-fetches fresh, so no data can be lost.
 // BUG FIX (Krissha report — "Message rate limit exceeded" in console after this shipped): the first
-// version polled every 60s AND refetched on every tab-focus with no cooldown between the two, which was
-// simply too many Firestore reads too close together once a few tabs were open and someone was switching
-// between them — TASKS_REFRESH_MIN_GAP_MS below is a hard floor between ANY two actual server reads,
-// whatever triggered them (the 5-minute interval in boot() or a tab regaining focus), so switching tabs
-// rapidly or having several tabs open can no longer pile up requests. Still not true instant realtime (an
-// idle tab can be up to 5 minutes stale, and two tabs saving the exact same task at the exact same instant
-// is still last-write-wins on that one task, same limitation saveTasks() itself documents) but it no
-// longer risks tripping a rate limit to get there.
+// version polled every 60s AND refetched on every tab-focus with NO cooldown between the two — with
+// several tabs open/switching, that could fire many real reads within the same second or two, which is
+// what actually tripped the error, not the 60s cadence itself. TASKS_REFRESH_MIN_GAP_MS below is a hard
+// floor between ANY two actual server reads, whatever triggered them (the interval in boot() or a tab
+// regaining focus), so switching tabs rapidly or having several tabs open can no longer pile up requests
+// close together — that's what makes it safe to run the interval itself this fast.
+// DEV FIX (Krissha — "ข้อมูลเรียลทาม ไวสุด 1 นาที ทำได้มั้ย"): sped back up to a 1-minute interval (was
+// slowed to 5 minutes only to fix the bug above) with the gap trimmed to 45s so the 1-minute interval
+// always actually reads instead of getting throttled away — still a real floor, just under a minute, so a
+// focus-triggered read landing right after the interval's own read still can't double up. A small team
+// polling one small document once a minute per open tab is nowhere near Firestore's read quota (tens of
+// thousands/day on the free tier alone) — the ORIGINAL bug was about too many reads bunched into the same
+// couple of seconds, never about the total daily count, so this is safe to run this fast.
 let lastTasksRefreshAt = 0;
-const TASKS_REFRESH_MIN_GAP_MS = 90000;
+const TASKS_REFRESH_MIN_GAP_MS = 45000;
 async function refreshTasksFromServer(){
   if(TASKS_SAVE_INFLIGHT>0) return false; // a save from this tab is mid-flight — let it finish undisturbed
   if(Date.now() - lastTasksRefreshAt < TASKS_REFRESH_MIN_GAP_MS) return false; // too soon since the last real check
@@ -3878,11 +4046,32 @@ async function refreshTasksFromServer(){
     return false;
   }
 }
-const saveUsers = ()=>saveKey('wt_users', STATE.users);
+// These 5 (unlike Departments/Products/etc below, which one Admin edits rarely) are the ones genuinely
+// written by DIFFERENT people at close to the same moment in normal use — a Designer requesting Leave,
+// a PO deleting a Draft, the system logging a Notification, a Designer logging an Internal Task, or Admin
+// editing a User — so they get the same saveCollectionAtomic() protection saveTasks() has. Any caller that
+// removes a record must pass its id as deletedIds (see saveCollectionAtomic's own comment for why).
+async function saveUsers(deletedIds){
+  const {ok, merged} = await saveCollectionAtomic('wt_users', STATE.users, 'id', deletedIds);
+  if(ok) STATE.users = merged;
+  return ok;
+}
 const saveDepartments = ()=>saveKey('wt_departments', STATE.departments);
-const saveDrafts = ()=>saveKey('wt_drafts', STATE.drafts);
-const saveLeaves = ()=>saveKey('wt_leaves', STATE.leaves);
-const saveInternalTasks = ()=>saveKey('wt_internal_tasks', STATE.internalTasks);
+async function saveDrafts(deletedIds){
+  const {ok, merged} = await saveCollectionAtomic('wt_drafts', STATE.drafts, 'id', deletedIds);
+  if(ok) STATE.drafts = merged;
+  return ok;
+}
+async function saveLeaves(deletedIds){
+  const {ok, merged} = await saveCollectionAtomic('wt_leaves', STATE.leaves, 'id', deletedIds);
+  if(ok) STATE.leaves = merged;
+  return ok;
+}
+async function saveInternalTasks(deletedIds){
+  const {ok, merged} = await saveCollectionAtomic('wt_internal_tasks', STATE.internalTasks, 'id', deletedIds);
+  if(ok) STATE.internalTasks = merged;
+  return ok;
+}
 const saveProducts = ()=>saveKey('wt_products', STATE.products);
 // MASTER DEV FINAL §12 — PDP Image Pattern & Templates: Platform → Template (one per platform, up to 10
 // Pages) → Page (Title/Image Type/Requirement/Condition/Reference/Note, all user-editable, Page Title
@@ -4072,7 +4261,11 @@ const saveDesignAssets = ()=>saveKey('wt_design_assets', STATE.designAssets);
 const saveBrandColors = ()=>saveKey('wt_brand_colors', STATE.brandColors);
 const saveCICategories = ()=>saveKey('wt_ci_categories', STATE.ciCategories);
 const saveCIGuidelines = ()=>saveKey('wt_ci_guidelines', STATE.ciGuidelines);
-const saveNotifs = ()=>saveKey('wt_notifications', STATE.notifications);
+async function saveNotifs(deletedIds){
+  const {ok, merged} = await saveCollectionAtomic('wt_notifications', STATE.notifications, 'id', deletedIds);
+  if(ok) STATE.notifications = merged;
+  return ok;
+}
 const saveTemplates = ()=>saveKey('wt_templates', BRIEF_TEMPLATES);
 const saveSkuMaster = ()=>saveKey('wt_sku_master', STATE.skuMaster);
 const saveSkuPlatforms = ()=>saveKey('wt_sku_platforms', STATE.skuPlatforms);
@@ -5769,7 +5962,7 @@ function renderSidebar(){
     if(cat==='myworkspace') itemsHtml = navItemsHtml([['poHome','Overview'],['brief','Create New Brief'],['poBriefs','My Briefs'],['poDrafts','Drafts'],['poCompleted','Completed Jobs']]);
     else if(cat==='workingprocess') itemsHtml = `
       <button class="sidenav-btn ${STATE.sideSection==='brief'?'active':''}" data-side="brief" data-briefsource="working_process">+ Create New Brief</button>
-      ${navItemsHtml([['board','Process Board'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview'],['briefintake','Brief Intake Dashboard']])}`;
+      ${navItemsHtml([['board','Process Board'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview']])}`;
     else if(cat==='tools') itemsHtml = renderToolsGroupHTML();
     else if(cat==='assets') itemsHtml = renderAssetsCenterGroupHTML();
     else if(cat==='product') itemsHtml = renderProductGroupHTML();
@@ -5780,7 +5973,7 @@ function renderSidebar(){
   if(cat==='myworkspace') itemsHtml = `
     <button class="sidenav-btn ${STATE.tab==='workspace'?'active':''}" data-navtool="workspace">Overview</button>
     ${navItemsHtml([['security','Account'],['leave','Leave Calendar'],['performance','Performance']])}`;
-  else if(cat==='workingprocess') itemsHtml = navItemsHtml([['brief','Brief & Intake'],['board','Process Board'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview'],['briefintake','Brief Intake Dashboard'],['backdated','Backdated Task'],['myCompleted','ประวัติงาน']]);
+  else if(cat==='workingprocess') itemsHtml = navItemsHtml([['brief','Brief & Intake'],['board','Process Board'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview'],['backdated','Backdated Task'],['myCompleted','ประวัติงาน']]);
   else if(cat==='tools') itemsHtml = renderToolsGroupHTML();
   else if(cat==='assets') itemsHtml = renderAssetsCenterGroupHTML();
   else if(cat==='product') itemsHtml = renderProductGroupHTML();
@@ -6118,7 +6311,12 @@ function renderMain(){
   // non-regression. 'monthlyoverview' is a new id for the new page.
   if(STATE.sideSection==='dashboard') return renderTeamCapacityPage();
   if(STATE.sideSection==='monthlyoverview') return renderMonthlyOverviewPage();
-  if(STATE.sideSection==='briefintake') return renderBriefIntakeDashboard();
+  // DEV FIX (Krissha — "Brief Intake Dashboard ไม่มีข้อมูล เอาออกจากเมนู"): removed from every sidebar
+  // (it always showed all-zero for her account's scope and served no real purpose), but the id is kept
+  // and repointed here to Monthly Overview — the closest real, working equivalent — rather than deleted
+  // outright, so a browser that still has this sideSection saved from before (see saveNavState()) lands
+  // on a real page instead of a blank one. Same non-regression pattern as the old 'dashboard' id above.
+  if(STATE.sideSection==='briefintake') return renderMonthlyOverviewPage();
   if(STATE.sideSection==='admin') return renderAdminPanel();
   if(STATE.sideSection==='users') return renderUserManagement();
   if(STATE.sideSection==='departments') return renderDepartmentManagement();
@@ -6827,6 +7025,27 @@ function myWorkKanbanCardHTML(t, colKey){
     ${colKey==='in_progress' ? `<button type="button" class="kanban-card-undo" data-act="undoStart" data-id="${t.task_id}" draggable="false" title="เผลอย้ายผิด? ย้อนกลับไป &quot;งานใหม่&quot; และล้างเวลาที่นับไว้">↺ เผลอย้ายผิด? ย้อนกลับ</button>` : ''}
   </div>`;
 }
+// Card for the Lead-only "ที่ต้องตรวจ" column (see renderMyWorkKanban below) — same compact 4-line
+// layout as myWorkKanbanCardHTML, but never draggable (no data-kanban-card/draggable attribute, so
+// bindEvents' `[data-kanban-card]` dragstart binding never picks it up — there's no matching
+// MYWORK_KANBAN_MOVES entry for this column anyway) and shows the assignee's name up top instead of
+// "สั่งโดย" (Brief Owner), since whose work it is matters more here than who originally requested it.
+function needsReviewCardHTML(t){
+  return `<div class="ws-task-row" data-opentask="${t.task_id}"
+      style="border-left-color:${priorityAccentColor(t.priority)}">
+    <div class="tc-top">
+      <div class="tc-title" title="${escAttr(taskDisplayName(t))}">${taskDisplayName(t)}</div>
+      <span class="tc-flags">
+        ${t.edit_revision>1 ? `<span class="tc-flag" title="Brief Updated (Rev ${t.edit_revision})">✎</span>` : ''}
+      </span>
+      ${priorityBadgeSm(t.priority)}
+    </div>
+    <div class="tc-line2">${t.task_type||''}${boardCardPlatformHTML(t)}</div>
+    <div class="tc-line3"><span class="who">Designer: ${t.assigned_user_name||'ไม่ระบุ'}</span><span class="pt">${appliedPoints(t).toFixed(1)} ชม.</span></div>
+    <div class="tc-line4">DL: ${fmtDate(t.prefer_delivery_date)}</div>
+    <div class="kanban-timer kanban-timer-active">⚠ รอคุณตรวจสอบ</div>
+  </div>`;
+}
 function renderMyWorkKanban(me){
   // Delivered tasks no longer get a column here at all (dev prompt §1) — "เสร็จวันนี้" still shows as its
   // own stat card above, and the full history (today's finishes included) lives in the Completed History
@@ -6838,6 +7057,16 @@ function renderMyWorkKanban(me){
     if(key) byCol[key].push(t);
   });
   Object.values(byCol).forEach(arr=>arr.sort((a,b)=>(a.prefer_delivery_date||'').localeCompare(b.prefer_delivery_date||'')));
+  // DEV FIX (Krissha — "ต้องตรวจงานของ designer คนอื่น แต่งานไม่ขึ้นในหน้างานของฉัน"): the 4 columns above
+  // only ever draw from `mine` (assigned_user_name===me), so a colleague's task sitting in "Pending Lead
+  // Designer Review" never showed up here even though reviewing it is squarely the Lead's own job. This
+  // 5th column is Lead-only — same STATE.auth.identity===LEAD check every other Lead-review action already
+  // gates on (see MYWORK_KANBAN_MOVES's who:'lead' / handleAction) — and pulls from the WHOLE task list,
+  // not `mine`: every task in review_status==='pending_review' regardless of who it's assigned to. A Lead's
+  // own submissions skip pending_review entirely (see submitBriefInner's skipLeadQC), so this can never
+  // duplicate one of her own cards from the columns above.
+  const needsMyReview = me===LEAD ? STATE.tasks.filter(t=>t.review_status==='pending_review' && t.assigned_user_name!==me)
+    .sort((a,b)=>(a.prefer_delivery_date||'').localeCompare(b.prefer_delivery_date||'')) : [];
   return `<div class="kanban-board">
     ${MYWORK_KANBAN_COLUMNS.map(c=>`
       <div class="kanban-col" data-kanban-col="${c.key}">
@@ -6846,6 +7075,12 @@ function renderMyWorkKanban(me){
           ${byCol[c.key].length===0 ? `<div class="kanban-col-empty">—</div>` : byCol[c.key].map(t=>myWorkKanbanCardHTML(t,c.key)).join('')}
         </div>
       </div>`).join('')}
+    ${me===LEAD ? `<div class="kanban-col" data-kanban-col="needs_my_review">
+      <div class="kanban-col-head"><span>ที่ต้องตรวจ</span><span class="kanban-col-count">${needsMyReview.length}</span></div>
+      <div class="kanban-col-body">
+        ${needsMyReview.length===0 ? `<div class="kanban-col-empty">—</div>` : needsMyReview.map(t=>needsReviewCardHTML(t)).join('')}
+      </div>
+    </div>` : ''}
   </div>`;
 }
 // §6 Drag & Drop Permission — the single gate every drag-triggered move passes through (called from
@@ -8105,7 +8340,9 @@ function resumeDraft(draftId){
 async function deleteDraft(draftId){
   if(!confirm('ลบ Draft นี้?')) return;
   STATE.drafts = STATE.drafts.filter(d=>d.id!==draftId);
-  await saveDrafts();
+  await saveDrafts([draftId]); // explicit delete id — saveDrafts() now merges against the server, so
+  // without this the merge would treat a locally-removed draft as "some other tab just hasn't loaded this
+  // one yet" and quietly restore it from the server copy (see saveCollectionAtomic's own comment).
   render();
 }
 
@@ -11935,6 +12172,13 @@ function nextQueueSequence(){
 function renderBoardQueue(filtered){
   const status = STATE.board.queueStatus || 'ALL_ACTIVE';
   const search = (STATE.board.queueSearch||'').trim().toLowerCase();
+  // Krissha follow-up ("ตรงนี้ฟิวเตอร์ แพลตฟอร์ม ได้มั้ย ฟิวเตอร์ หมวดงาน หรือฟิวเตอร์ คนบรีฟ") — 3 more
+  // filters scoped to THIS table only (the Kanban columns below still just use Month/Designer/Project from
+  // `filtered`, per the existing §6 spec comment on STATE.board — she pointed at this table specifically in
+  // her screenshot, not the Kanban).
+  const platformF = STATE.board.queuePlatform || 'ALL';
+  const categoryF = STATE.board.queueCategory || 'ALL';
+  const requesterF = STATE.board.queueRequester || 'ALL';
   // DEV MASTER CORRECTION §6 — granular Status filter (no more plain "Active"/"Completed, Closed" —
   // Completed already has its own Completed Archive page elsewhere, so this queue only ever needs the
   // active-workflow statuses), default "All Active".
@@ -11943,12 +12187,22 @@ function renderBoardQueue(filtered){
     ['in_progress','In Progress'], ['pending_review','Pending Lead Review'],
     ['pending_client_review','Awaiting Approval'], ['revision','Revision'],
   ];
+  // Dropdown options are built off `filtered` (the Month/Designer/Project-scoped list, same source the
+  // table itself starts from) rather than STATE.tasks as a whole, so no dropdown ever offers a Platform/
+  // หมวดงาน/คนบรีฟ choice that's guaranteed to show 0 rows for whatever Month/Designer/Project is selected.
+  const uniq = arr => Array.from(new Set(arr.filter(v=>v!==undefined && v!==null && v!=='')));
+  const platformOptions = uniq(filtered.flatMap(t=>t.platform||[])).sort();
+  const categoryOptions = uniq(filtered.map(t=>t.task_category)).sort();
+  const requesterOptions = uniq(filtered.map(t=>findUserByEmail(t.project_owner_email)?.name || t.project_owner_email)).sort();
   // "All Active" here means work still being done or not-yet-started — already-submitted tasks
   // (pending_review/pending_client_review) are handed off and waiting on someone else, so they no longer
   // belong in this queue count either (matches myTodayActionTasks — see isTaskStillInWorkQueue).
   let list = status==='ALL_ACTIVE'
     ? filtered.filter(t=>isTaskStillInWorkQueue(t))
     : filtered.filter(t=>t.review_status===status);
+  if(platformF!=='ALL') list = list.filter(t=>(t.platform||[]).includes(platformF));
+  if(categoryF!=='ALL') list = list.filter(t=>t.task_category===categoryF);
+  if(requesterF!=='ALL') list = list.filter(t=>(findUserByEmail(t.project_owner_email)?.name || t.project_owner_email)===requesterF);
   if(search){
     list = list.filter(t=>{
       const requesterName = findUserByEmail(t.project_owner_email)?.name || '';
@@ -11964,9 +12218,21 @@ function renderBoardQueue(filtered){
   return `<div class="card" style="margin-bottom:20px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
       <div class="section-title">คิวงานทั้งหมด (All Work Queue) — ${list.length}</div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <select id="boardQueueStatus" style="width:180px">
           ${STATUS_OPTIONS.map(([v,l])=>`<option value="${v}" ${status===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <select id="boardQueuePlatform" style="width:150px">
+          <option value="ALL" ${platformF==='ALL'?'selected':''}>ทุก Platform</option>
+          ${platformOptions.map(p=>`<option value="${escAttr(p)}" ${platformF===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+        <select id="boardQueueCategory" style="width:150px">
+          <option value="ALL" ${categoryF==='ALL'?'selected':''}>ทุกหมวดงาน</option>
+          ${categoryOptions.map(c=>`<option value="${escAttr(c)}" ${categoryF===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+        <select id="boardQueueRequester" style="width:160px">
+          <option value="ALL" ${requesterF==='ALL'?'selected':''}>ทุกคนบรีฟ</option>
+          ${requesterOptions.map(r=>`<option value="${escAttr(r)}" ${requesterF===r?'selected':''}>${r}</option>`).join('')}
         </select>
         <input type="text" id="boardQueueSearch" placeholder="ค้นหา..." value="${escAttr(STATE.board.queueSearch||'')}" style="width:170px">
       </div>
@@ -12294,12 +12560,13 @@ async function adminPurgeTasks(taskIds){
   if(!ids.size) return;
   const removedNames = STATE.tasks.filter(t=>ids.has(t.task_id)).map(t=>t.task_name||t.task_id);
   STATE.tasks = STATE.tasks.filter(t=>!ids.has(t.task_id));
+  const removedNotifIds = STATE.notifications.filter(n=>n.taskId && ids.has(n.taskId)).map(n=>n.id);
   STATE.notifications = STATE.notifications.filter(n=>!(n.taskId && ids.has(n.taskId)));
   if(STATE.detailTaskId && ids.has(STATE.detailTaskId)) STATE.detailTaskId = null;
   if(STATE.editingTaskId && ids.has(STATE.editingTaskId)) STATE.editingTaskId = null;
   STATE.adminCleanupSelected = [];
   await saveTasks(Array.from(ids));
-  await saveNotifs();
+  await saveNotifs(removedNotifIds); // explicit delete ids — see saveCollectionAtomic's own comment
   toast(`ลบข้อมูลทดสอบแล้ว ${ids.size} รายการ`);
   render();
 }
@@ -13387,12 +13654,19 @@ function renderTaskWorkspacePage(t){
   if(canAct && isAssignee && s==='new') actionsHTML += `<button class="btn btn-sm btn-primary" data-act="start" data-id="${t.task_id}">▶ เริ่มทำ</button>`;
   // "ส่งตรวจงาน (AW Link)" moved out of this row into its own card — see renderDeliverWorkCard below.
   if(canAct && isAssignee && !['delivered','rejected','closed_max_revision'].includes(s)) actionsHTML += `<button class="btn btn-sm btn-ghost" data-act="requestExt" data-id="${t.task_id}">🕒 Request Extension</button>`;
+  // DEV FIX (Krissha — "สำหรับตรวจงาน เอาปุ่มพรูฟ ไว้บนๆได้มั้ย มันหายากอ่ะ"): Approve QC / ลูกค้าอนุมัติแล้ว
+  // (+ their Request Revision counterparts) used to only live way down in the "Actions" card, below Task
+  // Info/Artworks/Brief Content/Images/Work Scope — a Lead reviewing work had to scroll past all of that
+  // just to approve. Pulled out into their own reviewActionsHTML, rendered right under the Artwork Link
+  // Hero near the top of the page (see taskws-body below) instead of down in actionsHTML/Actions — so it's
+  // no longer duplicated down there either.
+  let reviewActionsHTML = '';
   if(canAct && isLead && s==='pending_review'){
-    actionsHTML += `<button class="btn btn-sm btn-primary" data-act="approveQC" data-id="${t.task_id}">✓ Approve QC</button>
+    reviewActionsHTML += `<button class="btn btn-sm btn-primary" data-act="approveQC" data-id="${t.task_id}">✓ Approve QC</button>
       <button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ ขอแก้ไข (บังคับคอมเมนต์)</button>`;
   }
   if(canAct && isLead && s==='pending_client_review'){
-    actionsHTML += `<button class="btn btn-sm btn-primary" data-act="clientApprove" data-id="${t.task_id}">✓ ลูกค้าอนุมัติแล้ว</button>
+    reviewActionsHTML += `<button class="btn btn-sm btn-primary" data-act="clientApprove" data-id="${t.task_id}">✓ ลูกค้าอนุมัติแล้ว</button>
       <button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ ลูกค้าขอแก้</button>`;
   }
   if(canAct && isLead && t.deadline_extension_request && t.deadline_extension_request.status==='PENDING'){
@@ -13463,6 +13737,15 @@ function renderTaskWorkspacePage(t){
              Reviewer must open goes above External Brief Links / Brief / Reference Links / Images. Hidden
              once delivered, where the Final Work Folder card above takes its place at the top instead. -->
         ${renderArtworkLinkHeroCard(t)}
+        <!-- DEV FIX (Krissha — "สำหรับตรวจงาน เอาปุ่มพรูฟ ไว้บนๆได้มั้ย มันหายากอ่ะ อาจเอาไว้ใต้ลิงก์ ส่งงาน"):
+             Approve QC / ลูกค้าอนุมัติแล้ว (+ Request Revision) right under the Artwork Link Hero above —
+             see reviewActionsHTML at the top of this function — so the Lead can open the link, look at the
+             work, then approve/request-revision without scrolling past Task Info/Brief Content/Images/Work
+             Scope to find the buttons in the Actions card below. -->
+        ${reviewActionsHTML ? `<div class="taskws-card" style="border:1px solid var(--accent);background:#F5F7FF">
+          <div class="taskws-card-title">ตรวจงาน</div>
+          <div class="tc-actions">${reviewActionsHTML}</div>
+        </div>` : ''}
         <!-- DEV FIX (Krissha — "ลิงก์บรีฟ เอาไปไว้บนสุด ดีไซนเนอร์จะได้ไม่ต้องหา รวมถึงลิงค์เรฟด้วย" +
              "Link KV ด้วย เอาไว้ด้านบน" + "กล่องลิงก์ทุกกล่อง ห้ามมีลูกศรย่อหุบกล่อง ใช้โชว์ขึ้นมาเลย"):
              External Brief Links / Reference Links / Key Visual used to sit further down (Key Visual
@@ -14363,33 +14646,35 @@ function renderMonthlyHeatmap(monthStr){
 // a date range, so this reads exactly the same whether the clicked day is in the past, today, or the future.
 function renderMonthlyOverviewDayBreakdown(dateStr){
   const people = Object.keys(PEOPLE);
+  const allTasksThatDay = STATE.tasks.filter(t=>taskLoadOnDate(t,dateStr)>0);
+  // DEV FIX (Krissha — "ทำเป็น 3 บลอค ดีไซน์เนอร์ 3 คน"): each designer now gets their own self-contained
+  // block (status + their own task list) instead of 3 status cards up top followed by one shared,
+  // sorted-by-name "Tasks (N)" list underneath — same underlying data (taskLoadOnDate per task), just
+  // grouped by person so a designer's own workload for the day reads as one unit.
   const rows = people.map(p=>{
     const st = designerDayStatus(p, dateStr);
-    const bd = taskBreakdownFor(p, dateStr);
-    return {person:p, st, bd};
+    const myTasks = allTasksThatDay.filter(t=>t.assigned_user_name===p);
+    return {person:p, st, myTasks};
   });
   const teamTotal = rows.reduce((s,r)=>s+((r.st.key==='leave'||r.st.key==='holiday')?0:r.st.points),0);
-  const allTasksThatDay = STATE.tasks.filter(t=>taskLoadOnDate(t,dateStr)>0)
-    .sort((a,b)=>(a.assigned_user_name||'').localeCompare(b.assigned_user_name||''));
   return `<div class="card" id="moDayBreakdown" style="margin-top:14px;position:relative">
     <button type="button" class="btn btn-ghost btn-sm" data-closemodrawer="1" style="position:absolute;top:14px;right:14px">✕ ปิด</button>
     <div style="font-weight:800;font-size:15px">${fmtDate(dateStr)}</div>
     <div class="hint" style="margin-bottom:12px">TEAM CAPACITY ${teamTotal.toFixed(1)} / ${(people.length*DAILY_CAP).toFixed(0)} ชม.</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
       ${rows.map(r=>`<div class="section-card">
         <div style="display:flex;justify-content:space-between;align-items:center">
           <strong>${r.person}</strong>
           <span class="status-pill ${r.st.cls}">${r.st.label}</span>
         </div>
-        <div class="hint">${(r.st.key==='leave'||r.st.key==='holiday')?'OFF':`${r.st.points.toFixed(1)} / ${DAILY_CAP} ชม.`} · ${r.bd.tasks.length} Tasks</div>
+        <div class="hint" style="margin-bottom:8px">${(r.st.key==='leave'||r.st.key==='holiday')?'OFF':`${r.st.points.toFixed(1)} / ${DAILY_CAP} ชม.`} · ${r.myTasks.length} Tasks</div>
+        ${r.myTasks.length ? r.myTasks.map(t=>`<div class="sl-row">
+          <span class="sl-k">${taskDisplayName(t)} ${priorityBadgeSm(t.priority)}${t.capacity_override?' 🟠 Override':''}</span>
+          <span class="sl-v">${taskLoadOnDate(t,dateStr).toFixed(1)} ชม.</span>
+        </div>`).join('') : `<div class="hint">ไม่มีงานวันนี้</div>`}
       </div>`).join('')}
     </div>
-    <div class="hint" style="font-weight:700;margin-bottom:4px">Tasks (${allTasksThatDay.length})</div>
-    ${allTasksThatDay.length ? allTasksThatDay.map(t=>`<div class="sl-row">
-      <span class="sl-k">${taskDisplayName(t)} ${priorityBadgeSm(t.priority)}${t.capacity_override?' 🟠 Override':''} <span class="hint">— ${t.assigned_user_name||'ไม่ระบุ'}</span></span>
-      <span class="sl-v">${taskLoadOnDate(t,dateStr).toFixed(1)} ชม.</span>
-    </div>`).join('') : `<div class="hint">ไม่มีงานวันนี้</div>`}
-    ${(isWeekend(dateStr)||isPublicHoliday(dateStr)) ? `<div class="hint" style="margin-top:8px">📅 Holiday / Weekend</div>` : ''}
+    ${(isWeekend(dateStr)||isPublicHoliday(dateStr)) ? `<div class="hint" style="margin-top:10px">📅 Holiday / Weekend</div>` : ''}
     ${STATE.leaves.filter(l=>l.date===dateStr).length ? `<div class="hint" style="margin-top:6px">🌴 Leave: ${STATE.leaves.filter(l=>l.date===dateStr).map(l=>l.person).join(', ')}</div>` : ''}
   </div>`;
 }
@@ -14808,7 +15093,7 @@ function renderQuickActionsCard(){
   const isPO = STATE.auth.role==='po';
   const actions = [{label:'สร้างงานใหม่', sub:'เพิ่มงานเข้าระบบ', side:'brief'}];
   if(!isPO) actions.push({label:'จัดการวันหยุด', sub:'ตั้งค่าวันหยุด/วันพิเศษ', side:'leave'});
-  actions.push({label:'ดูรายงาน Capacity', sub:'สรุปข้อมูลรายเดือน', side:'briefintake'});
+  actions.push({label:'ดูรายงาน Capacity', sub:'สรุปข้อมูลรายเดือน', side:'monthlyoverview'});
   return `<div class="card">
     <div class="section-title" style="margin-bottom:6px">Quick Actions</div>
     ${actions.map(a=>`<button type="button" class="btn btn-ghost" data-side="${a.side}" style="width:100%;justify-content:space-between;margin-bottom:6px;text-align:left;display:flex;align-items:center">
@@ -15711,8 +15996,9 @@ function renderDeleteLeaveConfirm(){
   </div>`;
 }
 async function deleteLeaveConfirmed(){
-  STATE.leaves = STATE.leaves.filter(l=>l.id!==STATE.leaveUI.deleteConfirmId);
-  await saveLeaves();
+  const deletedId = STATE.leaveUI.deleteConfirmId;
+  STATE.leaves = STATE.leaves.filter(l=>l.id!==deletedId);
+  await saveLeaves([deletedId]); // explicit delete id — see saveCollectionAtomic's own comment
   STATE.leaveUI.deleteConfirmId = null;
   STATE.leaveUI.dayDetailDate = null;
   toast('🗑️ ลบวันลาแล้ว');
@@ -15833,8 +16119,9 @@ async function submitInternalTaskForm(e){
   closeInternalTaskModal();
 }
 async function deleteInternalTaskConfirmed(){
-  STATE.internalTasks = STATE.internalTasks.filter(x=>x.id!==STATE.internalTaskUI.deleteConfirmId);
-  await saveInternalTasks();
+  const deletedId = STATE.internalTaskUI.deleteConfirmId;
+  STATE.internalTasks = STATE.internalTasks.filter(x=>x.id!==deletedId);
+  await saveInternalTasks([deletedId]); // explicit delete id — see saveCollectionAtomic's own comment
   STATE.internalTaskUI.deleteConfirmId = null;
   toast('🗑️ ลบ Internal Task แล้ว');
   render();
@@ -16453,6 +16740,7 @@ function renderAdminPanel(){
       <div class="hint">CI Categories: ${STATE.ciCategories.length} · CI Guidelines: ${STATE.ciGuidelines.length} · Template Links: ${Object.keys(BRIEF_TEMPLATES).filter(k=>BRIEF_TEMPLATES[k]).length}</div>
     </div>
   </div>
+  ${renderAutoBackupsCard()}
   ${renderAdminDataCleanupCard()}`;
 }
 // §Data Cleanup — lets Admin/Lead Designer permanently remove test tasks by id, cascading to every
@@ -16958,6 +17246,9 @@ function bindEvents(){
     });
   });
   document.getElementById('boardQueueStatus')?.addEventListener('change', e=>{ STATE.board.queueStatus=e.target.value; render(); });
+  document.getElementById('boardQueuePlatform')?.addEventListener('change', e=>{ STATE.board.queuePlatform=e.target.value; render(); });
+  document.getElementById('boardQueueCategory')?.addEventListener('change', e=>{ STATE.board.queueCategory=e.target.value; render(); });
+  document.getElementById('boardQueueRequester')?.addEventListener('change', e=>{ STATE.board.queueRequester=e.target.value; render(); });
   document.getElementById('boardQueueSearch')?.addEventListener('input', e=>{ STATE.board.queueSearch=e.target.value; render(); });
   document.getElementById('boardProjectFilter')?.addEventListener('change', e=>{ STATE.board.project=e.target.value; render(); });
   // DEV REQUEST — Compact Kanban Card + Column Scroll: reapply + keep tracking each column's own scroll
@@ -17581,6 +17872,12 @@ function bindEvents(){
 
   document.getElementById('exportBtn')?.addEventListener('click', exportBackup);
   document.getElementById('importFile')?.addEventListener('change', importBackup);
+  document.getElementById('refreshAutoBackupsBtn')?.addEventListener('click', ()=>{ STATE.autoBackupsList=null; loadAutoBackupsList(); });
+  document.querySelectorAll('[data-restoreautobackup]').forEach(b=>b.addEventListener('click', ()=>{
+    const id = b.dataset.restoreautobackup;
+    if(!confirm('กู้คืนข้อมูลจาก Backup จุดนี้? ข้อมูลปัจจุบันจะถูกรวมกับข้อมูล ณ จุดนั้น (ของใหม่ที่เพิ่มมาไม่หาย แต่ของที่เพิ่งลบไปหลังจุดนี้อาจกลับมา)')) return;
+    restoreAutoBackup(id);
+  }));
   document.getElementById('adminCleanupSearch')?.addEventListener('input', e=>{
     STATE.adminCleanupSearch = e.target.value;
     render();
@@ -18957,11 +19254,11 @@ async function submitBriefInner(){
   if(submittedDraftId){
     const staleDraft = STATE.drafts.find(d=>d.id===submittedDraftId);
     if(staleDraft) staleDraft.submitted_task_id = task.task_id;
-    const remainingDrafts = STATE.drafts.filter(d=>d.id!==submittedDraftId);
-    const draftCleanupOk = await saveKey('wt_drafts', remainingDrafts);
-    if(draftCleanupOk){
-      STATE.drafts = remainingDrafts;
-    } else {
+    // saveDrafts() now merges against the live server copy itself (see saveCollectionAtomic) — passing
+    // the id explicitly here is what makes this an actual delete rather than the merge treating it as
+    // "some other tab just hasn't loaded this draft yet" and restoring it from the server.
+    const draftCleanupOk = await saveDrafts([submittedDraftId]);
+    if(!draftCleanupOk){
       console.warn('Draft cleanup failed after successful Task save — leaving stale Draft', submittedDraftId, 'for later cleanup');
       // Best-effort only: try to at least persist the submitted_task_id tag on the still-present stale
       // Draft so a later cleanup pass can find it — never retried beyond this, and never allowed to touch
@@ -19163,8 +19460,11 @@ async function importProductsCsv(text){
 // button implied a full backup. Keep this list and loadData()'s `keys` map (plus the standalone
 // wt_categories/wt_platforms/wt_design_assets/wt_brand_colors/wt_ci_categories/wt_ci_guidelines/
 // wt_templates loads) in sync whenever a new persisted field is added.
-function exportBackup(){
-  const backup = {
+// Shared by exportBackup() (manual .json download) AND runAutoBackup() (automatic rolling Firestore
+// snapshot, see below) — one definition of "everything a full system backup contains" so the two paths
+// can never drift apart and quietly leave something out of one but not the other.
+function buildFullBackupPayload(){
+  return {
     exported_at:new Date().toISOString(),
     tasks:STATE.tasks, leaves:STATE.leaves, products:STATE.products, productCategories:STATE.productCategories,
     platforms:STATE.platforms, designAssets:STATE.designAssets, brandColors:STATE.brandColors,
@@ -19177,6 +19477,9 @@ function exportBackup(){
     skuMaster:STATE.skuMaster, skuPlatforms:STATE.skuPlatforms, platformProducts:STATE.platformProducts,
     frameProfiles:STATE.frameProfiles, frameRuns:STATE.frameRuns, auditLog:STATE.auditLog, skuRunConfig:STATE.skuRunConfig,
   };
+}
+function exportBackup(){
+  const backup = buildFullBackupPayload();
   const blob = new Blob([JSON.stringify(backup,null,2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -19184,50 +19487,120 @@ function exportBackup(){
   URL.revokeObjectURL(url);
   toast('📤 ดาวน์โหลด Backup แล้ว (ครบทุกชุดข้อมูล รวม User / Department / Draft / CI / Template)');
 }
+// Shared by importBackup() (manual .json upload) AND restoreAutoBackup() (Admin-only restore from an
+// automatic snapshot, see renderAutoBackupsCard() below) — same schema-safe-mode apply + save-everything
+// logic either way, so a restore behaves identically regardless of which kind of backup it came from.
+// Schema safe mode: only accept known arrays/objects, keep existing if missing from the data (e.g.
+// restoring an older backup taken before a field existed must not wipe today's data).
+async function applyBackupData(data){
+  if(Array.isArray(data.tasks)) STATE.tasks = data.tasks;
+  if(Array.isArray(data.leaves)) STATE.leaves = data.leaves;
+  if(Array.isArray(data.products)) STATE.products = data.products;
+  if(Array.isArray(data.productCategories)) STATE.productCategories = data.productCategories;
+  if(Array.isArray(data.platforms)) STATE.platforms = data.platforms;
+  if(Array.isArray(data.designAssets)) STATE.designAssets = data.designAssets;
+  if(Array.isArray(data.brandColors)) STATE.brandColors = data.brandColors;
+  if(Array.isArray(data.notifications)) STATE.notifications = data.notifications;
+  if(Array.isArray(data.internalTasks)) STATE.internalTasks = data.internalTasks;
+  if(Array.isArray(data.users)) STATE.users = data.users;
+  if(Array.isArray(data.departments)) STATE.departments = data.departments;
+  if(Array.isArray(data.drafts)) STATE.drafts = data.drafts;
+  if(Array.isArray(data.ciCategories)) STATE.ciCategories = data.ciCategories;
+  if(Array.isArray(data.ciGuidelines)) STATE.ciGuidelines = data.ciGuidelines;
+  if(data.briefTemplates && typeof data.briefTemplates==='object' && !Array.isArray(data.briefTemplates)){
+    Object.keys(BRIEF_TEMPLATES).forEach(k=>delete BRIEF_TEMPLATES[k]);
+    Object.assign(BRIEF_TEMPLATES, data.briefTemplates);
+  }
+  if(Array.isArray(data.skuMaster)) STATE.skuMaster = data.skuMaster;
+  if(Array.isArray(data.skuPlatforms)) STATE.skuPlatforms = data.skuPlatforms;
+  if(Array.isArray(data.platformProducts)) STATE.platformProducts = data.platformProducts;
+  if(Array.isArray(data.frameProfiles)) STATE.frameProfiles = data.frameProfiles;
+  if(Array.isArray(data.frameRuns)) STATE.frameRuns = data.frameRuns;
+  if(Array.isArray(data.auditLog)) STATE.auditLog = data.auditLog;
+  if(data.skuRunConfig && typeof data.skuRunConfig==='object') STATE.skuRunConfig = Object.assign({}, STATE.skuRunConfig, data.skuRunConfig);
+  await Promise.all([
+    saveTasks(), saveLeaves(), saveProducts(), saveCategories(), savePlatforms(), saveDesignAssets(),
+    saveBrandColors(), saveNotifs(), saveInternalTasks(), saveUsers(), saveDepartments(), saveDrafts(),
+    saveCICategories(), saveCIGuidelines(), saveTemplates(),
+    saveSkuMaster(), saveSkuPlatforms(), savePlatformProducts(), saveFrameProfiles(), saveFrameRuns(), saveSkuAuditLog(), saveSkuRunConfig(),
+  ]);
+}
 function importBackup(e){
   const file = e.target.files[0]; if(!file) return;
   const reader = new FileReader();
   reader.onload = async ()=>{
     try{
       const data = JSON.parse(reader.result);
-      // Schema safe mode: only accept known arrays/objects, keep existing if missing from the file
-      // (e.g. restoring an older backup taken before a field existed must not wipe today's data).
-      if(Array.isArray(data.tasks)) STATE.tasks = data.tasks;
-      if(Array.isArray(data.leaves)) STATE.leaves = data.leaves;
-      if(Array.isArray(data.products)) STATE.products = data.products;
-      if(Array.isArray(data.productCategories)) STATE.productCategories = data.productCategories;
-      if(Array.isArray(data.platforms)) STATE.platforms = data.platforms;
-      if(Array.isArray(data.designAssets)) STATE.designAssets = data.designAssets;
-      if(Array.isArray(data.brandColors)) STATE.brandColors = data.brandColors;
-      if(Array.isArray(data.notifications)) STATE.notifications = data.notifications;
-      if(Array.isArray(data.internalTasks)) STATE.internalTasks = data.internalTasks;
-      if(Array.isArray(data.users)) STATE.users = data.users;
-      if(Array.isArray(data.departments)) STATE.departments = data.departments;
-      if(Array.isArray(data.drafts)) STATE.drafts = data.drafts;
-      if(Array.isArray(data.ciCategories)) STATE.ciCategories = data.ciCategories;
-      if(Array.isArray(data.ciGuidelines)) STATE.ciGuidelines = data.ciGuidelines;
-      if(data.briefTemplates && typeof data.briefTemplates==='object' && !Array.isArray(data.briefTemplates)){
-        Object.keys(BRIEF_TEMPLATES).forEach(k=>delete BRIEF_TEMPLATES[k]);
-        Object.assign(BRIEF_TEMPLATES, data.briefTemplates);
-      }
-      if(Array.isArray(data.skuMaster)) STATE.skuMaster = data.skuMaster;
-      if(Array.isArray(data.skuPlatforms)) STATE.skuPlatforms = data.skuPlatforms;
-      if(Array.isArray(data.platformProducts)) STATE.platformProducts = data.platformProducts;
-      if(Array.isArray(data.frameProfiles)) STATE.frameProfiles = data.frameProfiles;
-      if(Array.isArray(data.frameRuns)) STATE.frameRuns = data.frameRuns;
-      if(Array.isArray(data.auditLog)) STATE.auditLog = data.auditLog;
-      if(data.skuRunConfig && typeof data.skuRunConfig==='object') STATE.skuRunConfig = Object.assign({}, STATE.skuRunConfig, data.skuRunConfig);
-      await Promise.all([
-        saveTasks(), saveLeaves(), saveProducts(), saveCategories(), savePlatforms(), saveDesignAssets(),
-        saveBrandColors(), saveNotifs(), saveInternalTasks(), saveUsers(), saveDepartments(), saveDrafts(),
-        saveCICategories(), saveCIGuidelines(), saveTemplates(),
-        saveSkuMaster(), saveSkuPlatforms(), savePlatformProducts(), saveFrameProfiles(), saveFrameRuns(), saveSkuAuditLog(), saveSkuRunConfig(),
-      ]);
+      await applyBackupData(data);
       toast('✅ Restore สำเร็จ (ครบทุกชุดข้อมูล)');
       render();
     }catch(err){ toast('❌ ไฟล์ไม่ถูกต้อง — Restore ล้มเหลว'); }
   };
   reader.readAsText(file);
+}
+// DEV FEATURE (Krissha — "ทำงานคอมหลายเครื่อง...ปัญหานี้ถือว่าค่อนข้างใหญ่ แบ็คอัพไฟล์ได้มั้ย ทุกๆ 30 นาที
+// เก็บไว้แค่ 1 วัน"): automatic rolling snapshot on top of the manual Export/Import above — nobody has to
+// remember to click Export before this can help. Runs from boot()'s own timer (see there) roughly every
+// 30 minutes; `lastKnownBackupAt` below coordinates across multiple open tabs so having several people
+// logged in at once doesn't produce a pile of near-duplicate snapshots — whichever tab's timer fires once
+// the real gap has passed does the work, the rest see a recent-enough snapshot already there and skip.
+let lastKnownBackupAt = 0;
+const AUTO_BACKUP_INTERVAL_MS = 30*60*1000; // 30 minutes
+const AUTO_BACKUP_RETENTION_MS = 24*60*60*1000; // keep 1 day
+async function runAutoBackup(){
+  try{
+    const existing = await window.storage.listBackupSnapshots();
+    const newest = existing[0];
+    if(newest){
+      lastKnownBackupAt = new Date(newest.created_at).getTime();
+      // Some other tab already made a recent enough snapshot — nothing to do this tick. A small margin
+      // under the full interval so this can't drift later and later across many tabs' independent timers.
+      if(Date.now() - lastKnownBackupAt < AUTO_BACKUP_INTERVAL_MS - 60000) return;
+    }
+    const ok = await window.storage.saveBackupSnapshot(buildFullBackupPayload());
+    if(ok){
+      lastKnownBackupAt = Date.now();
+      const cutoff = new Date(Date.now() - AUTO_BACKUP_RETENTION_MS).toISOString();
+      await window.storage.pruneBackupSnapshotsOlderThan(cutoff);
+    }
+  }catch(e){ console.error('runAutoBackup failed (non-fatal — next 30-min tick or manual Export still work)', e); }
+}
+// Admin-only restore action for the card below — same applyBackupData() the manual Import uses, so a
+// restore from an automatic snapshot behaves identically to restoring an uploaded .json file.
+async function restoreAutoBackup(id){
+  const data = await window.storage.getBackupSnapshot(id);
+  if(!data){ toast('❌ ไม่พบข้อมูล Backup นี้แล้ว (อาจถูกลบไปตามอายุ 1 วัน)'); render(); return; }
+  await applyBackupData(data);
+  toast('✅ กู้คืนข้อมูลจาก Backup อัตโนมัติสำเร็จแล้ว');
+  render();
+}
+async function loadAutoBackupsList(){
+  STATE.autoBackupsLoading = true;
+  STATE.autoBackupsList = await window.storage.listBackupSnapshots();
+  STATE.autoBackupsLoading = false;
+  render();
+}
+// Admin-only card in Admin Panel (renderAdminPanel) listing the rolling automatic snapshots with a
+// one-click Restore per row — see runAutoBackup()/restoreAutoBackup() above. Loaded lazily (only once
+// Admin Panel is actually opened, never at boot) since most sessions never visit this page at all.
+function renderAutoBackupsCard(){
+  if(!hasAdminAccess()) return '';
+  if(STATE.autoBackupsList===null && !STATE.autoBackupsLoading) loadAutoBackupsList();
+  const list = STATE.autoBackupsList || [];
+  return `<div class="card" style="margin-top:16px;max-width:720px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <div style="font-weight:700">Auto Backups (ทุก 30 นาที · เก็บไว้ 1 วัน)</div>
+      <button type="button" class="btn btn-sm btn-ghost" id="refreshAutoBackupsBtn">↻ Refresh</button>
+    </div>
+    <p class="hint" style="margin-bottom:10px">สำรองข้อมูลทั้งระบบอัตโนมัติทุก 30 นาที เก็บย้อนหลังได้ 1 วัน — ใช้กู้คืนกรณีข้อมูลหายจากการบันทึกชนกัน การกู้คืนจะ "รวม" ข้อมูล ณ จุดนั้นกลับเข้าไป ไม่ลบของใหม่ที่มีคนเพิ่มมาหลังจุด Backup นั้น</p>
+    ${STATE.autoBackupsLoading ? `<div class="hint">กำลังโหลด...</div>` : list.length===0 ? `<div class="hint">ยังไม่มี Backup อัตโนมัติ (จะเริ่มสร้างภายใน 2 นาทีหลังเปิดระบบ — ต้องมีคนล็อกอินใช้งานอยู่ระบบถึงจะสร้างได้)</div>` : `
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto">
+      ${list.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 9px;border:1px solid var(--border-color,#e0e0e0);border-radius:6px">
+        <span>${fmtDateTime(b.created_at)}</span>
+        <button type="button" class="btn btn-sm btn-ghost" data-restoreautobackup="${b.id}">กู้คืนจากจุดนี้</button>
+      </div>`).join('')}
+    </div>`}
+  </div>`;
 }
 
 // Final Work Folder — "+ Add Folder Link" (Krissha, request): lets an editor attach the finished-file
@@ -24191,19 +24564,24 @@ function ftExportAllIndividually(mode){
     if(processDeadlineReminders()) didChange = true;
     if(didChange) render();
   }, 60000);
-  // Krissha — "รีเช็คว่างานจะเป็นปัจจุบัน เรียลทามกับผู้ใช้คนอื่นๆ": a SEPARATE, slower interval from the
-  // local-only checks above, since this one is a real Firestore read. BUG FIX (Krissha report —
-  // "Message rate limit exceeded" in console): the first version piggybacked this on the 60s interval AND
-  // refetched on every tab-focus with no cooldown, which added up to too many reads too close together
-  // with a few tabs open. Every 5 minutes now, and refreshTasksFromServer()'s own TASKS_REFRESH_MIN_GAP_MS
+  // Krissha — "รีเช็คว่างานจะเป็นปัจจุบัน เรียลทามกับผู้ใช้คนอื่นๆ" / "ข้อมูลเรียลทาม ไวสุด 1 นาที ทำได้มั้ย":
+  // a SEPARATE interval from the local-only checks above, since this one is a real Firestore read. Sped up
+  // to every 1 minute (was slowed to 5 minutes only to fix the rate-limit bug below — see
+  // TASKS_REFRESH_MIN_GAP_MS's own comment for why 1 minute is safe) — refreshTasksFromServer()'s own gap
   // still protects the tab-focus listener below from firing right on top of this.
-  setInterval(async ()=>{ if(await refreshTasksFromServer()) render(); }, 300000);
+  setInterval(async ()=>{ if(await refreshTasksFromServer()) render(); }, 60000);
   // Same fix, instant-ish version: a tab that's been backgrounded/minimized for a while refreshes when the
   // person actually switches back to it, instead of waiting out the rest of the 5-minute interval — throttled
   // by the same TASKS_REFRESH_MIN_GAP_MS, so switching tabs back and forth repeatedly can't pile up requests.
   document.addEventListener('visibilitychange', async ()=>{
     if(document.visibilityState==='visible' && await refreshTasksFromServer()) render();
   });
+  // Krissha — "ทำงานคอมหลายเครื่อง...แบ็คอัพไฟล์ได้มั้ย ทุกๆ 30 นาที เก็บไว้แค่ 1 วัน": a delayed first run
+  // (2 minutes after boot, not immediately — this tab's own initial load already has plenty to do) then
+  // every 30 minutes after that. runAutoBackup() itself checks the most recent existing snapshot's age
+  // first, so several tabs open at once don't each write their own near-duplicate copy.
+  setTimeout(runAutoBackup, 120000);
+  setInterval(runAutoBackup, AUTO_BACKUP_INTERVAL_MS);
   render();
 })();
 
