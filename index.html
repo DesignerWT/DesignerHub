@@ -3747,6 +3747,14 @@ async function loadData(){
   // mirroring every in-app notify() call 1:1. Off by default until she's redeployed the Apps Script with
   // the sendEmail action AND ticked the box in Admin Panel — see sendEmailNotification()/notify() below.
   if(STATE.gdriveConfig.emailNotifyEnabled == null) STATE.gdriveConfig.emailNotifyEnabled = false;
+  // Krissha request ("เพิ่ม เปิด ปิดแจ้งเตือนระบบสำหรับ Admin สำหรับเทส" + "รวมถึงการส่ง email"): one master
+  // kill switch, Admin-only, for whenever she's testing the system with real accounts/data and doesn't want
+  // every action spamming real people — gates BOTH the in-app bell AND email in one place (see notify()
+  // below), rather than needing to separately remember the existing Email checkbox too. Defaults to true
+  // (notifications ON) so nothing changes for anyone who never touches this setting. Reuses this same
+  // shared/persisted gdriveConfig object — it's just an admin settings blob already loaded this way, no
+  // reason for a second storage key just for one more boolean.
+  if(STATE.gdriveConfig.notificationsEnabled == null) STATE.gdriveConfig.notificationsEnabled = true;
   // Designer/Lead Designer Login: remember which of the 3 accounts was last used ON THIS BROWSER (never
   // the password) so the login screen can jump straight to the Password step for it. Only honored if that
   // account is still an active Designer/Lead — an inactive/removed account falls back to the picker.
@@ -4605,7 +4613,12 @@ function toast(msg){
   const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
   document.body.appendChild(el); setTimeout(()=>el.remove(),2800);
 }
+// Krissha request — master notification kill switch (see STATE.gdriveConfig.notificationsEnabled default
+// above + renderAdminPanel()'s toggle). `!== false` so it reads as ON for anyone who loaded this before the
+// field existed (undefined) — only an explicit `false` (Admin actually flipped it off) suppresses anything.
+function notificationsAreOn(){ return STATE.gdriveConfig?.notificationsEnabled !== false; }
 function notify(to, title, message, taskId, eventType, extra, role){
+  if(!notificationsAreOn()) return; // test-mode: no in-app notification AND no email leg below — see caller
   STATE.notifications.push({id:'n_'+Math.random().toString(36).slice(2,9), to, title, message, timestamp:new Date().toISOString(), read:false, taskId: taskId||null});
   saveNotifs();
   // Email Notifications — Krissha's Email Master Spec (eventType → Email Template): Email used to mirror
@@ -4936,12 +4949,16 @@ function notifyUsers(recipients, title, message, taskId, options){
   // notifyUsers() call differently for a handful of events, e.g. BRIEF_SUBMITTED) via emailRoleForRecipient,
   // unless the caller already knows the roles and passes options.roleFor(u) itself.
   const evTask = options.eventType ? (STATE.tasks||[]).find(x=>x.task_id===taskId) : null;
+  // Krissha's notification kill switch: reflect reality in the Delivery Log too — while it's off, notify()
+  // itself no-ops (no in-app row, no email leg), so this must say so instead of claiming inapp:true/emailSent
+  // like a normal send, which would make the Log lie about what actually went out during a test session.
+  const notifOn = notificationsAreOn();
   const deliveries = finalList.map(u=>{
     const role = options.eventType ? (options.roleFor ? options.roleFor(u) : emailRoleForRecipient(u, evTask)) : undefined;
     notify(u.email || u.name, title, message, taskId, options.eventType, options.extra, role);
-    return {name:u.name||u.email, email:u.email||null, inapp:true,
-      emailSent: !!(STATE.gdriveConfig?.emailNotifyEnabled && u.email),
-      reason: u.email ? '' : 'ไม่มีอีเมลผูกกับบัญชีนี้'};
+    return {name:u.name||u.email, email:u.email||null, inapp:notifOn,
+      emailSent: !!(notifOn && STATE.gdriveConfig?.emailNotifyEnabled && u.email),
+      reason: notifOn ? (u.email ? '' : 'ไม่มีอีเมลผูกกับบัญชีนี้') : 'ปิดการแจ้งเตือนทั้งระบบชั่วคราว (โหมดทดสอบ)'};
   });
   logNotifDelivery(title, deliveries);
   return finalList;
@@ -5813,6 +5830,7 @@ function renderTopNav(){
     ${canToggleAdminMode ? (isAdminModeOn()
       ? `<button type="button" class="btn btn-sm btn-ghost" id="exitAdminModeBtn">Admin Mode — Exit</button>`
       : `<button type="button" class="btn btn-sm btn-ghost" id="adminModeBtn">Admin Mode</button>`) : ''}
+    ${(hasAdminAccess() && !notificationsAreOn()) ? `<span class="chip" data-side="admin" style="background:#fee2e2;color:#dc2626;font-weight:700;padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;white-space:nowrap" title="ปิดการแจ้งเตือนทั้งระบบชั่วคราว (ทั้งกระดิ่งในระบบและอีเมล) — กดเพื่อไปเปิดกลับที่ Admin Panel">🔕 แจ้งเตือนปิดอยู่ (โหมดทดสอบ)</span>` : ''}
     <div class="iconbtn" id="notifBell" style="width:auto;padding:0 10px;font-size:12px;font-weight:700">Alerts${unread>0?`<span class="dot-badge">${unread}</span>`:''}</div>
     <div class="userpill" id="userMenuBtn" title="เมนูผู้ใช้">
       <div class="avatar">${(displayName||'?')[0].toUpperCase()}</div>
@@ -8637,6 +8655,10 @@ function renderBriefForm(){
             <div id="resizePointPreview" class="hint" style="display:none"></div>
           </div>
         </div>
+        <!-- Krissha request — ชื่อแต่ละ Artwork right under จำนวน Artwork หลัก itself: hidden entirely for
+             1 Artwork (its name just mirrors Task Name, see syncSoleArtworkNameFromTaskName), one small
+             box per Artwork for 2+. See renderArtworkQuickNamesHTML/refreshArtworkQuickNamesBox above. -->
+        <div id="awQuickNamesWrap">${renderArtworkQuickNamesHTML()}</div>
         <div id="customWrap" class="field" style="display:none">
           <label>ชั่วโมงงาน (กำหนดโดย Lead Designer)</label><input type="number" step="0.5" id="f_custom" value="2">
         </div>
@@ -8974,6 +8996,7 @@ function applyDeliverablesCount(n){
     const from = arr.length;
     while(arr.length<n) arr.push(newArtwork());
     refreshArtworkSection();
+    refreshArtworkQuickNamesBox();
     scheduleBriefDraftAutosave();
     toast(`➕ เพิ่มเป็น ${n} Artwork (AW${artworkSeqLabel(from)}–AW${artworkSeqLabel(n-1)}) แล้ว`);
     return;
@@ -8982,7 +9005,9 @@ function applyDeliverablesCount(n){
   if(!dropped.some(a=>artworkHasAnyData(a))){
     arr.length = n;
     if(BRIEF_DRAFT.activeArtworkIndex>=n) BRIEF_DRAFT.activeArtworkIndex = n-1;
+    if(n===1) syncSoleArtworkNameFromTaskName();
     refreshArtworkSection();
+    refreshArtworkQuickNamesBox();
     scheduleBriefDraftAutosave();
     toast(`ลดจำนวนเหลือ ${n} Artwork แล้ว`);
     return;
@@ -9017,8 +9042,10 @@ function showDeliverablesShrinkConfirmModal(newCount, droppedArtworks){
     const arr = briefArtworks();
     arr.length = newCount;
     if(BRIEF_DRAFT.activeArtworkIndex>=newCount) BRIEF_DRAFT.activeArtworkIndex = newCount-1;
+    if(newCount===1) syncSoleArtworkNameFromTaskName();
     closeDeliverablesShrinkConfirmModal(false);
     refreshArtworkSection();
+    refreshArtworkQuickNamesBox();
     scheduleBriefDraftAutosave();
     toast(`🗑 ลดจำนวนเหลือ ${newCount} Artwork แล้ว`);
   });
@@ -9028,6 +9055,66 @@ function showDeliverablesShrinkConfirmModal(newCount, droppedArtworks){
 function closeDeliverablesShrinkConfirmModal(revertField){
   document.getElementById('deliverShrinkPortal')?.remove();
   if(revertField) syncDeliverablesField();
+}
+// Krissha request ("เป็นกล่องอยู่ใต้จำนวน Artwork ถ้ามี 1 ใช้ชื่อเป็นชื่องานเลยไม่ต้องตั้ง แต่ถ้า 2 ขึ้นไปมี
+// กล่องมาให้กรอก") — revised from an earlier popup-modal version to sit INLINE right under the จำนวน
+// Artwork หลัก field itself (#awQuickNamesWrap in step-basic, see renderBriefForm), not a separate dialog:
+//   - 1 Artwork: no box at all — that single Artwork's name just IS the Task Name (see the f_taskname
+//     live-sync listener + submitBrief()'s own safety-net assignment — no separate naming concept exists
+//     for a single-Artwork Brief).
+//   - 2+ Artworks: one small text box per Artwork, right there, so she never has to open step 02's tabs
+//     just to give each one a name (though she still can, any time, in "Artwork Brief & Canvas").
+function renderArtworkQuickNamesHTML(){
+  const arr = briefArtworks();
+  if(arr.length<2) return '';
+  return `<div class="field" style="margin-top:12px">
+    <label>ชื่อแต่ละ Artwork</label>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+      ${arr.map((aw,i)=>`<div>
+        <div class="hint" style="margin-bottom:3px">AW${artworkSeqLabel(i)}</div>
+        <input type="text" data-awquickname="${i}" value="${escAttr(aw.name||'')}" placeholder="เช่น Banner 1200x628">
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+// Rebuilds #awQuickNamesWrap after any structural change (count grew/shrank — never on a plain keystroke,
+// same rule as refreshArtworkSection()) and rewires its inputs — typing into one writes straight into
+// briefArtworks()[i].name, same live-mutate-in-place pattern bindArtworkEditFields() already uses elsewhere
+// so no field the user is actively typing in can lose focus in the middle of a keystroke.
+function refreshArtworkQuickNamesBox(){
+  const wrap = document.getElementById('awQuickNamesWrap');
+  if(!wrap) return;
+  wrap.innerHTML = renderArtworkQuickNamesHTML();
+  wrap.querySelectorAll('[data-awquickname]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const i = Number(e.target.dataset.awquickname);
+      const arr = briefArtworks();
+      if(!arr[i]) return;
+      arr[i].name = e.target.value;
+      scheduleBriefDraftAutosave();
+      // Krissha follow-up ("ชื่อต้องลิงก์กัน") — this box used to only mutate arr[i].name in memory, so
+      // step 02's Artwork Tabs (and header, if that Artwork is the one currently open there) kept showing
+      // the stale "ยังไม่ได้ตั้งชื่อ" until some unrelated structural change happened to redraw them. Same
+      // live-sync targets bindArtworkEditFields()'s own Artwork Name field already updates on every
+      // keystroke — keeping both boxes able to rename the same Artwork without ever going stale.
+      refreshArtworkListAndNav();
+      if(i===activeArtworkIndex()){
+        const h = document.getElementById('awEditHeaderName');
+        if(h) h.textContent = artworkDisplayName(arr[i], i);
+      }
+    });
+  });
+}
+// Single-Artwork case: the Task Name IS the Artwork name, live, with no box shown for her to set it in —
+// same tab/header live-sync as the two boxes above ("ชื่อต้องลิงก์กัน") so AW01's tab in step 02 never sits
+// on a stale "ยังไม่ได้ตั้งชื่อ" once she's actually typed a Task Name.
+function syncSoleArtworkNameFromTaskName(){
+  const arr = briefArtworks();
+  if(arr.length!==1) return;
+  arr[0].name = document.getElementById('f_taskname')?.value || '';
+  refreshArtworkListAndNav();
+  const h = document.getElementById('awEditHeaderName');
+  if(h) h.textContent = artworkDisplayName(arr[0], 0);
 }
 // Apply to All Artworks (Dev Spec §12): applying copies the current value to every Artwork immediately;
 // editing a field that was previously applied-to-all must ASK before touching any other Artwork — it must
@@ -9152,11 +9239,15 @@ function bindArtworkEditFields(){
     el.addEventListener(evt, e=>{
       aw[field] = e.target.value;
       if(field==='name'){
-        // Artwork Name live-syncs to BOTH the single header AND its Tab label as the user types
-        // (DEV SPEC §02.2) — no separate "rename" step, no stale label anywhere on screen.
+        // Artwork Name live-syncs to the single header, its Tab label, AND the "ชื่อแต่ละ Artwork" quick-box
+        // up in step 01 (DEV SPEC §02.2 + Krissha's "ชื่อต้องลิงก์กัน" follow-up) as the user types — no
+        // separate "rename" step, no stale label anywhere on screen, whichever of the two name boxes she
+        // actually typed into.
         const h = document.getElementById('awEditHeaderName'); if(h) h.textContent = artworkDisplayName(aw, activeArtworkIndex());
         const tabNameEl = document.querySelector(`.aw-tab[data-awtab="${activeArtworkIndex()}"] .aw-tab-name`);
         if(tabNameEl) tabNameEl.textContent = artworkDisplayName(aw, activeArtworkIndex());
+        const quickBoxInput = document.querySelector(`#awQuickNamesWrap [data-awquickname="${activeArtworkIndex()}"]`);
+        if(quickBoxInput && quickBoxInput.value!==e.target.value) quickBoxInput.value = e.target.value;
       }
     });
     el.addEventListener('blur', e=>{
@@ -16659,11 +16750,29 @@ function renderNotifDeliveryLogCard(){
       </div>`).join('')}
   </div>`;
 }
+// Krissha request ("เพิ่ม เปิด ปิดแจ้งเตือนระบบสำหรับ Admin สำหรับเทส" + "รวมถึงการส่ง email") — one
+// Admin-only master switch for both the in-app bell AND email in the same click (notify() itself is the
+// actual gate — see there — this card is just the on/off control + a loud reminder while it's off, since
+// leaving it off by accident after testing would silently mean nobody gets notified of real new work).
+function renderNotificationsKillSwitchCard(){
+  const on = notificationsAreOn();
+  return `<div class="card" style="margin-bottom:16px;max-width:640px;${on?'':'border:2px solid #dc2626'}">
+    <div style="font-weight:700;margin-bottom:4px">🔔 การแจ้งเตือนระบบ (Notifications)</div>
+    <p class="hint" style="margin-bottom:10px">สวิตช์เดียวคุมทั้งกระดิ่งแจ้งเตือนในระบบและอีเมล — ปิดไว้ชั่วคราวเวลาทดสอบระบบ (เช่น ลองสร้าง/ย้ายบรีฟเล่นๆ) เพื่อไม่ให้มีแจ้งเตือนจริงส่งไปหาทีมจากการทดสอบ</p>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer">
+      <input type="checkbox" id="systemNotifToggle" ${on?'checked':''}>
+      เปิดใช้งานการแจ้งเตือนระบบ (ในระบบ + อีเมล)
+    </label>
+    ${!on ? `<div class="hint" style="margin-top:8px;color:#dc2626;font-weight:700">⚠ ขณะนี้ปิดการแจ้งเตือนทั้งระบบอยู่ — ไม่มีใครได้รับแจ้งเตือนงานใหม่/อัปเดตใดๆ เลย (ทั้งกระดิ่งและอีเมล) จนกว่าจะติ๊กเปิดกลับ อย่าลืมเปิดคืนหลังทดสอบเสร็จ!</div>` : ''}
+  </div>`;
+}
 function renderAdminPanel(){
   const categories = Object.keys(TEMPLATE_LABELS);
   return `
   <h1 class="pagetitle">Admin Control Panel</h1>
   <p class="pagesub">Backup & Restore · ข้อมูลแยกจาก Source Code ผ่าน Storage กลาง — Deploy โค้ดใหม่ได้โดยข้อมูลไม่หาย</p>
+
+  ${renderNotificationsKillSwitchCard()}
 
   <div class="card" style="margin-bottom:16px;max-width:640px">
     <div style="font-weight:700;margin-bottom:4px">Brief Template Links</div>
@@ -17023,7 +17132,13 @@ function bindEvents(){
     document.getElementById('f_upload')?.addEventListener('change', handleImageUpload);
 
     refreshBriefForm();
+    refreshArtworkQuickNamesBox(); // wires up the initial ชื่อแต่ละ Artwork box's inputs (e.g. editing an
+                                    // existing Brief that already has 2+ Artworks) — see its own comment above.
     ['f_owner','f_taskname'].forEach(id=>document.getElementById(id)?.addEventListener('input', updateBriefReadiness));
+    // Krissha request — 1-Artwork Brief has no separate naming box (see renderArtworkQuickNamesHTML): keep
+    // that sole Artwork's name mirroring Task Name live as she types it, so it's never stuck showing
+    // "ยังไม่ได้ตั้งชื่อ" in step 02's tab just because she never had a box to type a name into.
+    document.getElementById('f_taskname')?.addEventListener('input', syncSoleArtworkNameFromTaskName);
     const updateResizePreview = ()=>{
       const el = document.getElementById('resizePointPreview');
       if(!el) return;
@@ -17914,6 +18029,13 @@ function bindEvents(){
     BRIEF_TEMPLATES = updated;
     await saveTemplates();
     toast('✅ บันทึก Template Links แล้ว');
+  });
+  document.getElementById('systemNotifToggle')?.addEventListener('change', async e=>{
+    const enabled = !!e.target.checked;
+    STATE.gdriveConfig = {...(STATE.gdriveConfig||{}), notificationsEnabled: enabled};
+    await saveKey('wt_gdrive_config', STATE.gdriveConfig);
+    toast(enabled ? '✅ เปิดการแจ้งเตือนระบบแล้ว' : '🔕 ปิดการแจ้งเตือนทั้งระบบชั่วคราว (โหมดทดสอบ)');
+    render();
   });
   document.getElementById('gdriveConfigForm')?.addEventListener('submit', async (e)=>{
     e.preventDefault();
@@ -19006,6 +19128,12 @@ async function submitBriefInner(){
   }
 
   const taskName = document.getElementById('f_taskname').value;
+  // Krissha request ("ถ้ามี 1 ใช้ชื่อเป็นชื่องานเลยไม่ต้องตั้ง"): a single-Artwork Brief has no separate
+  // naming concept at all — its one Artwork's name just IS the Task Name, always, so it's never left
+  // "ยังไม่ได้ตั้งชื่อ" just because she never touched a naming box that isn't even shown for count===1 (see
+  // renderArtworkQuickNamesHTML()). Enforced here as the final safety net regardless of which live sync
+  // listener did or didn't fire while she was filling the form out.
+  if(briefArtworks().length===1) briefArtworks()[0].name = taskName.trim();
 
   // Backward-compat mirror of AW01 — see legacyBriefDetailsMirror(). The real per-artwork content is
   // `artworks` (assigned onto `task` / `existing` further below), never this DOM-read snapshot.
