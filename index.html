@@ -118,6 +118,14 @@ body{
    keep scrolling horizontally within its own card via its own overflow-x:auto, same as before — this only
    stops an accidental one from taking the rest of the page with it. */
 .main{flex:1;padding:22px 26px 60px;overflow-y:auto;overflow-x:hidden;min-width:0}
+/* DEV FIX (Krissha — "ใส่หน้าย้อนกลับ หรือ Home ทุกหน้าได้มั้ย"): one shared bar, mounted at the top of
+   .main by render() itself (see renderBackHomeBar()) so every single page gets it for free. */
+.back-home-bar{display:flex;gap:8px;margin-bottom:14px}
+.back-home-btn{font:600 13px var(--font-app);padding:7px 14px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:#fff;color:var(--text);cursor:pointer;transition:background .15s}
+.back-home-btn:hover:not(:disabled){background:var(--surface-2)}
+.back-home-btn:disabled{opacity:.4;cursor:default}
+.back-home-btn-ghost{background:var(--surface-2);border-color:var(--border)}
+@media(max-width:640px){ .back-home-bar{margin-bottom:10px} .back-home-btn{padding:6px 12px;font-size:12px} }
 /* Studio Flow bridge (Krissha, request): the whole "Studio Flow" reference system embedded verbatim in a
    sandboxed iframe — see ensureStudioFlowFrame()/renderStudioFlowPage() near the bottom of the script. This
    page renders only an invisible layout placeholder; the real <iframe> lives outside the innerHTML-managed
@@ -5182,16 +5190,67 @@ function restoreScrollState(state){
     }
   }
 }
+// DEV FIX (Krissha — "ใส่หน้าย้อนกลับ หรือ Home ทุกหน้าได้มั้ย"): a generic Back/Home bar shown on every
+// page (see renderBackHomeBar(), mounted once in render() below) instead of retrofitting a Back button
+// into each individual render* page function one by one. "What page is this" for this whole app already
+// boils down to exactly 3 STATE fields — detailTaskId/tab/sideSection (see renderMain()'s own dispatch
+// above it) — so tracking navigation history only needs ONE hook, right here in the shared render(), never
+// touching any of the 50+ places elsewhere that set those fields directly. NAV_LAST_SIGNATURE is "what was
+// on screen as of the end of the previous render() call"; if the CURRENT STATE (already mutated by
+// whatever action just triggered this render) points somewhere else, that previous page gets pushed onto
+// NAV_HISTORY before we move on — so Back always has somewhere real to return to.
+let NAV_HISTORY = [];
+let NAV_LAST_SIGNATURE = null;
+function navPageSignature(){ return {detailTaskId: STATE.detailTaskId||null, tab: STATE.tab||null, sideSection: STATE.sideSection||null}; }
+function navSignaturesEqual(a,b){ return !!a && !!b && a.detailTaskId===b.detailTaskId && a.tab===b.tab && a.sideSection===b.sideSection; }
+function canGoBack(){ return NAV_HISTORY.length>0; }
+function goBack(){
+  if(!NAV_HISTORY.length){ goHome(); return; }
+  const prev = NAV_HISTORY.pop();
+  STATE.detailTaskId = prev.detailTaskId;
+  STATE.tab = prev.tab;
+  STATE.sideSection = prev.sideSection;
+  // This restore is itself a "page change" by the letter of the rule above — preset the signature so
+  // render()'s own tracking sees no change and doesn't immediately push the page we just left BACK onto
+  // history (which would turn every second Back press into a Forward, ping-ponging between two pages
+  // instead of actually walking back further).
+  NAV_LAST_SIGNATURE = prev;
+  render();
+}
+// Krissha — same request, the other half: Home always returns to this role's normal landing page,
+// mirroring exactly what completeLogin()/restoreSession() already send each role to after signing in.
+function goHome(){
+  STATE.detailTaskId = null;
+  if(STATE.auth.role==='po'){ STATE.tab='workflow'; STATE.sideSection='poHome'; }
+  else if(STATE.auth.role==='admin'){ STATE.tab='workflow'; STATE.sideSection='users'; }
+  else { STATE.tab='workspace'; STATE.sideSection='board'; }
+  render();
+}
+// Home is always shown (Krissha asked for it on "ทุกหน้า" — every page, not just once there's somewhere
+// to go back to); Back is shown enabled only once NAV_HISTORY actually has something in it, disabled
+// (rather than hidden) otherwise so the bar's layout doesn't jump around as history fills in.
+function renderBackHomeBar(){
+  return `<div class="back-home-bar">
+    <button type="button" class="back-home-btn" id="navGoBackBtn" ${canGoBack()?'':'disabled'}>← ย้อนกลับ</button>
+    <button type="button" class="back-home-btn back-home-btn-ghost" id="navGoHomeBtn">🏠 หน้าหลัก</button>
+  </div>`;
+}
 function render(){
   const app = document.getElementById('app');
   if(!STATE.auth.loggedIn){ app.innerHTML = renderLogin(); bindLogin(); hideStudioFlowFrame(); return; }
+  const __navSig = navPageSignature();
+  if(NAV_LAST_SIGNATURE && !navSignaturesEqual(NAV_LAST_SIGNATURE, __navSig)){
+    NAV_HISTORY.push(NAV_LAST_SIGNATURE);
+    if(NAV_HISTORY.length>30) NAV_HISTORY.shift();
+  }
+  NAV_LAST_SIGNATURE = __navSig;
   saveNavState();
   const __scrollState = captureScrollState();
   app.innerHTML = `
     ${renderTopNav()}
     <div class="body-row">
       ${renderSidebar()}
-      <div class="main">${renderMain()}</div>
+      <div class="main">${renderBackHomeBar()}${renderMain()}</div>
     </div>
     ${STATE.pui.productModalOpen ? renderProductModal() : ''}
     ${STATE.pui.categoryModalOpen ? renderCategoryModal() : ''}
@@ -5610,6 +5669,8 @@ function openUserMenuPortal(){
     STATE.vbProductPicker=null; STATE.vbReferenceForm=null; clearOverlay();
     clearSavedSession();
     closeUserMenuPortal();
+    // A fresh login shouldn't inherit the previous session's Back history.
+    NAV_HISTORY = []; NAV_LAST_SIGNATURE = null;
     render();
   });
 }
@@ -6910,7 +6971,10 @@ const MYWORK_TODAY_TIERS = [
 ];
 function myTodayActionTasks(me){
   const today = todayISO();
-  const mine = STATE.tasks.filter(t=>t.assigned_user_name===me && !['rejected','closed_max_revision','delivered'].includes(t.review_status));
+  // Only tasks still genuinely being worked on or not-yet-started belong here — once a task has been
+  // submitted (pending_review/pending_client_review) it's handed off and waiting on someone else, so it
+  // should stop taking up space in "today's action" (see isTaskStillInWorkQueue for the shared definition).
+  const mine = STATE.tasks.filter(t=>t.assigned_user_name===me && isTaskStillInWorkQueue(t));
   const order = MYWORK_TODAY_TIERS.map(x=>x.key);
   const tiered = mine.map(t=>{
     let tier;
@@ -11789,6 +11853,18 @@ const BOARD_SECTIONS = [
 const BOARD_TERMINAL_STATUSES = ['delivered','rejected','closed_max_revision'];
 function isBoardTaskTerminal(t){ return BOARD_TERMINAL_STATUSES.includes(t.review_status); }
 
+// Separate from BOARD_TERMINAL_STATUSES on purpose — "terminal" above means the task's whole lifecycle is
+// over (used for month-history bucketing, where an already-handed-off-for-review task still needs to keep
+// counting as "was open this month"). This one means something narrower: "is this task still something
+// someone here needs to actively work on or start", which is what work-queue / today's-action widgets
+// actually want to show. A task sitting in pending_review/pending_client_review has already been submitted
+// and is waiting on someone else's review — it should disappear from queues and today's action lists even
+// though it isn't "terminal" yet.
+const QUEUE_HANDED_OFF_STATUSES = ['pending_review','pending_client_review'];
+function isTaskStillInWorkQueue(t){
+  return !BOARD_TERMINAL_STATUSES.includes(t.review_status) && !QUEUE_HANDED_OFF_STATUSES.includes(t.review_status);
+}
+
 // §5/§12 Monthly Summary "หมวดใหญ่ (Task Category)": bucket straight off the real Task Category field
 // (MASTER_TABLE's own keys — E-Commerce/Content/Product/Offline Artwork/อื่นๆ) — anything blank or not
 // one of those five (e.g. an older/odd record) falls into the "อื่นๆ" bucket rather than disappearing
@@ -11867,8 +11943,11 @@ function renderBoardQueue(filtered){
     ['in_progress','In Progress'], ['pending_review','Pending Lead Review'],
     ['pending_client_review','Awaiting Approval'], ['revision','Revision'],
   ];
+  // "All Active" here means work still being done or not-yet-started — already-submitted tasks
+  // (pending_review/pending_client_review) are handed off and waiting on someone else, so they no longer
+  // belong in this queue count either (matches myTodayActionTasks — see isTaskStillInWorkQueue).
   let list = status==='ALL_ACTIVE'
-    ? filtered.filter(t=>!BOARD_TERMINAL_STATUSES.includes(t.review_status))
+    ? filtered.filter(t=>isTaskStillInWorkQueue(t))
     : filtered.filter(t=>t.review_status===status);
   if(search){
     list = list.filter(t=>{
@@ -16459,6 +16538,10 @@ function bindEvents(){
     STATE.mobileSidebarOpen = false;
     render();
   });
+  // DEV FIX (Krissha — "ใส่หน้าย้อนกลับ หรือ Home ทุกหน้าได้มั้ย"): see renderBackHomeBar()/goBack()/
+  // goHome() near render() for how the history stack works.
+  document.getElementById('navGoBackBtn')?.addEventListener('click', goBack);
+  document.getElementById('navGoHomeBtn')?.addEventListener('click', goHome);
   // DEV FIX — Top Navigation categories must be real navigation, not decorative buttons: clicking one
   // sets the exact same STATE.tab/sideSection its own sidebar's default item would, then re-renders
   // through the app's normal render() — never a full page reload, never disabled/overlaid.
