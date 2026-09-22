@@ -601,6 +601,59 @@ hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 .dsum-card .dl{font-size:10px;color:var(--ink-soft);font-weight:700;margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
 .dash-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
 .dash-filters input, .dash-filters select{width:auto;min-width:130px}
+/* All Work page — compact enterprise filter toolbar (Krissha, "Redesign Filter Bar" spec) */
+.awf-toolbar{background:#FFFFFF;border:1px solid #E5E7EB;border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,.05);padding:12px 16px;margin-bottom:16px}
+.awf-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.awf-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.awf-field{position:relative;height:40px}
+.awf-field select{
+  appearance:none;-webkit-appearance:none;-moz-appearance:none;width:100%;height:40px;
+  padding:0 30px 0 12px;border-radius:9px;background:#F8FAFC;border:1px solid #E5E7EB;
+  color:#334155;font-size:12.5px;font-weight:600;cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  transition:background .15s,border-color .15s;
+}
+.awf-field select:hover{background:#F1F5F9;border-color:#CBD5E1}
+.awf-field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.10)}
+.awf-field.active select{background:#EEF2FF;border-color:var(--accent);color:var(--accent)}
+.awf-field::after{
+  content:'';position:absolute;right:12px;top:50%;width:7px;height:7px;
+  border-right:1.6px solid #64748B;border-bottom:1.6px solid #64748B;
+  transform:translateY(-65%) rotate(45deg);pointer-events:none;
+}
+.awf-field.active::after{border-color:var(--accent)}
+.awf-field-status{width:140px}
+.awf-field-platform{width:160px}
+.awf-field-category{width:160px}
+.awf-field-designer{width:160px}
+.awf-field-requester{width:170px}
+.awf-search{position:relative;flex:1 1 220px;min-width:220px;height:40px}
+.awf-search-ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.5;pointer-events:none}
+.awf-search input{
+  width:100%;height:40px;padding:0 12px 0 32px;border-radius:9px;background:#FFFFFF;
+  border:1px solid #DDE2E8;color:#334155;font-size:12.5px;font-weight:600;
+}
+.awf-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.08)}
+.awf-search input::placeholder{color:#94A3B8;font-weight:500}
+.awf-search.active input{background:#EEF2FF;border-color:var(--accent)}
+.awf-clear{margin-left:auto;font-size:12px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer;padding:4px 6px;white-space:nowrap}
+.awf-clear:hover{text-decoration:underline}
+.awf-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px}
+@media(max-width:480px){
+  .awf-search{order:-1;flex:1 1 100%}
+  .awf-filters{display:grid;grid-template-columns:repeat(2,1fr);width:100%}
+  .awf-field-status,.awf-field-platform,.awf-field-category,.awf-field-designer,.awf-field-requester{width:100%}
+  .awf-clear{margin-left:0;width:100%;text-align:right}
+}
+/* All Work page — color-coded summary tiles */
+.dsum-card.aw-total{border-color:rgba(99,102,241,.4);background:linear-gradient(165deg,rgba(99,102,241,.08),var(--surface-solid) 60%)}
+.dsum-card.aw-queue{border-color:var(--line)}
+.dsum-card.aw-progress{border-color:rgba(37,99,235,.35);background:linear-gradient(165deg,rgba(37,99,235,.08),var(--surface-solid) 60%)}
+.dsum-card.aw-review{border-color:rgba(217,119,6,.35);background:linear-gradient(165deg,rgba(217,119,6,.08),var(--surface-solid) 60%)}
+.dsum-card.aw-revision{border-color:rgba(234,88,12,.35);background:linear-gradient(165deg,rgba(234,88,12,.08),var(--surface-solid) 60%)}
+.dsum-card.aw-done{border-color:rgba(5,150,105,.35);background:linear-gradient(165deg,rgba(5,150,105,.08),var(--surface-solid) 60%)}
+.dsum-card .dv-row{display:flex;align-items:center;gap:6px}
+.dsum-card .dv-ic{font-size:15px;line-height:1}
 .dash-datenav{display:flex;align-items:center;gap:6px;background:var(--surface-solid);border:1px solid var(--line);border-radius:10px;padding:4px 6px}
 .dash-datenav strong{font-size:12px;padding:0 4px}
 .dash-viewtoggle{display:flex;background:rgba(15,23,42,.05);border-radius:10px;padding:3px;gap:2px}
@@ -1898,6 +1951,20 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
                 match /worldtech_storage/{doc} {
                   allow read, write: if true;
                 }
+                match /worldtech_storage_backups/{doc} {
+                  allow read, write: if true;
+                }
+                // P0 DATA INTEGRITY (2026-09-22) — the new "1 Task = 1 Document" collection and its
+                // audit log. If these two are missing from your published Rules, every
+                // createTask/updateTaskFields/migrateTasksToDocArchitecture() call will fail
+                // silently the same way any other Rules mismatch does (see storage.get/set above) —
+                // add them and re-Publish before running the Admin Panel migration button.
+                match /worldtech_tasks/{doc} {
+                  allow read, write: if true;
+                }
+                match /worldtech_task_activity/{doc} {
+                  allow read, write: if true;
+                }
               }
             }
 
@@ -1939,6 +2006,13 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
       // below) — kept apart from the live data collection above so listing/pruning old snapshots is a
       // plain query and can never accidentally touch a real, live app data document.
       const FIRESTORE_BACKUP_COLLECTION = 'worldtech_storage_backups';
+      // P0 DATA INTEGRITY (Krissha dev-report, 2026-09-22 — "P0 — DATA INTEGRITY / NO LOST DATA"):
+      // 1 Task = 1 Firestore Document, living HERE, completely separate from the legacy `wt_tasks`
+      // array document inside FIRESTORE_COLLECTION above — see the big comment block above
+      // getTaskDoc() below for why. worldtech_task_activity is the audit trail (§10) for every
+      // create/edit/delete/restore against a task in this new collection.
+      const FIRESTORE_TASKS_COLLECTION = 'worldtech_tasks';
+      const FIRESTORE_TASK_ACTIVITY_COLLECTION = 'worldtech_task_activity';
 
       let __fbReady = false;
       try {
@@ -2028,11 +2102,17 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
         // Firestore collection (never mixed into the live worldtech_storage docs), one doc per snapshot,
         // so listing/pruning by age is a plain query — see runAutoBackup()/renderAutoBackupsCard() below
         // for what actually gets snapshotted and the Admin-only restore UI.
-        saveBackupSnapshot: async (dataObj) => {
+        // §12 (Krissha P0 spec, 2026-09-22 — "Backup ต้องเป็น Safety Net ไม่ใช่วิธีหลัก...ปรับ Retention
+        // เป็นอย่างน้อย Hourly/frequent: 24 ชั่วโมง, Daily: 7–30 วัน"): `tier` distinguishes the existing
+        // 30-minute rolling snapshot ('frequent', pruned after 24h — unchanged cadence, just now labeled)
+        // from a new once-a-day snapshot ('daily', kept much longer) — see runAutoBackup() below for how
+        // both get created from the exact same backup payload. Defaults to 'frequent' so snapshots saved
+        // before this existed still prune correctly under the old behavior.
+        saveBackupSnapshot: async (dataObj, tier) => {
           if (!__fbReady) { window.__storageOffline = true; return false; }
           try {
             const nowIso = new Date().toISOString();
-            await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).add({ created_at: nowIso, data: dataObj });
+            await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).add({ created_at: nowIso, tier: tier || 'frequent', data: dataObj });
             __sawStorageSuccess = true;
             window.__storageOffline = false;
             return true;
@@ -2042,7 +2122,7 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
           if (!__fbReady) return [];
           try {
             const snap = await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).orderBy('created_at', 'desc').get();
-            return snap.docs.map(d => ({ id: d.id, created_at: d.data().created_at }));
+            return snap.docs.map(d => ({ id: d.id, created_at: d.data().created_at, tier: d.data().tier || 'frequent' }));
           } catch (e) { console.error('storage.listBackupSnapshots failed', e); return []; }
         },
         getBackupSnapshot: async (id) => {
@@ -2052,19 +2132,191 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
             return doc.exists ? doc.data().data : null;
           } catch (e) { console.error('storage.getBackupSnapshot failed', e); return null; }
         },
-        // Deletes every snapshot older than cutoffIso — called right after each successful automatic
-        // backup so the collection never grows past ~1 day's worth (roughly 48 snapshots at the 30-minute
-        // cadence) regardless of how long the app stays running.
-        pruneBackupSnapshotsOlderThan: async (cutoffIso) => {
+        // Deletes every snapshot older than cutoffIso, optionally scoped to one `tier` (see saveBackupSnapshot
+        // above) — runAutoBackup() below calls this once per tier with that tier's own retention window, so
+        // 'frequent' (24h) and 'daily' (30 days) age out independently instead of sharing one cutoff. NOTE
+        // for Krissha: a tier-scoped call is an equality+range compound query — Firestore will most likely
+        // ask for a composite index the first time this runs against production (same as
+        // listTaskActivity() elsewhere) — click the console link it gives you once, no code change needed.
+        pruneBackupSnapshotsOlderThan: async (cutoffIso, tier) => {
           if (!__fbReady) return false;
           try {
-            const snap = await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).where('created_at', '<', cutoffIso).get();
+            let q = window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).where('created_at', '<', cutoffIso);
+            if (tier) q = q.where('tier', '==', tier);
+            const snap = await q.get();
             if (snap.empty) return true;
             const batch = window.__fbDb.batch();
             snap.forEach(doc => batch.delete(doc.ref));
             await batch.commit();
             return true;
           } catch (e) { console.error('storage.pruneBackupSnapshotsOlderThan failed', e); return false; }
+        },
+
+        // ==== P0 DATA INTEGRITY — Task Document Architecture (Krissha dev-report, 2026-09-22) ====
+        // "1 Task = 1 Firestore Document" storage layer, in its own collection (worldtech_tasks) —
+        // never mixed with the legacy `wt_tasks` array document above, so nothing here can collide
+        // with or be silently overwritten by the old saveTasks() path while both still exist side by
+        // side. See createTask()/updateTaskFields()/deleteTask()/restoreTask()/subscribeTasks() and
+        // migrateTasksToDocArchitecture() in the main app script further down for the actual call
+        // sites — these are just the raw Firestore primitives they're built on. The fix for "a stale
+        // browser tab overwrites a newer save" is Firestore's own field-level write semantics:
+        // writing {status:'x'} to a document NEVER touches any other field on it, no matter what a
+        // different tab happens to hold in memory for that task — that's a property of HOW the write
+        // is shaped (one field, one document), not a cleverer merge function bolted onto a whole-
+        // array save (which is what the legacy saveTasks() below still is, and why it can't be fully
+        // trusted for concurrent multi-user edits no matter how it's tuned).
+        getTaskDoc: async (taskId) => {
+          if (!__fbReady) return null;
+          try {
+            const snap = await window.__fbDb.collection(FIRESTORE_TASKS_COLLECTION).doc(String(taskId)).get();
+            return snap.exists ? snap.data() : null;
+          } catch (e) { console.error('storage.getTaskDoc failed for', taskId, e); return null; }
+        },
+        // null = "couldn't reach the server" (offline/error) — distinct from [] = "server really has
+        // zero task documents" (e.g. before migration has ever run). Callers must check for null
+        // explicitly rather than treating it the same as an empty list.
+        getAllTaskDocs: async () => {
+          if (!__fbReady) return null;
+          try {
+            const snap = await window.__fbDb.collection(FIRESTORE_TASKS_COLLECTION).get();
+            return snap.docs.map(d => d.data());
+          } catch (e) { console.error('storage.getAllTaskDocs failed', e); return null; }
+        },
+        // Whole-document write — ONLY for creating a brand-new task or the one-time migration
+        // writing a task document for the very first time. Never used for an edit to an EXISTING
+        // task (that would reintroduce the exact "whole object overwrites whatever's newer on the
+        // server" bug this architecture exists to close) — every edit after create goes through
+        // updateTaskDocFields() or updateTaskDocWithVersionCheck() below instead.
+        setTaskDoc: async (taskId, data) => {
+          if (!__fbReady) { window.__storageOffline = true; return false; }
+          try {
+            await window.__fbDb.collection(FIRESTORE_TASKS_COLLECTION).doc(String(taskId)).set(data);
+            __sawStorageSuccess = true; window.__storageOffline = false;
+            return true;
+          } catch (e) { console.error('storage.setTaskDoc failed for', taskId, e); window.__storageOffline = true; return false; }
+        },
+        // Field-level update, no version check — safe for any action that only ever touches its own
+        // fields (Start/Submit/Assign/Approve/Priority/Deadline, per §4's examples): Firestore writes
+        // exactly the keys in `patch` and leaves every other field on the document untouched, so this
+        // can never clobber a DIFFERENT field another tab saved a moment ago (Acceptance Test C).
+        // Always stamps version (+1), updated_at, updated_by so every write is traceable even without
+        // the separate activity log.
+        updateTaskDocFields: async (taskId, patch, actor) => {
+          if (!__fbReady) { window.__storageOffline = true; return false; }
+          try {
+            const stamped = Object.assign({}, patch, {
+              version: firebase.firestore.FieldValue.increment(1),
+              updated_at: firebase.firestore.FieldValue.serverTimestamp(),
+              updated_by: actor || 'system',
+            });
+            await window.__fbDb.collection(FIRESTORE_TASKS_COLLECTION).doc(String(taskId)).set(stamped, { merge: true });
+            __sawStorageSuccess = true; window.__storageOffline = false;
+            return true;
+          } catch (e) { console.error('storage.updateTaskDocFields failed for', taskId, e); window.__storageOffline = true; return false; }
+        },
+        // Conflict-checked update — for "Big Edit Form" saves where the SAME composite field (e.g.
+        // the whole `brief` object) could plausibly be edited by two people around the same time
+        // (Acceptance Test D). Deliberately does NOT use the document's overall `version` number for
+        // this check — bumping on every change of ANY field, `version` moving would false-positive a
+        // "conflict" even when the concurrent change was to a completely different field, which
+        // contradicts §6 "กรณีแก้คนละ Field สามารถ Merge Patch ได้" (different-field edits must NOT
+        // block each other). Instead, `conflictFields` lists exactly which of THIS write's own field
+        // names must not have changed since `baselineValues` was read, and the transaction compares
+        // the CURRENT server value of each against the CALLER's baseline value for that same field —
+        // a true same-field conflict is detected and blocked, everything else always proceeds.
+        updateTaskDocWithVersionCheck: async (taskId, conflictFields, baselineValues, patch, actor) => {
+          if (!__fbReady) { window.__storageOffline = true; return { ok: false, offline: true }; }
+          try {
+            let conflictInfo = null;
+            await window.__fbDb.runTransaction(async (tx) => {
+              const docRef = window.__fbDb.collection(FIRESTORE_TASKS_COLLECTION).doc(String(taskId));
+              const snap = await tx.get(docRef);
+              const current = snap.exists ? snap.data() : null;
+              const currentVersion = current ? (current.version || 0) : 0;
+              const conflicting = (conflictFields||[]).filter(f =>
+                JSON.stringify(current ? current[f] : undefined) !== JSON.stringify(baselineValues ? baselineValues[f] : undefined)
+              );
+              if (current && conflicting.length) {
+                conflictInfo = { currentVersion, currentData: current, conflicting };
+                return; // abort the write side — nothing is committed for this attempt
+              }
+              tx.set(docRef, Object.assign({}, patch, {
+                version: currentVersion + 1,
+                updated_at: firebase.firestore.FieldValue.serverTimestamp(),
+                updated_by: actor || 'system',
+              }), { merge: true });
+            });
+            if (conflictInfo) return { ok: false, conflict: true, ...conflictInfo };
+            __sawStorageSuccess = true; window.__storageOffline = false;
+            return { ok: true };
+          } catch (e) {
+            console.error('storage.updateTaskDocWithVersionCheck failed for', taskId, e);
+            window.__storageOffline = true;
+            return { ok: false, error: true };
+          }
+        },
+        // Admin-only maintenance action (§11 "Hard Delete ให้เป็น Admin-only maintenance action") —
+        // permanently removes a task document. Everyday deletes go through updateTaskDocFields()
+        // setting deleted:true instead (soft delete), never this.
+        hardDeleteTaskDoc: async (taskId) => {
+          if (!__fbReady) return false;
+          try { await window.__fbDb.collection(FIRESTORE_TASKS_COLLECTION).doc(String(taskId)).delete(); return true; }
+          catch (e) { console.error('storage.hardDeleteTaskDoc failed for', taskId, e); return false; }
+        },
+        // Realtime (§7, Acceptance Test G) — replaces 60-second polling for tasks specifically: fires
+        // immediately with the full current task list, then again every time ANY task document
+        // changes, created by anyone, anywhere, with no page refresh needed. Returns the unsubscribe
+        // function so the caller can detach it (e.g. on logout).
+        subscribeTaskDocs: (onData, onError) => {
+          if (!__fbReady) { if (onError) onError(new Error('offline')); return () => {}; }
+          try {
+            return window.__fbDb.collection(FIRESTORE_TASKS_COLLECTION).onSnapshot(
+              snap => onData(snap.docs.map(d => d.data())),
+              err => { console.error('storage.subscribeTaskDocs error', err); if (onError) onError(err); }
+            );
+          } catch (e) { console.error('storage.subscribeTaskDocs failed to attach', e); if (onError) onError(e); return () => {}; }
+        },
+        // Batched whole-document writes for the one-time migration ONLY (§13) — chunked at 400/batch
+        // (Firestore's hard limit is 500 writes per batch). Returns {written, failedIds}.
+        batchWriteTaskDocs: async (taskDataArray) => {
+          if (!__fbReady) return { written: 0, failedIds: taskDataArray.map(t => t.task_id) };
+          let written = 0; const failedIds = [];
+          for (let i = 0; i < taskDataArray.length; i += 400) {
+            const chunk = taskDataArray.slice(i, i + 400);
+            try {
+              const batch = window.__fbDb.batch();
+              chunk.forEach(t => batch.set(window.__fbDb.collection(FIRESTORE_TASKS_COLLECTION).doc(String(t.task_id)), t));
+              await batch.commit();
+              written += chunk.length;
+            } catch (e) {
+              console.error('storage.batchWriteTaskDocs: chunk failed', e);
+              chunk.forEach(t => failedIds.push(t.task_id));
+            }
+          }
+          return { written, failedIds };
+        },
+        // Audit / Activity log (§10) — its own collection so it can grow independently and never
+        // touches a task document itself. NOTE for Krissha: the first time listTaskActivity() below
+        // actually runs against production, Firestore will most likely throw a "the query requires
+        // an index" error with a direct console link in it the very first time — that's normal for a
+        // where()+orderBy() combo on a fresh collection; click the link it gives you once and it
+        // builds the index (a few minutes), no code change needed.
+        logTaskActivity: async (entry) => {
+          if (!__fbReady) return false;
+          try {
+            await window.__fbDb.collection(FIRESTORE_TASK_ACTIVITY_COLLECTION).add(Object.assign({}, entry, {
+              timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            }));
+            return true;
+          } catch (e) { console.error('storage.logTaskActivity failed', e); return false; }
+        },
+        listTaskActivity: async (taskId, limitCount) => {
+          if (!__fbReady) return [];
+          try {
+            const snap = await window.__fbDb.collection(FIRESTORE_TASK_ACTIVITY_COLLECTION)
+              .where('task_id', '==', taskId).orderBy('timestamp', 'desc').limit(limitCount || 50).get();
+            return snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+          } catch (e) { console.error('storage.listTaskActivity failed', e); return []; }
         },
       };
 
@@ -2683,6 +2935,14 @@ let STATE = {
     // filters scoped to the All Work Queue table ONLY (not the Kanban columns below it, which is what she
     // pointed at in her screenshot) — same 'ALL' sentinel pattern as queueStatus above.
     queuePlatform:'ALL', queueCategory:'ALL', queueRequester:'ALL'},
+  // DEV REQUEST — All Work (Monthly Work Database): its own filter bag, deliberately separate from
+  // STATE.board above — All Work's job is "search/filter/audit every task in a month regardless of stage"
+  // (§22), Process Board's is "run the workflow", so their filters must never cross-contaminate each other.
+  // 'ALL' is the sentinel for "no filter", same convention as STATE.board's own queueStatus/queuePlatform/
+  // etc. above. Month defaults to null and is set to the current month the first time renderAllWorkPage()
+  // runs (see there) — never reset by Clear Filters (§12 "Month ต้องคงอยู่").
+  allWork:{month:null, requester:'ALL', designer:'ALL', platform:'ALL', category:'ALL', status:'ALL', search:'',
+    sortField:'latest', sortDir:'desc'},
   cal:{month:new Date().getMonth(), year:new Date().getFullYear(), selectedDate:null},
   detailTaskId:null, notifOpen:false, linkFormOpenId:null, userMenuOpen:false,
   gdriveBrowser:null, // set while the custom Drive image-browser portal (checkbox grid) is open — see openGdriveBrowser()
@@ -3755,6 +4015,24 @@ async function loadData(){
   // shared/persisted gdriveConfig object — it's just an admin settings blob already loaded this way, no
   // reason for a second storage key just for one more boolean.
   if(STATE.gdriveConfig.notificationsEnabled == null) STATE.gdriveConfig.notificationsEnabled = true;
+  // P0 DATA INTEGRITY — Task Document Architecture cutover flag (Krissha dev-report, 2026-09-22).
+  // Starts false. Phase 1 built the new storage layer + Central Data API inert/unused; PHASE 2
+  // (this build) makes this flag the REAL cutover switch — see the block right below and
+  // saveTasks()/refreshTasksFromServer() further down, all of which branch on it. §14 "Emergency
+  // Compatibility Rule": while it's false, every task read/write still goes through the legacy
+  // `wt_tasks` array exactly as before (zero behavior change) — flipping it on (Admin Panel → "P0:
+  // Data Architecture Migration" → after running Migration with a clean report) is what actually
+  // moves reads/writes to the new per-task-document collection, all in one atomic switch.
+  if(STATE.gdriveConfig.useTaskDocArchitecture == null) STATE.gdriveConfig.useTaskDocArchitecture = false;
+  if(STATE.gdriveConfig.useTaskDocArchitecture){
+    // Discard the legacy wt_tasks array the keys-loop above just fetched — post-cutover it is
+    // read-only legacy backup only (§13 STEP 7), never the source of truth again. subscribeTasks()
+    // (started in boot() below) takes over moments later, so this initial read doesn't need to be
+    // perfectly fresh.
+    const docs = await window.storage.getAllTaskDocs();
+    if(docs) STATE.tasks = docs.filter(t=>!t.deleted);
+  }
+  snapshotTaskBaseline();
   // Designer/Lead Designer Login: remember which of the 3 accounts was last used ON THIS BROWSER (never
   // the password) so the login screen can jump straight to the Password step for it. Only honored if that
   // account is still an active Designer/Lead — an inactive/removed account falls back to the picker.
@@ -3915,6 +4193,14 @@ let TASKS_SAVE_INFLIGHT = 0;
 async function saveTasks(deletedIds){
   TASKS_SAVE_INFLIGHT++;
   try{
+    // PHASE 2 CUTOVER (§14) — once on, EVERY call to saveTasks() from anywhere in the app (all ~20
+    // existing call sites, unchanged) routes through the new per-task-document architecture instead
+    // of the legacy whole-array merge/write below, which never runs in this mode. See
+    // saveTasksViaDocArchitecture()'s own comment for how it stays safe with zero changes to any of
+    // those call sites.
+    if(STATE.gdriveConfig?.useTaskDocArchitecture){
+      return await saveTasksViaDocArchitecture(deletedIds);
+    }
     const delSet = new Set(deletedIds||[]);
     // Snapshot this tab's own pending edits ONCE, up front — the merge below (mergeAgainstServer) may run
     // more than once when using the transact() path (Firestore reruns it if another tab's write to
@@ -3964,6 +4250,271 @@ async function saveTasks(deletedIds){
   } finally {
     TASKS_SAVE_INFLIGHT--;
   }
+}
+
+// ============================================================================================
+// P0 DATA INTEGRITY — Task Document Architecture (Krissha dev-report, 2026-09-22, full spec
+// "P0 — DATA INTEGRITY / NO LOST DATA"). PHASE 1 of the fix: the new storage layer + Central Data
+// API + one-time migration function, all built on the worldtech_tasks / worldtech_task_activity
+// collections added to window.storage above. This code is currently DORMANT — nothing in the app
+// calls createTask/updateTaskFields/deleteTask/restoreTask/subscribeTasks yet, and
+// STATE.gdriveConfig.useTaskDocArchitecture stays false, so shipping this file changes NOTHING
+// about how the live app behaves today. PHASE 2 (next) converts every one of saveTasks()'s ~41
+// call sites to use this API instead, wires subscribeTasks() into boot in place of the old poll,
+// adds the version-conflict UI for Edit Brief, and flips the flag — all together, in one release,
+// per §14's "never run both architectures live at once" rule. Building and validating this layer
+// in isolation first (via the Admin Panel migration button) is the safe order of operations: it
+// means the riskiest part — converting every task-mutating action in the app — can be checked
+// against a Migration Report and a real populated worldtech_tasks collection BEFORE any live
+// behavior changes, rather than changing the storage architecture and the read/write call sites
+// in the same risky step.
+// ============================================================================================
+
+function taskAuditActorName(){ return STATE.auth.user?.name || STATE.auth.identity || 'system'; }
+function taskAuditActorId(){ return STATE.auth.user?.email || STATE.auth.identity || 'unknown'; }
+
+// Builds the {changed_fields, before, after} triple for the activity log (§10) — `patch` is
+// whatever the caller is writing, `localTaskBefore` is this task's in-memory state right before
+// the write, so "before" only ever contains fields that are actually about to change (never a
+// full task dump, which would make the log unreadable and could leak fields into it that weren't
+// even part of this action).
+function buildTaskActivityDiff(localTaskBefore, patch){
+  const changed_fields = Object.keys(patch);
+  const before = {}, after = {};
+  changed_fields.forEach(k=>{ before[k] = localTaskBefore ? localTaskBefore[k] ?? null : null; after[k] = patch[k]; });
+  return { changed_fields, before, after };
+}
+
+// §4 — creates ONE new task document (never touches any other task). Assigns version:1 and the
+// creation stamps; STATE.tasks gets the new task pushed in locally so the UI reflects it
+// immediately without waiting for the (Phase 2) realtime listener to round-trip.
+async function createTask(taskData){
+  const actorName = taskAuditActorName(), actorId = taskAuditActorId();
+  const now = new Date().toISOString();
+  const full = Object.assign({}, taskData, {
+    version: 1, created_at: taskData.created_at || now, created_by: taskData.created_by || actorId,
+    updated_at: now, updated_by: actorId, deleted: false,
+  });
+  const ok = await window.storage.setTaskDoc(full.task_id, full);
+  if(!ok){ toast('บันทึกไม่สำเร็จ ข้อมูลยังไม่ได้ถูกส่งเข้าระบบ'); return false; }
+  STATE.tasks.push(full);
+  await window.storage.logTaskActivity({
+    task_id: full.task_id, action: 'CREATE_TASK', changed_fields: Object.keys(taskData),
+    before: {}, after: taskData, user_id: actorId, user_name: actorName,
+  });
+  return full;
+}
+
+// §4/§6 — the ONE function every task edit in Phase 2 calls. `patch` = ONLY the fields this
+// action actually changes (never the whole task object — that's the entire point). Pass
+// `opts.conflictFields` (+ `opts.baselineValues`, the caller's own last-known values for exactly
+// those fields) for a "Big Edit Form" save (Edit Brief) that must detect a SAME-FIELD conflict
+// (Test D) without false-positiving on an unrelated field changing elsewhere (§6 "กรณีแก้คนละ Field
+// สามารถ Merge Patch ได้"); leave both out for a simple action (Start/Submit/Assign/Approve/
+// Priority/Deadline, per §4's own examples) where Firestore's per-field write already makes
+// concurrent edits to DIFFERENT fields safe with no conflict check needed (Test C). Returns:
+//   {ok:true}                         — saved
+//   {ok:false, conflict:true, ...}    — same-field conflict detected, nothing was written
+//   {ok:false}                        — save failed (offline/error), nothing was written
+// The caller is responsible for NOT clearing its own form/draft on anything but {ok:true} — see
+// §8 "ห้าม Save fail → ปิด Modal / Clear Form / แสดง Success".
+async function updateTaskFields(taskId, patch, opts){
+  opts = opts || {};
+  const actorName = taskAuditActorName(), actorId = taskAuditActorId();
+  const localTask = STATE.tasks.find(t=>t.task_id===taskId);
+  let result;
+  if(opts.conflictFields && opts.conflictFields.length){
+    result = await window.storage.updateTaskDocWithVersionCheck(taskId, opts.conflictFields, opts.baselineValues||{}, patch, actorId);
+  } else {
+    const ok = await window.storage.updateTaskDocFields(taskId, patch, actorId);
+    result = ok ? {ok:true} : {ok:false};
+  }
+  if(!result.ok){
+    if(result.conflict){
+      toast('ข้อมูลนี้ถูกแก้ไขโดยผู้ใช้อื่นแล้ว กรุณาตรวจสอบข้อมูลล่าสุดก่อนบันทึก');
+    } else {
+      toast('บันทึกไม่สำเร็จ ข้อมูลยังไม่ได้ถูกส่งเข้าระบบ');
+    }
+    return result;
+  }
+  const diff = buildTaskActivityDiff(localTask, patch);
+  if(localTask){ Object.assign(localTask, patch); localTask.version = (localTask.version||0) + 1; }
+  await window.storage.logTaskActivity({
+    task_id: taskId, action: opts.action || 'EDIT_FIELDS', changed_fields: diff.changed_fields,
+    before: diff.before, after: diff.after, user_id: actorId, user_name: actorName,
+  });
+  return result;
+}
+
+// PHASE 2 CUTOVER — this is what saveTasks() (see below) actually runs once
+// STATE.gdriveConfig.useTaskDocArchitecture is on, in place of its legacy whole-array merge/write.
+// It never writes STATE.tasks as one blob: it diffs every task in STATE.tasks against
+// STATE._taskServerBaseline (THIS TAB's own last-confirmed server copy — see snapshotTaskBaseline()
+// below) and pushes only the fields that actually differ, per task, through createTask()/
+// updateTaskFields() — so a task this tab hasn't touched has an empty diff and is never written at
+// all, no matter how stale this tab's own copy of it is (Acceptance Test A/B: an unrelated task can
+// never be reverted by a stale tab, because nothing is ever sent for it). A task not yet in the
+// baseline (brand new) is created whole via createTask() — safe because Firestore's per-document
+// .set() only ever replaces that ONE task's document, never touching any other task. `deletedIds`
+// are soft-deleted via deleteTask(), same contract as the legacy path's own delSet handling. If the
+// changed fields for a task include `brief` — the one composite field two people could plausibly
+// edit at the same time (§6's own example, Acceptance Test D) — the write is conflict-checked
+// against this tab's OWN last-known `brief` value instead of a plain field merge, so a genuine
+// same-field conflict is detected and surfaced rather than silently overwritten.
+async function saveTasksViaDocArchitecture(deletedIds){
+  const delSet = new Set(deletedIds||[]);
+  let anyFail = false;
+  for(const id of delSet){
+    const ok = await deleteTask(id);
+    if(!ok) anyFail = true;
+  }
+  // .slice() — iterate a static snapshot of STATE.tasks, never the live array: the brand-new-task
+  // branch below writes new stamped fields onto `t` IN PLACE (never pushes a new entry), but if this
+  // ever DID push into STATE.tasks while a plain for-of was still iterating it live, the newly
+  // pushed item could be visited a second time in the same pass — .slice() rules that out entirely.
+  for(const t of STATE.tasks.slice()){
+    if(delSet.has(t.task_id)) continue;
+    const baseline = STATE._taskServerBaseline[t.task_id];
+    if(!baseline){
+      // Brand new task — already present in STATE.tasks (every existing call site pushes it there
+      // itself before calling saveTasks(), e.g. `STATE.tasks.push(task); await saveTasks();`), so
+      // this stamps and writes `t` IN PLACE rather than calling createTask() (which pushes its own
+      // new entry — correct for a caller that hasn't added the task to STATE.tasks yet, but here
+      // that would create a duplicate entry for the same task_id).
+      const actorId = taskAuditActorId();
+      const nowIso = new Date().toISOString();
+      const stamps = { version: 1, created_at: t.created_at || nowIso, created_by: t.created_by || actorId,
+        updated_at: nowIso, updated_by: actorId, deleted: false };
+      const ok = await window.storage.setTaskDoc(t.task_id, Object.assign({}, t, stamps));
+      if(!ok){ anyFail = true; continue; }
+      Object.assign(t, stamps);
+      await window.storage.logTaskActivity({
+        task_id: t.task_id, action: 'CREATE_TASK', changed_fields: Object.keys(t),
+        before: {}, after: t, user_id: actorId, user_name: taskAuditActorName(),
+      });
+      continue;
+    }
+    const patch = {};
+    Object.keys(t).forEach(k=>{
+      if(k==='version') return; // never write a client-held version number back as if it were a task field
+      if(JSON.stringify(t[k]) !== JSON.stringify(baseline[k])) patch[k] = t[k];
+    });
+    if(!Object.keys(patch).length) continue; // this tab changed nothing on this task — skip it entirely
+    const opts = {};
+    if('brief' in patch){ opts.conflictFields = ['brief']; opts.baselineValues = {brief: baseline.brief}; }
+    const result = await updateTaskFields(t.task_id, patch, opts);
+    if(!result.ok) anyFail = true;
+  }
+  if(!anyFail) snapshotTaskBaseline(); // resync this tab's baseline to what the server now actually has
+  return !anyFail;
+}
+// "What this tab last confirmed the server has", per task — refreshed after the initial cutover
+// load (loadData()), after every successful saveTasksViaDocArchitecture() write, and by
+// subscribeTasks()'s realtime callback. The diff in saveTasksViaDocArchitecture() above is always
+// computed against THIS, never against another tab's edits (which this tab may not know about yet —
+// and doesn't need to, since it never writes anything for a task it hasn't itself changed).
+function snapshotTaskBaseline(){
+  const base = {};
+  STATE.tasks.forEach(t=>{ base[t.task_id] = JSON.parse(JSON.stringify(t)); });
+  STATE._taskServerBaseline = base;
+}
+
+// §11 — soft delete by default (deleted/deleted_at/deleted_by), never removes the document.
+// Pass {hard:true} for the Admin-only permanent maintenance action (§11 "Hard Delete ให้เป็น
+// Admin-only").
+async function deleteTask(taskId, opts){
+  opts = opts || {};
+  if(opts.hard){
+    if(!hasAdminAccess()){ toast('เฉพาะ Admin เท่านั้นที่ลบถาวรได้'); return false; }
+    const actorName = taskAuditActorName(), actorId = taskAuditActorId();
+    const localTask = STATE.tasks.find(t=>t.task_id===taskId);
+    const ok = await window.storage.hardDeleteTaskDoc(taskId);
+    if(!ok){ toast('ลบไม่สำเร็จ'); return false; }
+    STATE.tasks = STATE.tasks.filter(t=>t.task_id!==taskId);
+    await window.storage.logTaskActivity({
+      task_id: taskId, action: 'DELETE', changed_fields: ['*hard-delete*'],
+      before: localTask||{}, after: null, user_id: actorId, user_name: actorName,
+    });
+    return true;
+  }
+  const actorId = taskAuditActorId();
+  const result = await updateTaskFields(taskId, {
+    deleted: true, deleted_at: new Date().toISOString(), deleted_by: actorId,
+  }, {action:'DELETE'});
+  return !!result.ok;
+}
+
+// §11 — Admin restore of a soft-deleted task.
+async function restoreTask(taskId){
+  const result = await updateTaskFields(taskId, { deleted: false, deleted_at: null, deleted_by: null }, {action:'RESTORE'});
+  return !!result.ok;
+}
+
+// §7 (Acceptance Test G) — realtime listener, replaces 60-second polling for tasks once
+// STATE.gdriveConfig.useTaskDocArchitecture is on (wired into boot() below). Keeps a single live
+// subscription (TASKS_UNSUBSCRIBE) so calling this twice (e.g. re-login) doesn't leak listeners.
+// Skips adopting a snapshot while TASKS_SAVE_INFLIGHT says this tab has its own write mid-flight —
+// same reasoning as the legacy refreshTasksFromServer()'s own guard: that save already knows
+// exactly what it's writing, and a realtime snapshot landing mid-write could otherwise show this
+// tab a version of its own in-progress edit that's a half-step behind what it's about to confirm.
+let TASKS_UNSUBSCRIBE = null;
+function subscribeTasks(){
+  if(TASKS_UNSUBSCRIBE) TASKS_UNSUBSCRIBE();
+  TASKS_UNSUBSCRIBE = window.storage.subscribeTaskDocs(
+    (docs) => {
+      if(TASKS_SAVE_INFLIGHT>0) return;
+      STATE.tasks = docs.filter(t=>!t.deleted);
+      snapshotTaskBaseline();
+      render();
+    },
+    (err) => { console.error('subscribeTasks error', err); }
+  );
+  return TASKS_UNSUBSCRIBE;
+}
+
+// §13 — one-time migration: reads the CURRENT legacy `wt_tasks` array straight from the server
+// (bypassCache — never from possibly-stale STATE.tasks) and writes every task as its own document
+// under worldtech_tasks/{task_id}, version:1. Safe to re-run before cutover (each run is a full
+// whole-doc re-sync from the legacy array, so it just catches up anything added/changed there
+// since the last run) — but per §13 STEP 5, once ANY task fails, this reports it clearly and
+// Phase 2's cutover must not proceed until a re-run shows zero failures. Never touches or deletes
+// the legacy `wt_tasks` document — that stays exactly as-is, per §13 STEP 7 ("เก็บ wt_tasks เดิม
+// เป็น Read-only Legacy Backup ชั่วคราว ห้ามลบทันที").
+async function migrateTasksToDocArchitecture(){
+  const raw = await window.storage.get('wt_tasks', true);
+  const legacyTasks = raw && raw.value ? JSON.parse(raw.value) : [];
+  const report = { totalOld: legacyTasks.length, migrated: 0, failedIds: [], duplicateIds: [], missingIds: [], totalNew: 0 };
+  if(!legacyTasks.length) return report;
+
+  const seen = new Set();
+  const toWrite = [];
+  legacyTasks.forEach(t=>{
+    if(!t || !t.task_id){ report.missingIds.push(t ? '(no task_id)' : '(null entry)'); return; }
+    if(seen.has(t.task_id)){ report.duplicateIds.push(t.task_id); return; }
+    seen.add(t.task_id);
+    toWrite.push(Object.assign({}, t, {
+      version: t.version || 1,
+      deleted: t.deleted || false,
+      migrated_at: new Date().toISOString(),
+      updated_at: t.updated_at || t.created_at || new Date().toISOString(),
+      updated_by: t.updated_by || 'migration',
+    }));
+  });
+
+  const { written, failedIds } = await window.storage.batchWriteTaskDocs(toWrite);
+  report.migrated = written;
+  report.failedIds = failedIds;
+
+  // §13 STEP 4 — validate old count vs new count by reading the new collection straight back.
+  const verify = await window.storage.getAllTaskDocs();
+  report.totalNew = verify ? verify.length : -1; // -1 = couldn't verify (offline/error reading it back)
+
+  await window.storage.logTaskActivity({
+    task_id: '(migration)', action: 'MIGRATE_ALL', changed_fields: [],
+    before: { totalOld: report.totalOld }, after: { migrated: report.migrated, totalNew: report.totalNew },
+    user_id: taskAuditActorId(), user_name: taskAuditActorName(),
+  });
+  return report;
 }
 // DEV FIX (Krissha — "คนที่ 1 2 3 ที่เปิดบราวเซอร์ไม่ได้รี แล้วงานจะเวอร์ชั่นไม่ตรงกันหรือป่าว"): saveTasks()
 // above only protects the ONE collection that had actually broken (wt_tasks) — every other saveX() below
@@ -4038,6 +4589,10 @@ async function saveCollectionAtomic(storageKey, localArr, idField, deletedIds){
 let lastTasksRefreshAt = 0;
 const TASKS_REFRESH_MIN_GAP_MS = 45000;
 async function refreshTasksFromServer(){
+  // PHASE 2 CUTOVER — once on, subscribeTasks()'s realtime onSnapshot listener is the sync
+  // mechanism for tasks (Acceptance Test G); this legacy poll reads the now-frozen `wt_tasks`
+  // legacy array (§13 STEP 7, read-only post-cutover) and must not overwrite STATE.tasks with it.
+  if(STATE.gdriveConfig?.useTaskDocArchitecture) return false;
   if(TASKS_SAVE_INFLIGHT>0) return false; // a save from this tab is mid-flight — let it finish undisturbed
   if(Date.now() - lastTasksRefreshAt < TASKS_REFRESH_MIN_GAP_MS) return false; // too soon since the last real check
   lastTasksRefreshAt = Date.now();
@@ -5445,6 +6000,17 @@ function renderBackHomeBar(){
     <button type="button" class="back-home-btn back-home-btn-ghost" id="navGoHomeBtn">🏠 หน้าหลัก</button>
   </div>`;
 }
+// §15 Connection Safety (Krissha dev-report, 2026-09-22 P0 spec) — persistent, impossible-to-miss
+// banner whenever a Firestore read/write has actually failed (window.__storageOffline, set by every
+// storage.* method above the instant a call throws) — never for the "never configured at all" case,
+// which already has its own separate one-time warning. Shown for as long as the flag stays true;
+// boot()'s connectionWatcher interval re-renders promptly when it flips either way so this appears/
+// disappears without needing an unrelated click first.
+function renderConnectionSafetyBanner(){
+  return `<div style="position:sticky;top:0;z-index:50;background:#dc2626;color:#fff;padding:10px 16px;text-align:center;font-weight:700;font-size:13px">
+    ⚠ ขณะนี้ระบบยังเชื่อมต่อ Server ไม่สำเร็จ — กรุณาอย่าปิดหน้านี้จนกว่าการบันทึกจะสำเร็จ (ข้อมูลที่กรอกในฟอร์มยังอยู่ ระบบจะไม่ลบให้)
+  </div>`;
+}
 function render(){
   const app = document.getElementById('app');
   if(!STATE.auth.loggedIn){ app.innerHTML = renderLogin(); bindLogin(); hideStudioFlowFrame(); return; }
@@ -5457,6 +6023,7 @@ function render(){
   saveNavState();
   const __scrollState = captureScrollState();
   app.innerHTML = `
+    ${window.__storageOffline ? renderConnectionSafetyBanner() : ''}
     ${renderTopNav()}
     <div class="body-row">
       ${renderSidebar()}
@@ -5980,7 +6547,7 @@ function renderSidebar(){
     if(cat==='myworkspace') itemsHtml = navItemsHtml([['poHome','Overview'],['brief','Create New Brief'],['poBriefs','My Briefs'],['poDrafts','Drafts'],['poCompleted','Completed Jobs']]);
     else if(cat==='workingprocess') itemsHtml = `
       <button class="sidenav-btn ${STATE.sideSection==='brief'?'active':''}" data-side="brief" data-briefsource="working_process">+ Create New Brief</button>
-      ${navItemsHtml([['board','Process Board'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview']])}`;
+      ${navItemsHtml([['board','Process Board'],['allwork','All Work'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview']])}`;
     else if(cat==='tools') itemsHtml = renderToolsGroupHTML();
     else if(cat==='assets') itemsHtml = renderAssetsCenterGroupHTML();
     else if(cat==='product') itemsHtml = renderProductGroupHTML();
@@ -5991,7 +6558,7 @@ function renderSidebar(){
   if(cat==='myworkspace') itemsHtml = `
     <button class="sidenav-btn ${STATE.tab==='workspace'?'active':''}" data-navtool="workspace">Overview</button>
     ${navItemsHtml([['security','Account'],['leave','Leave Calendar'],['performance','Performance']])}`;
-  else if(cat==='workingprocess') itemsHtml = navItemsHtml([['brief','Brief & Intake'],['board','Process Board'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview'],['backdated','Backdated Task'],['myCompleted','ประวัติงาน']]);
+  else if(cat==='workingprocess') itemsHtml = navItemsHtml([['brief','Brief & Intake'],['board','Process Board'],['allwork','All Work'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview'],['backdated','Backdated Task'],['myCompleted','ประวัติงาน']]);
   else if(cat==='tools') itemsHtml = renderToolsGroupHTML();
   else if(cat==='assets') itemsHtml = renderAssetsCenterGroupHTML();
   else if(cat==='product') itemsHtml = renderProductGroupHTML();
@@ -6320,6 +6887,7 @@ function renderMain(){
   if(STATE.sideSection==='poDrafts') return renderPODrafts();
   if(STATE.sideSection==='poCompleted') return renderPOBriefsList('completed');
   if(STATE.sideSection==='board') return renderBoard();
+  if(STATE.sideSection==='allwork') return renderAllWorkPage();
   if(STATE.sideSection==='leave') return renderLeave();
   if(STATE.sideSection==='security') return renderProfileSecurity();
   // DEV FINAL — TEAM CAPACITY + MONTHLY OVERVIEW §10-11 — 'dashboard' (Team Dashboard) is retired in
@@ -12236,6 +12804,242 @@ function boardMonthOptions(){
   }
   return out;
 }
+
+/* ==================== DEV REQUEST — All Work (Monthly Work Database) ====================
+   §22 Page Responsibility: Process Board runs the workflow (Kanban, by Stage); All Work is the flat,
+   filterable, searchable database of EVERY task touching a given month regardless of stage — New Brief
+   through Delivered/Rejected/Closed all in the one dataset, one table, at once (§Objective/§FINAL
+   DEFINITION). Reuses STATE.tasks and taskActiveInBoardMonth() unchanged — no second Task database, no
+   duplicated month logic (§2/§4). STATE.allWork (see STATE init) is this page's own filter bag, kept
+   entirely separate from STATE.board so the two pages' filters can never cross-contaminate each other. */
+
+// §7 Designer Filter: assigned_user_name normally, but a task still Pending Lead Approval has no real
+// assignee yet (Designer isn't assigned until Lead approves) — falls back to suggested_designer so it
+// doesn't vanish from the Designer filter/column before that approval happens (Acceptance §16).
+function allWorkDesignerName(t){
+  if(t.assigned_user_name) return t.assigned_user_name;
+  if(t.review_status==='pending_lead_approval' && t.suggested_designer) return t.suggested_designer;
+  return '';
+}
+// §6 คนบรีฟ Filter: project_owner_email resolved to a real User name where possible.
+function allWorkRequesterName(t){
+  return findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '';
+}
+// §15 Multi Platform Display: first 2 platforms inline, "+N" for the rest, full list on hover — never a
+// tall row just because a task has several platforms.
+function allWorkPlatformCellHTML(t){
+  const plats = (Array.isArray(t.platform) ? t.platform : []).filter(Boolean);
+  if(!plats.length) return '—';
+  if(plats.length<=2) return escAttr(plats.join(' · '));
+  return `${escAttr(plats.slice(0,2).join(' · '))} <span class="hint" title="${escAttr(plats.slice(2).join(', '))}">+${plats.length-2}</span>`;
+}
+// §11 Search — Task Name/Campaign, Task ID, Project, คนบรีฟ, Designer, Platform, Task Category, Task Type.
+function allWorkSearchHay(t){
+  return `${taskDisplayName(t)} ${t.task_id||''} ${t.project_name||''} ${allWorkRequesterName(t)} ${allWorkDesignerName(t)} ${(t.platform||[]).join(' ')} ${t.task_category||''} ${t.task_type||''}`.toLowerCase();
+}
+// §10 Status Filter — real review_status values grouped into the 6 UX-friendly buckets the spec calls for;
+// the granular Technical Status stays in the data model/table Status column untouched (STATUS_LABEL), only
+// the FILTER groups them, per "Technical Status เดิมยังต้องอยู่ใน Data Model แต่หน้า Filter ใช้ Group ที่
+// อ่านง่ายกว่าได้". rejected/closed_max_revision land in "เสร็จแล้ว" too — both are a finished/closed task,
+// same as delivered — so every review_status maps to exactly one group and the Summary tiles always add up
+// to the page Total (§13).
+const ALLWORK_STATUS_GROUPS = [
+  ['ALL','ทุกสถานะ'], ['NOT_STARTED','ยังไม่เริ่ม'], ['IN_PROGRESS','กำลังทำ'],
+  ['REVIEW','รอตรวจ'], ['REVISION','แก้ไข'], ['DONE','เสร็จแล้ว'],
+];
+const ALLWORK_STATUS_GROUP_OF = {
+  pending_lead_approval:'NOT_STARTED', new:'NOT_STARTED',
+  in_progress:'IN_PROGRESS',
+  pending_review:'REVIEW', pending_client_review:'REVIEW',
+  revision:'REVISION',
+  delivered:'DONE', rejected:'DONE', closed_max_revision:'DONE',
+};
+function allWorkStatusGroup(t){ return ALLWORK_STATUS_GROUP_OF[t.review_status] || 'DONE'; }
+// §18 Sorting — Brief Date / Deadline / Designer / Status / Latest Activity (default, newest first).
+function allWorkSortValue(t, field){
+  switch(field){
+    case 'briefdate': return t.brief_timestamp||'';
+    case 'deadline': return t.prefer_delivery_date||'';
+    case 'designer': return allWorkDesignerName(t)||'';
+    case 'status': return STATUS_LABEL[t.review_status]||t.review_status||'';
+    case 'latest': default: return lastUpdateOf(t)||'';
+  }
+}
+function allWorkSortTasks(list, field, dir){
+  const sorted = list.slice().sort((a,b)=>{
+    const cmp = String(allWorkSortValue(a,field)).localeCompare(String(allWorkSortValue(b,field)));
+    return dir==='asc' ? cmp : -cmp;
+  });
+  return sorted;
+}
+function renderAllWorkPage(){
+  const aw = STATE.allWork;
+  if(!aw.month) aw.month = todayISO().slice(0,7); // §3 Default: เดือนปัจจุบัน
+  const monthLabel = new Date(aw.month+'-01T00:00:00').toLocaleDateString('th-TH',{month:'long',year:'numeric'});
+  // §4 Monthly Task Scope — reuses taskActiveInBoardMonth() unchanged, never a second Month Logic.
+  const monthTasks = STATE.tasks.filter(t=>taskActiveInBoardMonth(t, aw.month));
+
+  // §6/§7/§8/§9 — dropdown options only ever list what's actually in THIS month (never every requester/
+  // designer/platform/category in the whole system), built off monthTasks before any other filter narrows
+  // the list further, so switching one filter never makes another filter's own option list disappear.
+  const uniq = arr => Array.from(new Set(arr.filter(v=>v!==undefined && v!==null && v!=='')));
+  const requesterOptions = uniq(monthTasks.map(allWorkRequesterName)).sort();
+  const designerOptions = uniq(monthTasks.map(allWorkDesignerName)).sort();
+  const platformOptions = uniq(monthTasks.flatMap(t=>t.platform||[])).sort();
+  const categoryOptions = uniq(monthTasks.map(t=>t.task_category)).sort();
+
+  // §5 Filter Bar — every filter AND-combined, §8 Platform via .includes() (never a string ===, since a
+  // task can carry several platforms at once).
+  const searchQ = (aw.search||'').trim().toLowerCase();
+  let list = monthTasks.filter(t=>{
+    if(aw.requester!=='ALL' && allWorkRequesterName(t)!==aw.requester) return false;
+    if(aw.designer!=='ALL' && allWorkDesignerName(t)!==aw.designer) return false;
+    if(aw.platform!=='ALL' && !(t.platform||[]).includes(aw.platform)) return false;
+    if(aw.category!=='ALL' && t.task_category!==aw.category) return false;
+    if(aw.status!=='ALL' && allWorkStatusGroup(t)!==aw.status) return false;
+    if(searchQ && !allWorkSearchHay(t).includes(searchQ)) return false;
+    return true;
+  });
+  list = allWorkSortTasks(list, aw.sortField||'latest', aw.sortDir||'desc');
+
+  // §13 Summary — computed off the FILTERED result, never the unfiltered month, so it always narrows
+  // together with whatever's currently selected (Designer=Krissha + Platform=Lazada → Summary of exactly
+  // that combination).
+  const summaryCounts = {NOT_STARTED:0, IN_PROGRESS:0, REVIEW:0, REVISION:0, DONE:0};
+  list.forEach(t=>{ summaryCounts[allWorkStatusGroup(t)]++; });
+
+  // §12 Active Filter Display — Month is deliberately excluded (it's the page's Main Scope, never cleared).
+  const activeChips = [];
+  if(aw.requester!=='ALL') activeChips.push({k:'requester', label:aw.requester});
+  if(aw.designer!=='ALL') activeChips.push({k:'designer', label:aw.designer});
+  if(aw.platform!=='ALL') activeChips.push({k:'platform', label:aw.platform});
+  if(aw.category!=='ALL') activeChips.push({k:'category', label:aw.category});
+  if(aw.status!=='ALL') activeChips.push({k:'status', label:(ALLWORK_STATUS_GROUPS.find(([v])=>v===aw.status)||[])[1]||aw.status});
+  if(searchQ) activeChips.push({k:'search', label:`"${aw.search.trim()}"`});
+  const hasActiveFilters = activeChips.length>0;
+
+  const sortArrow = field => (aw.sortField||'latest')===field ? ((aw.sortDir||'desc')==='asc'?' ▲':' ▼') : '';
+
+  return `
+  <div class="hint" style="margin-bottom:8px">Working Process / All Work</div>
+  <div class="dash-header">
+    <div>
+      <h1 class="pagetitle">All Work</h1>
+      <p class="pagesub" style="margin-bottom:0">Monthly Work Database — งานทั้งหมดของทีมในเดือนที่เลือก</p>
+    </div>
+  </div>
+
+  <div class="dash-filters" style="justify-content:center">
+    <button type="button" class="btn btn-sm btn-ghost" data-awmonav="-1">‹</button>
+    <strong style="font-size:15px">${monthLabel}</strong>
+    <button type="button" class="btn btn-sm btn-ghost" data-awmonav="1">›</button>
+  </div>
+
+  <div class="awf-toolbar">
+    <div class="awf-row">
+      <div class="awf-filters">
+        <div class="awf-field awf-field-status ${aw.status!=='ALL'?'active':''}">
+          <select id="awStatusFilter">
+            ${ALLWORK_STATUS_GROUPS.map(([v,l])=>`<option value="${v}" ${aw.status===v?'selected':''}>${l}</option>`).join('')}
+          </select>
+        </div>
+        <div class="awf-field awf-field-platform ${aw.platform!=='ALL'?'active':''}">
+          <select id="awPlatformFilter">
+            <option value="ALL" ${aw.platform==='ALL'?'selected':''}>ทุก Platform</option>
+            ${platformOptions.map(p=>`<option value="${escAttr(p)}" ${aw.platform===p?'selected':''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        <div class="awf-field awf-field-category ${aw.category!=='ALL'?'active':''}">
+          <select id="awCategoryFilter">
+            <option value="ALL" ${aw.category==='ALL'?'selected':''}>ทุกหมวดงาน</option>
+            ${categoryOptions.map(c=>`<option value="${escAttr(c)}" ${aw.category===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="awf-field awf-field-designer ${aw.designer!=='ALL'?'active':''}">
+          <select id="awDesignerFilter">
+            <option value="ALL" ${aw.designer==='ALL'?'selected':''}>ทุก Designer</option>
+            ${designerOptions.map(d=>`<option value="${escAttr(d)}" ${aw.designer===d?'selected':''}>${d}</option>`).join('')}
+          </select>
+        </div>
+        <div class="awf-field awf-field-requester ${aw.requester!=='ALL'?'active':''}">
+          <select id="awReqFilter">
+            <option value="ALL" ${aw.requester==='ALL'?'selected':''}>ทุกคนบรีฟ</option>
+            ${requesterOptions.map(r=>`<option value="${escAttr(r)}" ${aw.requester===r?'selected':''}>${r}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="awf-search ${searchQ?'active':''}">
+        <span class="awf-search-ic">🔍</span>
+        <input type="text" id="awSearch" placeholder="ค้นหาชื่องาน / Project / Task ID..." value="${escAttr(aw.search||'')}">
+      </div>
+      ${hasActiveFilters ? `<button type="button" class="awf-clear" id="awClearAllBtn">ล้างตัวกรอง</button>` : ''}
+    </div>
+    ${hasActiveFilters ? `<div class="awf-chips">
+      ${activeChips.map(c=>`<span class="chip" data-awclearchip="${c.k}" style="cursor:pointer">${escAttr(c.label)} ×</span>`).join('')}
+    </div>` : ''}
+  </div>
+
+  <div class="dash-summary" style="grid-template-columns:repeat(6,1fr);margin-bottom:16px">
+    <div class="dsum-card aw-total"><div class="dv-row"><span class="dv-ic">📋</span><span class="dv" style="color:var(--accent)">${list.length}</span></div><div class="dl">ทั้งหมด</div></div>
+    <div class="dsum-card aw-queue"><div class="dv-row"><span class="dv-ic">🕒</span><span class="dv" style="color:var(--ink-soft)">${summaryCounts.NOT_STARTED}</span></div><div class="dl">ในคิว</div></div>
+    <div class="dsum-card aw-progress"><div class="dv-row"><span class="dv-ic">⚙️</span><span class="dv" style="color:var(--std-tx)">${summaryCounts.IN_PROGRESS}</span></div><div class="dl">กำลังทำ</div></div>
+    <div class="dsum-card aw-review"><div class="dv-row"><span class="dv-ic">👀</span><span class="dv" style="color:var(--pri-tx)">${summaryCounts.REVIEW}</span></div><div class="dl">รอตรวจ</div></div>
+    <div class="dsum-card aw-revision"><div class="dv-row"><span class="dv-ic">✏️</span><span class="dv" style="color:var(--urg-tx)">${summaryCounts.REVISION}</span></div><div class="dl">แก้ไข</div></div>
+    <div class="dsum-card aw-done"><div class="dv-row"><span class="dv-ic">✅</span><span class="dv" style="color:var(--ok-tx)">${summaryCounts.DONE}</span></div><div class="dl">เสร็จแล้ว</div></div>
+  </div>
+
+  <div class="card">
+    ${monthTasks.length===0 ? `<div class="hint" style="padding:40px 20px;text-align:center">ไม่มีงานในเดือนนี้</div>`
+      : list.length===0 ? `<div style="padding:40px 20px;text-align:center">
+          <div class="hint" style="margin-bottom:10px">ไม่พบงานที่ตรงกับ Filter</div>
+          <button type="button" class="btn btn-sm btn-ghost" id="awClearAllBtn2">Clear filters</button>
+        </div>`
+      : `<div style="overflow-x:auto">
+      <table class="dash-matrix" style="text-align:left;width:100%;min-width:960px">
+        <thead style="position:sticky;top:0;background:#fff;z-index:1">
+          <tr>
+            <th>#</th>
+            <th data-awsort="briefdate" style="cursor:pointer;white-space:nowrap">วันที่บรีฟ${sortArrow('briefdate')}</th>
+            <th data-awsort="deadline" style="cursor:pointer;white-space:nowrap">Deadline${sortArrow('deadline')}</th>
+            <th>ชื่องาน</th>
+            <th>Project</th>
+            <th>หมวดงาน</th>
+            <th>ประเภทงาน</th>
+            <th>Platform</th>
+            <th>คนบรีฟ</th>
+            <th data-awsort="designer" style="cursor:pointer;white-space:nowrap">Designer${sortArrow('designer')}</th>
+            <th data-awsort="status" style="cursor:pointer;white-space:nowrap">Status${sortArrow('status')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${list.map((t,i)=>`<tr data-opentask="${t.task_id}" style="cursor:pointer;height:52px">
+            <td>${String(i+1).padStart(2,'0')}</td>
+            <td>${fmtDate((t.brief_timestamp||'').slice(0,10))}</td>
+            <td>${fmtDate(t.prefer_delivery_date)}</td>
+            <td><div style="font-weight:700">${escAttr(taskDisplayName(t))}</div><div class="hint mono" style="font-size:11px">${t.task_id||''}</div></td>
+            <td>${escAttr(t.project_name||'—')}</td>
+            <td>${escAttr(t.task_category||'—')}</td>
+            <td>${escAttr(t.task_type||'—')}</td>
+            <td>${allWorkPlatformCellHTML(t)}</td>
+            <td>${escAttr(allWorkRequesterName(t)||'—')}</td>
+            <td>${escAttr(allWorkDesignerName(t)||'—')}</td>
+            <td>${STATUS_LABEL[t.review_status]||t.review_status}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`}
+  </div>`;
+}
+function allWorkClearFilter(key){
+  const aw = STATE.allWork;
+  if(key==='search') aw.search = '';
+  else aw[key] = 'ALL';
+}
+function allWorkClearAllFilters(){
+  const aw = STATE.allWork;
+  aw.requester='ALL'; aw.designer='ALL'; aw.platform='ALL'; aw.category='ALL'; aw.status='ALL'; aw.search='';
+  // Month is deliberately untouched — §12 "แต่ Month ไม่ต้องถูก Clear".
+}
 // MASTER DEV FINAL §6 — All Work Queue: lives on the SAME Working Process Board page (never a
 // separate page, never a Queue/Kanban view-toggle) — shares the same Month/Designer/Project-filtered
 // `filtered` list the Monthly Summary and Kanban below already use, adding only its own Status +
@@ -12802,11 +13606,11 @@ function renderAdjustScopeModal(){
   return `<div class="modal-bg" id="adjustScopeBg">
     <div class="modal" style="max-width:440px">
       <h3>ปรับ Scope ระหว่าง Production</h3>
-      <p class="hint" style="margin-bottom:10px">Current Scope — Artwork <strong>${cur.artwork_count}</strong> · Resize <strong>${cur.resize_count}</strong></p>
+      <p class="hint" style="margin-bottom:10px">Current Scope — Artwork <strong>${cur.artwork_count}</strong> · Resize/Adapt <strong>${cur.resize_count}</strong></p>
       <div class="field" style="margin-bottom:10px"><label>ประเภท</label>
         <select id="as_type">
           <option value="artwork" ${u.type==='artwork'?'selected':''}>Artwork</option>
-          <option value="resize" ${u.type==='resize'?'selected':''}>Resize</option>
+          <option value="resize" ${u.type==='resize'?'selected':''}>Resize / Adapt AW</option>
         </select>
       </div>
       <div class="field" style="margin-bottom:10px"><label>Action</label>
@@ -16766,12 +17570,65 @@ function renderNotificationsKillSwitchCard(){
     ${!on ? `<div class="hint" style="margin-top:8px;color:#dc2626;font-weight:700">⚠ ขณะนี้ปิดการแจ้งเตือนทั้งระบบอยู่ — ไม่มีใครได้รับแจ้งเตือนงานใหม่/อัปเดตใดๆ เลย (ทั้งกระดิ่งและอีเมล) จนกว่าจะติ๊กเปิดกลับ อย่าลืมเปิดคืนหลังทดสอบเสร็จ!</div>` : ''}
   </div>`;
 }
+// P0 DATA INTEGRITY (Krissha dev-report, 2026-09-22, full "P0 — DATA INTEGRITY / NO LOST DATA"
+// spec) — PHASE 1 admin card. Running the migration here writes a copy of every current task into
+// the new worldtech_tasks collection (1 doc per task) for validation; it does NOT change what the
+// live app reads/writes today (STATE.gdriveConfig.useTaskDocArchitecture stays off — see loadData()
+// comment) — that real cutover, plus converting every task-saving action in the app to the new
+// field-level API, realtime sync, and the version-conflict UI, is Phase 2, coming next. Safe to
+// run more than once before Phase 2 ships (each run re-syncs from the legacy array).
+function renderTaskArchitectureMigrationCard(){
+  const rep = STATE.taskMigrationReport;
+  const running = !!STATE.taskMigrationRunning;
+  const hasFail = rep && (rep.failedIds.length || rep.missingIds.length || rep.duplicateIds.length || rep.totalNew !== rep.migrated);
+  const cutoverOn = !!STATE.gdriveConfig.useTaskDocArchitecture;
+  return `<div class="card" style="margin-bottom:16px;max-width:720px;border:2px solid #dc2626">
+    <div style="font-weight:700;margin-bottom:4px">🚨 P0: Data Architecture Migration (No Lost Data)</div>
+    <p class="hint" style="margin-bottom:10px">ต้นเหตุที่ Brief/Task ที่เซฟไปแล้วหายหรือย้อนกลับ คือระบบเก็บ Task ทั้งหมดไว้ใน Array ก้อนเดียว — เครื่องที่เปิดค้างไว้และไม่ Refresh ยังถือ Task เวอร์ชันเก่าอยู่ใน Memory แล้วเผลอเขียนทับของใหม่ตอนทำ Action อื่น ปุ่มนี้จะ Copy Task ทุกตัว ณ ปัจจุบันไปเก็บเป็นเอกสารแยกทีละ Task (1 Task = 1 Document) ไว้ตรวจสอบก่อน</p>
+    <button type="button" class="btn btn-sm" id="runTaskMigrationBtn" ${running?'disabled':''}>${running?'กำลัง Migrate...':'▶ Run Migration'}</button>
+    ${rep ? `<div style="margin-top:14px;padding:12px;border-radius:8px;background:${hasFail?'#fee2e2':'#dcfce7'}">
+      <div style="font-weight:700;margin-bottom:6px">${hasFail?'⚠ พบปัญหา — อย่าเพิ่งเปิด Cutover':'✅ Migration Report — ผ่านทุกจุด'}</div>
+      <div style="font-size:13px;line-height:1.8">
+        Task เดิมทั้งหมด: <strong>${rep.totalOld}</strong><br>
+        Migrate สำเร็จ: <strong>${rep.migrated}</strong><br>
+        ตรวจนับใน Collection ใหม่ได้: <strong>${rep.totalNew===-1?'ตรวจไม่ได้ (offline)':rep.totalNew}</strong><br>
+        ${rep.failedIds.length?`Failed: <strong style="color:#dc2626">${rep.failedIds.length}</strong> (${escAttr(rep.failedIds.join(', '))})<br>`:''}
+        ${rep.duplicateIds.length?`Duplicate ID: <strong style="color:#dc2626">${rep.duplicateIds.length}</strong> (${escAttr(rep.duplicateIds.join(', '))})<br>`:''}
+        ${rep.missingIds.length?`Missing ID: <strong style="color:#dc2626">${rep.missingIds.length}</strong><br>`:''}
+      </div>
+    </div>` : ''}
+    <div style="margin-top:16px;padding-top:14px;border-top:1px dashed var(--line)">
+      <label style="display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer;${cutoverOn?'color:#16a34a':''}">
+        <input type="checkbox" id="taskCutoverToggle" ${cutoverOn?'checked':''}>
+        ${cutoverOn ? '✅ Cutover เปิดใช้งานแล้ว — ระบบอ่าน/เขียน Task ผ่านสถาปัตยกรรมใหม่ (Realtime, Field-level, มี Conflict Detection)' : 'เปิดใช้งานสถาปัตยกรรมใหม่ (Cutover) — หลัง Migration Report ผ่านแล้วเท่านั้น'}
+      </label>
+      <p class="hint" style="margin-top:6px">${cutoverOn ? 'ปิดสวิตช์นี้เพื่อย้อนกลับไปใช้ระบบเดิมชั่วคราวได้ทันที (ไม่กระทบ Task ที่บันทึกผ่านระบบใหม่ไปแล้ว) — แต่ควรปิดเฉพาะกรณีฉุกเฉินจริงๆ' : 'ต้อง Run Migration จนรายงานไม่มี Failed/Duplicate/Missing ก่อน — เมื่อเปิด ทุกจุดที่บันทึกงานในระบบจะเปลี่ยนไปใช้ Field-level Update + Realtime Sync ทันที (ไม่ต้อง Deploy ใหม่)'}</p>
+    </div>
+    ${cutoverOn ? renderDeletedTasksSection() : ''}
+  </div>`;
+}
+// §11 — Admin-visible list of soft-deleted tasks (STATE.deletedTasksList, fetched on demand since
+// they're intentionally excluded from the normal STATE.tasks used everywhere else in the app) with
+// a one-click Restore per task. Only shown once Cutover is on (soft delete doesn't exist pre-cutover).
+function renderDeletedTasksSection(){
+  const list = STATE.deletedTasksList;
+  return `<div style="margin-top:16px;padding-top:14px;border-top:1px dashed var(--line)">
+    <button type="button" class="btn btn-sm btn-ghost" id="loadDeletedTasksBtn">🗑 ดูงานที่ถูกลบ (Soft Delete)</button>
+    ${list ? (list.length ? `<div style="margin-top:10px;max-height:260px;overflow-y:auto">
+      ${list.map(t=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">
+        <div><strong>${escAttr(t.task_name||t.task_id)}</strong> <span class="hint">(${t.task_id}) — ลบโดย ${escAttr(t.deleted_by||'—')} เมื่อ ${fmtDate((t.deleted_at||'').slice(0,10))}</span></div>
+        <button type="button" class="btn btn-sm" data-restoretask="${t.task_id}">↺ Restore</button>
+      </div>`).join('')}
+    </div>` : `<p class="hint" style="margin-top:8px">ไม่มีงานที่ถูกลบอยู่ตอนนี้</p>`) : ''}
+  </div>`;
+}
 function renderAdminPanel(){
   const categories = Object.keys(TEMPLATE_LABELS);
   return `
   <h1 class="pagetitle">Admin Control Panel</h1>
   <p class="pagesub">Backup & Restore · ข้อมูลแยกจาก Source Code ผ่าน Storage กลาง — Deploy โค้ดใหม่ได้โดยข้อมูลไม่หาย</p>
 
+  ${renderTaskArchitectureMigrationCard()}
   ${renderNotificationsKillSwitchCard()}
 
   <div class="card" style="margin-bottom:16px;max-width:640px">
@@ -17238,6 +18095,26 @@ function bindEvents(){
   // STATE.board bag renderBoard() reads, so they always combine (§2) rather than resetting each other.
   document.getElementById('boardMonthFilter')?.addEventListener('change', e=>{ STATE.board.month=e.target.value; render(); });
   document.getElementById('boardDesignerFilter')?.addEventListener('change', e=>{ STATE.board.designer=e.target.value; render(); });
+
+  // DEV REQUEST — All Work page bindings: month nav, 5 filters, search, sortable headers, chip clear,
+  // Clear-filters buttons — all write into the same STATE.allWork bag renderAllWorkPage() reads.
+  document.querySelectorAll('[data-awmonav]').forEach(b=>b.onclick=()=>{ STATE.allWork.month=shiftMonthStr(STATE.allWork.month, Number(b.dataset.awmonav)); render(); });
+  document.getElementById('awReqFilter')?.addEventListener('change', e=>{ STATE.allWork.requester=e.target.value; render(); });
+  document.getElementById('awDesignerFilter')?.addEventListener('change', e=>{ STATE.allWork.designer=e.target.value; render(); });
+  document.getElementById('awPlatformFilter')?.addEventListener('change', e=>{ STATE.allWork.platform=e.target.value; render(); });
+  document.getElementById('awCategoryFilter')?.addEventListener('change', e=>{ STATE.allWork.category=e.target.value; render(); });
+  document.getElementById('awStatusFilter')?.addEventListener('change', e=>{ STATE.allWork.status=e.target.value; render(); });
+  document.getElementById('awSearch')?.addEventListener('input', e=>{ STATE.allWork.search=e.target.value; render(); });
+  document.querySelectorAll('[data-awsort]').forEach(th=>th.onclick=()=>{
+    const field = th.dataset.awsort;
+    if(STATE.allWork.sortField===field) STATE.allWork.sortDir = STATE.allWork.sortDir==='asc' ? 'desc' : 'asc';
+    else { STATE.allWork.sortField = field; STATE.allWork.sortDir = 'asc'; }
+    render();
+  });
+  document.querySelectorAll('[data-awclearchip]').forEach(c=>c.onclick=()=>{ allWorkClearFilter(c.dataset.awclearchip); render(); });
+  document.getElementById('awClearAllBtn')?.addEventListener('click', ()=>{ allWorkClearAllFilters(); render(); });
+  document.getElementById('awClearAllBtn2')?.addEventListener('click', ()=>{ allWorkClearAllFilters(); render(); });
+
   // MASTER DEV FINAL §13 — Standard Banner bindings.
   document.getElementById('bnSearch')?.addEventListener('input', e=>{ STATE.bannerUI.search=e.target.value; render(); });
   document.getElementById('bnPlatformFilter')?.addEventListener('change', e=>{ STATE.bannerUI.platformFilter=e.target.value; render(); });
@@ -17999,6 +18876,14 @@ function bindEvents(){
     if(!confirm('กู้คืนข้อมูลจาก Backup จุดนี้? ข้อมูลปัจจุบันจะถูกรวมกับข้อมูล ณ จุดนั้น (ของใหม่ที่เพิ่มมาไม่หาย แต่ของที่เพิ่งลบไปหลังจุดนี้อาจกลับมา)')) return;
     restoreAutoBackup(id);
   }));
+  document.querySelectorAll('[data-restoretaskfrombackup]').forEach(b=>b.addEventListener('click', async ()=>{
+    const id = b.dataset.restoretaskfrombackup;
+    const taskId = prompt('ใส่รหัส Task ID ที่ต้องการ Restore จาก Backup จุดนี้ (เช่น TSK-2026-001):');
+    if(!taskId) return;
+    if(!confirm(`Restore เฉพาะ Task "${taskId}" จาก Backup จุดนี้? Task อื่นทั้งหมดจะไม่ถูกแตะต้อง`)) return;
+    const ok = await restoreTaskFromSnapshot(id, taskId.trim());
+    if(ok) render();
+  }));
   document.getElementById('adminCleanupSearch')?.addEventListener('input', e=>{
     STATE.adminCleanupSearch = e.target.value;
     render();
@@ -18035,6 +18920,75 @@ function bindEvents(){
     STATE.gdriveConfig = {...(STATE.gdriveConfig||{}), notificationsEnabled: enabled};
     await saveKey('wt_gdrive_config', STATE.gdriveConfig);
     toast(enabled ? '✅ เปิดการแจ้งเตือนระบบแล้ว' : '🔕 ปิดการแจ้งเตือนทั้งระบบชั่วคราว (โหมดทดสอบ)');
+    render();
+  });
+  // P0 DATA INTEGRITY — runs migrateTasksToDocArchitecture() (Phase 1, dormant/read-validate-only,
+  // does not touch what the live app reads/writes) and shows its report inline on the card.
+  document.getElementById('runTaskMigrationBtn')?.addEventListener('click', async ()=>{
+    if(!confirm('จะ Copy Task ทุกตัวไปเก็บเป็นเอกสารแยกใน worldtech_tasks (ยังไม่ Cutover ระบบยังทำงานแบบเดิม) ดำเนินการต่อ?')) return;
+    STATE.taskMigrationRunning = true; render();
+    try{
+      STATE.taskMigrationReport = await migrateTasksToDocArchitecture();
+      toast('Migration เสร็จแล้ว — ดูรายงานด้านล่าง');
+    }catch(e){
+      console.error('migrateTasksToDocArchitecture failed', e);
+      toast('Migration ล้มเหลว ลองใหม่อีกครั้ง');
+    }
+    STATE.taskMigrationRunning = false; render();
+  });
+  // P0 DATA INTEGRITY — the real cutover switch (§14). Turning ON re-runs the migration once more
+  // right before flipping (catches anything created/changed since the last manual run) and refuses
+  // to cut over if that fresh report shows any Failed/Duplicate/Missing, so Cutover can never happen
+  // on top of an unverified migration. Turning OFF is an emergency-only escape hatch — tasks
+  // created/edited through the new architecture stay only there until it's turned back on, so the
+  // legacy view will look stale/incomplete while it's off; this does not un-write anything.
+  document.getElementById('taskCutoverToggle')?.addEventListener('change', async e=>{
+    const turningOn = !!e.target.checked;
+    e.target.checked = !turningOn; // revert visually until the async work below confirms
+    if(turningOn){
+      if(!confirm('เปิด Cutover จริงหรือไม่?\n\nระบบจะรัน Migration ล่าสุดอีกครั้งก่อน แล้วเปลี่ยนให้ทุก Action ที่บันทึกงานทั้งระบบใช้สถาปัตยกรรมใหม่ทันที (Field-level + Realtime) โดยไม่ต้อง Deploy ใหม่')) return;
+      STATE.taskMigrationRunning = true; render();
+      let rep;
+      try{ rep = await migrateTasksToDocArchitecture(); STATE.taskMigrationReport = rep; }
+      catch(err){ console.error(err); toast('Migration ล้มเหลว — ยกเลิกการเปิด Cutover'); STATE.taskMigrationRunning = false; render(); return; }
+      STATE.taskMigrationRunning = false;
+      const hasFail = rep && (rep.failedIds.length || rep.missingIds.length || rep.duplicateIds.length || rep.totalNew !== rep.migrated);
+      if(hasFail){ toast('⚠ Migration Report พบปัญหา — ยังไม่เปิด Cutover ตรวจรายงานด้านล่างก่อน'); render(); return; }
+      STATE.gdriveConfig.useTaskDocArchitecture = true;
+      await saveKey('wt_gdrive_config', STATE.gdriveConfig);
+      const docs = await window.storage.getAllTaskDocs();
+      if(docs) STATE.tasks = docs.filter(t=>!t.deleted);
+      snapshotTaskBaseline();
+      subscribeTasks();
+      toast('✅ เปิด Cutover แล้ว — ระบบใช้สถาปัตยกรรมใหม่ทั้งหมด');
+      render();
+    } else {
+      if(!confirm('ปิด Cutover จริงหรือไม่?\n\n⚠ Task ที่สร้าง/แก้ผ่านสถาปัตยกรรมใหม่หลังจากนี้จะไม่ถูกเขียนกลับไปที่ระบบเดิมโดยอัตโนมัติ — มุมมองแบบเดิมจะดูเก่า/ไม่ครบ ใช้เฉพาะกรณีฉุกเฉินจริงๆ')) return;
+      STATE.gdriveConfig.useTaskDocArchitecture = false;
+      await saveKey('wt_gdrive_config', STATE.gdriveConfig);
+      if(TASKS_UNSUBSCRIBE){ TASKS_UNSUBSCRIBE(); TASKS_UNSUBSCRIBE = null; }
+      toast('🔙 ปิด Cutover แล้ว — กลับไปใช้ระบบเดิมชั่วคราว');
+      render();
+    }
+  });
+  document.getElementById('loadDeletedTasksBtn')?.addEventListener('click', async ()=>{
+    const all = await window.storage.getAllTaskDocs();
+    STATE.deletedTasksList = (all||[]).filter(t=>t.deleted);
+    render();
+  });
+  document.querySelectorAll('[data-restoretask]').forEach(b=>b.onclick=async ()=>{
+    const taskId = b.dataset.restoretask;
+    const ok = await restoreTask(taskId);
+    if(ok){
+      toast('↺ Restore สำเร็จแล้ว');
+      STATE.deletedTasksList = (STATE.deletedTasksList||[]).filter(t=>t.task_id!==taskId);
+      // The restored task doesn't exist in STATE.tasks yet (soft-deleted tasks are excluded from
+      // it) — pull it back in so it shows up everywhere immediately, without waiting for the next
+      // realtime snapshot.
+      const restored = await window.storage.getTaskDoc(taskId);
+      if(restored && !STATE.tasks.some(t=>t.task_id===taskId)) STATE.tasks.push(restored);
+      snapshotTaskBaseline();
+    }
     render();
   });
   document.getElementById('gdriveConfigForm')?.addEventListener('submit', async (e)=>{
@@ -19680,33 +20634,91 @@ function importBackup(e){
 // the real gap has passed does the work, the rest see a recent-enough snapshot already there and skip.
 let lastKnownBackupAt = 0;
 const AUTO_BACKUP_INTERVAL_MS = 30*60*1000; // 30 minutes
-const AUTO_BACKUP_RETENTION_MS = 24*60*60*1000; // keep 1 day
+const AUTO_BACKUP_RETENTION_MS = 24*60*60*1000; // 'frequent' tier — keep 24 hours
+// §12 (Krissha P0 spec) — "Daily snapshot: 7–30 วัน": one extra snapshot per calendar day, kept much
+// longer than the 30-minute rolling ones, as a slower-aging safety net for "we didn't notice for a
+// few days" situations the 24h 'frequent' tier alone can't cover.
+const DAILY_BACKUP_RETENTION_MS = 30*24*60*60*1000; // 'daily' tier — keep 30 days
 async function runAutoBackup(){
   try{
     const existing = await window.storage.listBackupSnapshots();
-    const newest = existing[0];
-    if(newest){
-      lastKnownBackupAt = new Date(newest.created_at).getTime();
-      // Some other tab already made a recent enough snapshot — nothing to do this tick. A small margin
-      // under the full interval so this can't drift later and later across many tabs' independent timers.
-      if(Date.now() - lastKnownBackupAt < AUTO_BACKUP_INTERVAL_MS - 60000) return;
+    const frequentSnaps = existing.filter(b=>(b.tier||'frequent')==='frequent');
+    const dailySnaps = existing.filter(b=>b.tier==='daily');
+    const newestFrequent = frequentSnaps[0];
+    let madeFrequent = false;
+    if(newestFrequent) lastKnownBackupAt = new Date(newestFrequent.created_at).getTime();
+    // Some other tab already made a recent enough 'frequent' snapshot — nothing to do this tick. A
+    // small margin under the full interval so this can't drift later and later across many tabs'
+    // independent timers.
+    if(!newestFrequent || Date.now() - lastKnownBackupAt >= AUTO_BACKUP_INTERVAL_MS - 60000){
+      const payload = buildFullBackupPayload();
+      const ok = await window.storage.saveBackupSnapshot(payload, 'frequent');
+      if(ok){ lastKnownBackupAt = Date.now(); madeFrequent = true; }
     }
-    const ok = await window.storage.saveBackupSnapshot(buildFullBackupPayload());
-    if(ok){
-      lastKnownBackupAt = Date.now();
+    if(madeFrequent){
       const cutoff = new Date(Date.now() - AUTO_BACKUP_RETENTION_MS).toISOString();
-      await window.storage.pruneBackupSnapshotsOlderThan(cutoff);
+      await window.storage.pruneBackupSnapshotsOlderThan(cutoff, 'frequent');
+    }
+    // Once-a-day 'daily' snapshot — same dedup pattern (by calendar date, not just elapsed time, so
+    // "once per day" means the actual date rolling over, not just "24h since the last one").
+    const newestDaily = dailySnaps[0];
+    const todayStr = todayISO();
+    if(!newestDaily || (newestDaily.created_at||'').slice(0,10) !== todayStr){
+      const payload = buildFullBackupPayload();
+      const ok = await window.storage.saveBackupSnapshot(payload, 'daily');
+      if(ok){
+        const dailyCutoff = new Date(Date.now() - DAILY_BACKUP_RETENTION_MS).toISOString();
+        await window.storage.pruneBackupSnapshotsOlderThan(dailyCutoff, 'daily');
+      }
     }
   }catch(e){ console.error('runAutoBackup failed (non-fatal — next 30-min tick or manual Export still work)', e); }
 }
 // Admin-only restore action for the card below — same applyBackupData() the manual Import uses, so a
-// restore from an automatic snapshot behaves identically to restoring an uploaded .json file.
+// restore from an automatic snapshot behaves identically to restoring an uploaded .json file. Once
+// Cutover is on, applyBackupData()'s own saveTasks() call automatically routes through
+// saveTasksViaDocArchitecture() — restoring the old snapshot's task list only pushes the FIELDS that
+// actually differ from the current server copy, per task, so a task created/edited AFTER this
+// snapshot was taken (and therefore absent from it) is simply never touched, exactly matching the
+// "รวม ไม่ลบของใหม่" promise below in both architectures.
 async function restoreAutoBackup(id){
   const data = await window.storage.getBackupSnapshot(id);
-  if(!data){ toast('❌ ไม่พบข้อมูล Backup นี้แล้ว (อาจถูกลบไปตามอายุ 1 วัน)'); render(); return; }
+  if(!data){ toast('❌ ไม่พบข้อมูล Backup นี้แล้ว (อาจถูกลบไปตามอายุที่ตั้งไว้)'); render(); return; }
   await applyBackupData(data);
   toast('✅ กู้คืนข้อมูลจาก Backup อัตโนมัติสำเร็จแล้ว');
   render();
+}
+// §12 (Krissha P0 spec — "ไม่ควรต้อง Restore Database ทั้งระบบเพราะ Task เดียวพัง") — restores ONE task
+// from a chosen snapshot without touching any other task. Under Cutover, this is a direct, targeted
+// whole-document write to just that one task's Firestore document (never the other ~hundreds); under
+// the legacy architecture, it mutates just that one task in STATE.tasks and relies on saveTasks()'s
+// own existing per-task merge to keep everything else untouched.
+async function restoreTaskFromSnapshot(snapshotId, taskId){
+  const data = await window.storage.getBackupSnapshot(snapshotId);
+  if(!data || !Array.isArray(data.tasks)){ toast('❌ ไม่พบข้อมูล Backup นี้แล้ว'); return false; }
+  const historical = data.tasks.find(t=>t.task_id===taskId);
+  if(!historical){ toast(`❌ ไม่พบ Task รหัส "${taskId}" ใน Backup จุดนี้`); return false; }
+  const actorId = taskAuditActorId(), actorName = taskAuditActorName();
+  const current = STATE.tasks.find(t=>t.task_id===taskId);
+  if(STATE.gdriveConfig?.useTaskDocArchitecture){
+    const stamped = Object.assign({}, historical, {
+      version: (current?.version||0)+1, updated_at: new Date().toISOString(), updated_by: actorId,
+      restored_from_snapshot: snapshotId, deleted: current ? !!current.deleted : false,
+    });
+    const ok = await window.storage.setTaskDoc(taskId, stamped);
+    if(!ok){ toast('❌ Restore ไม่สำเร็จ'); return false; }
+    if(current) Object.assign(current, stamped); else STATE.tasks.push(stamped);
+    snapshotTaskBaseline();
+    await window.storage.logTaskActivity({
+      task_id: taskId, action: 'RESTORE', changed_fields: Object.keys(historical),
+      before: current||{}, after: stamped, user_id: actorId, user_name: actorName,
+    });
+  } else {
+    if(current) Object.assign(current, historical); else STATE.tasks.push(Object.assign({}, historical));
+    const ok = await saveTasks();
+    if(!ok){ toast('❌ Restore ไม่สำเร็จ'); return false; }
+  }
+  toast(`✅ Restore Task "${taskId}" จาก Backup จุดนี้สำเร็จแล้ว`);
+  return true;
 }
 async function loadAutoBackupsList(){
   STATE.autoBackupsLoading = true;
@@ -19723,15 +20735,18 @@ function renderAutoBackupsCard(){
   const list = STATE.autoBackupsList || [];
   return `<div class="card" style="margin-top:16px;max-width:720px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <div style="font-weight:700">Auto Backups (ทุก 30 นาที · เก็บไว้ 1 วัน)</div>
+      <div style="font-weight:700">Auto Backups (Frequent ทุก 30 นาที เก็บ 24 ชม. · Daily วันละ 1 จุด เก็บ 30 วัน)</div>
       <button type="button" class="btn btn-sm btn-ghost" id="refreshAutoBackupsBtn">↻ Refresh</button>
     </div>
-    <p class="hint" style="margin-bottom:10px">สำรองข้อมูลทั้งระบบอัตโนมัติทุก 30 นาที เก็บย้อนหลังได้ 1 วัน — ใช้กู้คืนกรณีข้อมูลหายจากการบันทึกชนกัน การกู้คืนจะ "รวม" ข้อมูล ณ จุดนั้นกลับเข้าไป ไม่ลบของใหม่ที่มีคนเพิ่มมาหลังจุด Backup นั้น</p>
+    <p class="hint" style="margin-bottom:10px">สำรองข้อมูลทั้งระบบอัตโนมัติ 2 ระดับ — ใช้ "กู้คืนทั้งหมด" กรณีข้อมูลหายเป็นวงกว้าง หรือ "Restore เฉพาะ Task" เมื่อรู้ตัวว่ามีแค่ Task เดียวที่พัง (ไม่กระทบ Task อื่น) — การกู้คืนจะ "รวม" ข้อมูล ณ จุดนั้นกลับเข้าไป ไม่ลบของใหม่ที่มีคนเพิ่มมาหลังจุด Backup นั้น</p>
     ${STATE.autoBackupsLoading ? `<div class="hint">กำลังโหลด...</div>` : list.length===0 ? `<div class="hint">ยังไม่มี Backup อัตโนมัติ (จะเริ่มสร้างภายใน 2 นาทีหลังเปิดระบบ — ต้องมีคนล็อกอินใช้งานอยู่ระบบถึงจะสร้างได้)</div>` : `
-    <div style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto">
-      ${list.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 9px;border:1px solid var(--border-color,#e0e0e0);border-radius:6px">
-        <span>${fmtDateTime(b.created_at)}</span>
-        <button type="button" class="btn btn-sm btn-ghost" data-restoreautobackup="${b.id}">กู้คืนจากจุดนี้</button>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
+      ${list.map(b=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 9px;border:1px solid var(--border-color,#e0e0e0);border-radius:6px;gap:8px">
+        <span><span class="chip" style="font-size:10px;margin-right:6px">${b.tier==='daily'?'Daily':'Frequent'}</span>${fmtDateTime(b.created_at)}</span>
+        <span style="display:flex;gap:6px;flex-shrink:0">
+          <button type="button" class="btn btn-sm btn-ghost" data-restoretaskfrombackup="${b.id}">🎯 Restore เฉพาะ Task</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-restoreautobackup="${b.id}">กู้คืนทั้งหมด</button>
+        </span>
       </div>`).join('')}
     </div>`}
   </div>`;
@@ -24704,6 +25719,27 @@ function ftExportAllIndividually(mode){
   // TASKS_REFRESH_MIN_GAP_MS's own comment for why 1 minute is safe) — refreshTasksFromServer()'s own gap
   // still protects the tab-focus listener below from firing right on top of this.
   setInterval(async ()=>{ if(await refreshTasksFromServer()) render(); }, 60000);
+  // PHASE 2 CUTOVER (§7, Acceptance Test G) — once STATE.gdriveConfig.useTaskDocArchitecture is on,
+  // this replaces the 60s poll above (which is now a guaranteed no-op — see its own updated
+  // comment) as the actual sync mechanism for tasks: every task change from anyone, anywhere,
+  // reaches every open tab within moments, no refresh needed.
+  if(STATE.gdriveConfig?.useTaskDocArchitecture) subscribeTasks();
+  // §15 Connection Safety — window.__storageOffline can flip true/false from inside any storage.*
+  // call, none of which know to trigger a re-render on their own; this just notices the flip and
+  // re-renders so renderConnectionSafetyBanner() above appears/disappears promptly either way.
+  let __lastKnownStorageOffline = !!window.__storageOffline;
+  setInterval(()=>{
+    if(!!window.__storageOffline !== __lastKnownStorageOffline){
+      __lastKnownStorageOffline = !!window.__storageOffline;
+      render();
+    }
+  }, 5000);
+  // §15 — "ถ้ามี Unsaved Changes แล้ว User จะปิดหน้า/Reload: ใช้ beforeunload warning". TASKS_SAVE_INFLIGHT
+  // is incremented for the exact duration of every in-flight saveTasks() call (see its own comment) —
+  // the one moment where closing the tab could genuinely lose an action the user just took.
+  window.addEventListener('beforeunload', (e)=>{
+    if(TASKS_SAVE_INFLIGHT>0){ e.preventDefault(); e.returnValue = ''; return ''; }
+  });
   // Same fix, instant-ish version: a tab that's been backgrounded/minimized for a while refreshes when the
   // person actually switches back to it, instead of waiting out the rest of the 5-minute interval — throttled
   // by the same TASKS_REFRESH_MIN_GAP_MS, so switching tabs back and forth repeatedly can't pile up requests.
