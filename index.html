@@ -7784,6 +7784,7 @@ function myCompletedRowHTML(t, me, opts){
 // plus a thin left border, no icon/emoji at all (unlike priorityBadge()'s 🔴🟠🟡🔵 used elsewhere — that
 // helper is untouched; this is a brand-new section, so it just never adopts that pattern to begin with).
 const MYWORK_TODAY_TIERS = [
+  {key:'approval', label:'รอคุณ Proof/อนุมัติ Brief', color:'var(--accent)'},
   {key:'urgent',   label:'ด่วนมาก',              color:'var(--crit-tx)'},
   {key:'overdue',  label:'เลยกำหนดส่ง',           color:'var(--crit-tx)'},
   {key:'duetoday', label:'ครบกำหนดวันนี้',         color:'var(--urg-tx)'},
@@ -7795,11 +7796,26 @@ function myTodayActionTasks(me){
   // Only tasks still genuinely being worked on or not-yet-started belong here — once a task has been
   // submitted (pending_review/pending_client_review) it's handed off and waiting on someone else, so it
   // should stop taking up space in "today's action" (see isTaskStillInWorkQueue for the shared definition).
-  const mine = STATE.tasks.filter(t=>t.assigned_user_name===me && isTaskStillInWorkQueue(t));
+  const mineAssigned = STATE.tasks.filter(t=>t.assigned_user_name===me && isTaskStillInWorkQueue(t));
+  // BUG FIX (Krissha report, 2026-09-23) — "งานที่เราต้องพรูฟบรีฟ เวลาคนขอ Urgent เข้ามา ไม่มีในงานของฉัน":
+  // a Brief entering Pending Lead Designer Approval has assigned_user_name cleared to null (see the
+  // enteringApproval block in the Edit-Brief handler — the designer is moved to `suggested_designer` and
+  // stays unassigned until Lead approves), so it could never match the assigned_user_name===me filter
+  // above. As Lead, that meant Urgent/Critical Briefs waiting on her own Proof/Approval were invisible on
+  // her own "My Work" page — even though the team Kanban's "Pending Lead Designer Approval" column showed
+  // them fine. Pull them in by review_status instead of assignment, in their own top-priority 'approval'
+  // tier, so a Brief needing her proof never gets missed just because no one's normal queue owns it yet.
+  const pendingApproval = isLead() ? STATE.tasks.filter(t=>t.review_status==='pending_lead_approval') : [];
+  const seenIds = new Set();
+  const mine = mineAssigned.concat(pendingApproval).filter(t=>{
+    if(seenIds.has(t.task_id)) return false;
+    seenIds.add(t.task_id); return true;
+  });
   const order = MYWORK_TODAY_TIERS.map(x=>x.key);
   const tiered = mine.map(t=>{
     let tier;
-    if(PRIORITY_NEEDS_APPROVAL[t.priority]) tier='urgent';
+    if(t.review_status==='pending_lead_approval') tier='approval';
+    else if(PRIORITY_NEEDS_APPROVAL[t.priority]) tier='urgent';
     else if(t.prefer_delivery_date && t.prefer_delivery_date<today) tier='overdue';
     else if(t.prefer_delivery_date===today) tier='duetoday';
     else if(t.review_status==='revision') tier='revision';
@@ -7948,8 +7964,6 @@ function renderWorkspace(){
   <!-- Reorder Dashboard dev spec, SECTION 4 (new): "งานที่ต้องจัดการวันนี้" — priority-ranked action list,
        see renderMyTodayActionList()/myTodayActionTasks() above for the tier logic. -->
   ${renderMyTodayActionList(me)}
-
-  ${renderMyWorkTimeline(me, today)}
 
   <!-- DEV SPEC — My Work Kanban + Time Tracking + Capacity Logic: "งานของฉัน" — Active work only
        (งานใหม่ → กำลังทำ → รอตรวจ → แก้ไข). Columns are just a view over the SAME review_status
