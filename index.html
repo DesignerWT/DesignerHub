@@ -626,6 +626,12 @@ hr.div{border:none;border-top:1px solid var(--line);margin:18px 0}
 .awf-field-platform{width:160px}
 .awf-field-category{width:160px}
 .awf-field-designer{width:160px}
+.tn-combo{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:var(--r-input);background:var(--surface-solid);overflow:hidden}
+.tn-combo:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.tn-prefix{display:flex;align-items:center;gap:6px;padding:0 10px;background:rgba(99,102,241,.08);color:var(--accent);font-weight:600;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis;border-right:1px solid var(--line)}
+.tn-prefix::before{content:'🔒';font-size:11px}
+.tn-prefix.empty{color:var(--ink-faint);font-weight:400;background:transparent}
+.tn-combo input#f_taskname_extra{border:none !important;box-shadow:none !important;flex:1;min-width:0;background:transparent}
 .awf-field-requester{width:170px}
 .awf-search{position:relative;flex:1 1 220px;min-width:220px;height:40px}
 .awf-search-ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:12px;opacity:.5;pointer-events:none}
@@ -2927,7 +2933,7 @@ let STATE = {
   // (see renderMain's detailTaskId branch), so there's no "previous DOM" to read a scroll position off of
   // at the moment the Board reappears. A live 'scroll' listener (bound in bindBoardColumnScroll) keeps this
   // updated continuously; render() reapplies it to each .col-body every time the Board is drawn.
-  board:{month:null, designer:'ALL', project:'ALL', colScroll:{},
+  board:{month:null, designer:'ALL', project:'ALL', requester:'ALL', category:'ALL', platform:'ALL', colScroll:{},
     // MASTER DEV FINAL §6 — All Work Queue's own Status/Search filters, separate from the Kanban's
     // Month/Designer/Project (which the queue still inherits, per spec: same 3 filters feed both).
     queueStatus:'ALL_ACTIVE', queueSearch:'',
@@ -9215,7 +9221,14 @@ function renderBriefForm(){
             <input id="f_project" list="projList" value="${pf?pf.project:''}" placeholder="เลือกหรือพิมพ์ชื่อใหม่">
             <datalist id="projList">${projectList().map(p=>`<option value="${p}">`).join('')}</datalist>
           </div>
-          <div class="field"><label>ชื่องาน (Task Name) *</label><input required id="f_taskname" value="${pf?pf.taskname:''}" placeholder="เช่น Banner โปรโมชั่น"></div>
+          <div class="field"><label>ชื่องาน (Task Name) * <span class="hint" style="font-weight:400">— ตั้งอัตโนมัติจาก Campaign Tag + Artwork</span></label>
+            <div class="tn-combo">
+              <span class="tn-prefix" id="tnPrefix" title="ล็อกอัตโนมัติจาก Project / Campaign Tag + Artwork / ประเภทงานย่อย"></span>
+              <input id="f_taskname_extra" value="${escAttr(splitTaskNameExtra(pf))}" placeholder="พิมพ์เพิ่มได้ (ไม่บังคับ)" autocomplete="off">
+            </div>
+            <input type="hidden" id="f_taskname" value="${escAttr(pf?pf.taskname:'')}">
+            <div class="hint" id="tnFullPreview" style="margin-top:4px"></div>
+          </div>
         </div>
         <div class="row4">
           <div class="field"><label>หมวดใหญ่ (Task Category) *</label>
@@ -9690,6 +9703,60 @@ function refreshArtworkQuickNamesBox(){
 // Single-Artwork case: the Task Name IS the Artwork name, live, with no box shown for her to set it in —
 // same tab/header live-sync as the two boxes above ("ชื่อต้องลิงก์กัน") so AW01's tab in step 02 never sits
 // on a stale "ยังไม่ได้ตั้งชื่อ" once she's actually typed a Task Name.
+// Krissha request — Task Name ล็อกตาม Campaign Tag + Artwork (พิมพ์เพิ่มได้): the Brief form no longer
+// asks for a free-typed Task Name. The locked prefix is built live from Project / Campaign Tag + Artwork
+// Type (or the "อื่นๆ ระบุ" text), and f_taskname_extra is an optional suffix. The combined value is written
+// into the hidden #f_taskname so every existing reader (Final Check, draft snapshot, submitBrief, sole-
+// Artwork name sync) keeps working unchanged.
+const TASKNAME_SEP = ' - ';
+function taskNamePrefixFromParts(project, type, typeOther){
+  const aw = (type==='อื่นๆ ระบุ') ? (typeOther||'').trim() : (type||'').trim();
+  return [(project||'').trim(), aw].filter(Boolean).join(TASKNAME_SEP);
+}
+function taskNamePrefixFromForm(){
+  const catEl = document.getElementById('f_category'), typeEl = document.getElementById('f_type');
+  const isOther = catEl?.value===OTHER_CATEGORY || typeEl?.value==='อื่นๆ ระบุ';
+  return taskNamePrefixFromParts(document.getElementById('f_project')?.value,
+    isOther ? 'อื่นๆ ระบุ' : (typeEl?.value||''), BRIEF_DRAFT.typeOther);
+}
+// Editing / resuming a Brief: peel the auto prefix back off the saved name so only the typed extra
+// lands in the box. A legacy name that doesn't start with the prefix is kept whole as the extra.
+// Legacy guard: a Brief saved BEFORE this auto-naming existed (name doesn't follow "prefix - extra") must
+// NOT be silently renamed just by opening Edit Brief / Resume Draft. Its original name is kept as-is until
+// she actually changes Campaign Tag / Artwork / the extra box — see syncTaskNameFromParts().
+let TASKNAME_LEGACY = null;
+function splitTaskNameExtra(pf){
+  TASKNAME_LEGACY = null;
+  const name = ((pf && pf.taskname) || '').trim();
+  if(!name) return '';
+  const prefix = taskNamePrefixFromParts(pf.project, pf.type, BRIEF_DRAFT.typeOther);
+  if(!prefix) return name;
+  if(name===prefix) return '';
+  if(name.startsWith(prefix + TASKNAME_SEP)) return name.slice((prefix + TASKNAME_SEP).length);
+  TASKNAME_LEGACY = {name, prefix};
+  return name;
+}
+function releaseLegacyTaskName(){ if(TASKNAME_LEGACY){ TASKNAME_LEGACY = null; syncTaskNameFromParts(); } }
+function syncTaskNameFromParts(){
+  const hidden = document.getElementById('f_taskname');
+  const extraEl = document.getElementById('f_taskname_extra');
+  if(!hidden || !extraEl) return;
+  const prefix = taskNamePrefixFromForm();
+  const extra = extraEl.value.trim();
+  // Legacy is released only by a real user edit (see releaseLegacyTaskName) — NOT by a prefix mismatch here,
+  // because bind-time restoration briefly runs with the Artwork Type select still empty.
+  const keepLegacy = !!TASKNAME_LEGACY && extra===TASKNAME_LEGACY.name;
+  const full = keepLegacy ? TASKNAME_LEGACY.name : [prefix, extra].filter(Boolean).join(TASKNAME_SEP);
+  const changed = hidden.value!==full;
+  hidden.value = full;
+  const pEl = document.getElementById('tnPrefix');
+  if(pEl){ pEl.textContent = prefix || 'เลือก Campaign Tag + Artwork'; pEl.classList.toggle('empty', !prefix); }
+  const prev = document.getElementById('tnFullPreview');
+  if(prev) prev.innerHTML = !full ? '' : keepLegacy
+    ? `ชื่องานเดิม: <strong>${escAttr(full)}</strong> — ยังไม่เปลี่ยน จนกว่าจะแก้ Campaign Tag / Artwork / ช่องพิมพ์เพิ่ม`
+    : `ชื่องานที่จะใช้: <strong>${escAttr(full)}</strong>`;
+  if(changed){ syncSoleArtworkNameFromTaskName(); updateBriefReadiness(); }
+}
 function syncSoleArtworkNameFromTaskName(){
   const arr = briefArtworks();
   if(arr.length!==1) return;
@@ -9697,6 +9764,11 @@ function syncSoleArtworkNameFromTaskName(){
   refreshArtworkListAndNav();
   const h = document.getElementById('awEditHeaderName');
   if(h) h.textContent = artworkDisplayName(arr[0], 0);
+  // BUG FIX (Krissha — "Artwork Name * ดึงมาไม่หมด"): the Artwork Name input in step 02 was only filled at
+  // render time, so it kept a stale partial value (e.g. just the Campaign Tag) while the header/tab updated.
+  // Keep the visible input in sync too — skipped only while she's actively typing in that box herself.
+  const inp = document.getElementById('awf_name');
+  if(inp && document.activeElement!==inp && inp.value!==arr[0].name) inp.value = arr[0].name;
 }
 // Apply to All Artworks (Dev Spec §12): applying copies the current value to every Artwork immediately;
 // editing a field that was previously applied-to-all must ASK before touching any other Artwork — it must
@@ -13085,9 +13157,8 @@ function renderBoardQueue(filtered){
   // filters scoped to THIS table only (the Kanban columns below still just use Month/Designer/Project from
   // `filtered`, per the existing §6 spec comment on STATE.board — she pointed at this table specifically in
   // her screenshot, not the Kanban).
-  const platformF = STATE.board.queuePlatform || 'ALL';
-  const categoryF = STATE.board.queueCategory || 'ALL';
-  const requesterF = STATE.board.queueRequester || 'ALL';
+  // Krissha — "มีฟิวเตอร์ 2 ที่ดูซับซ้อนมั้ย": Platform / หมวดงาน / คนบรีฟ moved up to the top board
+  // toolbar (they now filter the whole page via `filtered`), so the queue keeps only Status + Search.
   // DEV MASTER CORRECTION §6 — granular Status filter (no more plain "Active"/"Completed, Closed" —
   // Completed already has its own Completed Archive page elsewhere, so this queue only ever needs the
   // active-workflow statuses), default "All Active".
@@ -13099,19 +13170,12 @@ function renderBoardQueue(filtered){
   // Dropdown options are built off `filtered` (the Month/Designer/Project-scoped list, same source the
   // table itself starts from) rather than STATE.tasks as a whole, so no dropdown ever offers a Platform/
   // หมวดงาน/คนบรีฟ choice that's guaranteed to show 0 rows for whatever Month/Designer/Project is selected.
-  const uniq = arr => Array.from(new Set(arr.filter(v=>v!==undefined && v!==null && v!=='')));
-  const platformOptions = uniq(filtered.flatMap(t=>t.platform||[])).sort();
-  const categoryOptions = uniq(filtered.map(t=>t.task_category)).sort();
-  const requesterOptions = uniq(filtered.map(t=>findUserByEmail(t.project_owner_email)?.name || t.project_owner_email)).sort();
   // "All Active" here means work still being done or not-yet-started — already-submitted tasks
   // (pending_review/pending_client_review) are handed off and waiting on someone else, so they no longer
   // belong in this queue count either (matches myTodayActionTasks — see isTaskStillInWorkQueue).
   let list = status==='ALL_ACTIVE'
     ? filtered.filter(t=>isTaskStillInWorkQueue(t))
     : filtered.filter(t=>t.review_status===status);
-  if(platformF!=='ALL') list = list.filter(t=>(t.platform||[]).includes(platformF));
-  if(categoryF!=='ALL') list = list.filter(t=>t.task_category===categoryF);
-  if(requesterF!=='ALL') list = list.filter(t=>(findUserByEmail(t.project_owner_email)?.name || t.project_owner_email)===requesterF);
   if(search){
     list = list.filter(t=>{
       const requesterName = findUserByEmail(t.project_owner_email)?.name || '';
@@ -13130,18 +13194,6 @@ function renderBoardQueue(filtered){
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <select id="boardQueueStatus" style="width:180px">
           ${STATUS_OPTIONS.map(([v,l])=>`<option value="${v}" ${status===v?'selected':''}>${l}</option>`).join('')}
-        </select>
-        <select id="boardQueuePlatform" style="width:150px">
-          <option value="ALL" ${platformF==='ALL'?'selected':''}>ทุก Platform</option>
-          ${platformOptions.map(p=>`<option value="${escAttr(p)}" ${platformF===p?'selected':''}>${p}</option>`).join('')}
-        </select>
-        <select id="boardQueueCategory" style="width:150px">
-          <option value="ALL" ${categoryF==='ALL'?'selected':''}>ทุกหมวดงาน</option>
-          ${categoryOptions.map(c=>`<option value="${escAttr(c)}" ${categoryF===c?'selected':''}>${c}</option>`).join('')}
-        </select>
-        <select id="boardQueueRequester" style="width:160px">
-          <option value="ALL" ${requesterF==='ALL'?'selected':''}>ทุกคนบรีฟ</option>
-          ${requesterOptions.map(r=>`<option value="${escAttr(r)}" ${requesterF===r?'selected':''}>${r}</option>`).join('')}
         </select>
         <input type="text" id="boardQueueSearch" placeholder="ค้นหา..." value="${escAttr(STATE.board.queueSearch||'')}" style="width:170px">
       </div>
@@ -13192,6 +13244,19 @@ function renderBoard(){
   // task, the Designer filter must match suggested_designer instead; every other task still matches
   // assigned_user_name exactly as before. Project/Month filters are unchanged.
   let filtered = STATE.tasks.filter(t=>taskActiveInBoardMonth(t, month));
+  // Krissha request — "ฟิวเตอร์ตามดีไซน์เนอร์ และผู้บรีฟ หมวดหมู่ได้": Requester + Category join the
+  // top toolbar and filter the Kanban columns, Monthly Summary AND queue together (same `filtered` list).
+  // Options are drawn from the month-scoped list so the dropdowns stay stable while other filters change.
+  const boardRequesterName = t=>findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '—';
+  const boardRequesters = [...new Set(filtered.map(boardRequesterName))].sort((a,b)=>a.localeCompare(b));
+  const boardCategories = [...new Set(filtered.map(t=>t.task_category).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if(!STATE.board.requester) STATE.board.requester='ALL';
+  if(!STATE.board.category) STATE.board.category='ALL';
+  if(!STATE.board.platform) STATE.board.platform='ALL';
+  const boardPlatforms = [...new Set(filtered.flatMap(t=>t.platform||[]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if(STATE.board.platform!=='ALL' && !boardPlatforms.includes(STATE.board.platform)) boardPlatforms.push(STATE.board.platform);
+  if(STATE.board.requester!=='ALL' && !boardRequesters.includes(STATE.board.requester)) boardRequesters.push(STATE.board.requester);
+  if(STATE.board.category!=='ALL' && !boardCategories.includes(STATE.board.category)) boardCategories.push(STATE.board.category);
   if(STATE.board.designer!=='ALL'){
     filtered = filtered.filter(t=>
       t.review_status==='pending_lead_approval'
@@ -13200,6 +13265,10 @@ function renderBoard(){
     );
   }
   if(STATE.board.project!=='ALL') filtered = filtered.filter(t=>t.project_name===STATE.board.project);
+  if(STATE.board.requester!=='ALL') filtered = filtered.filter(t=>boardRequesterName(t)===STATE.board.requester);
+  if(STATE.board.category!=='ALL') filtered = filtered.filter(t=>t.task_category===STATE.board.category);
+  if(STATE.board.platform!=='ALL') filtered = filtered.filter(t=>(t.platform||[]).includes(STATE.board.platform));
+  const boardAnyFilter = ['designer','project','requester','category','platform'].some(k=>STATE.board[k]!=='ALL');
 
   // §6/§7: counts always show all 5 categories, even at 0, "เพื่อให้ Layout คงที่และเทียบเดือนได้ง่าย".
   const catCounts = {}; BOARD_SUMMARY_CATEGORIES.forEach(c=>catCounts[c]=0);
@@ -13240,7 +13309,26 @@ function renderBoard(){
         ${proj.map(p=>`<option value="${p}" ${STATE.board.project===p?'selected':''}>${p}</option>`).join('')}
       </select>
     </div>
+    <div style="min-width:190px"><label>ผู้บรีฟ (Requester)</label>
+      <select id="boardRequesterFilter">
+        <option value="ALL" ${STATE.board.requester==='ALL'?'selected':''}>ทุกคน (All Requesters)</option>
+        ${boardRequesters.map(r=>`<option value="${escAttr(r)}" ${STATE.board.requester===r?'selected':''}>${escAttr(r)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="min-width:170px"><label>หมวดหมู่ (Category)</label>
+      <select id="boardCategoryFilter">
+        <option value="ALL" ${STATE.board.category==='ALL'?'selected':''}>ทุกหมวด (All Categories)</option>
+        ${boardCategories.map(c=>`<option value="${escAttr(c)}" ${STATE.board.category===c?'selected':''}>${escAttr(c)}</option>`).join('')}
+      </select>
+    </div>
+    <div style="min-width:160px"><label>Platform</label>
+      <select id="boardPlatformFilter">
+        <option value="ALL" ${STATE.board.platform==='ALL'?'selected':''}>ทุก Platform</option>
+        ${boardPlatforms.map(p=>`<option value="${escAttr(p)}" ${STATE.board.platform===p?'selected':''}>${escAttr(p)}</option>`).join('')}
+      </select>
+    </div>
     <div class="chip" style="padding:8px 12px;font-size:12px">${filtered.length} งานทั้งหมด</div>
+    ${boardAnyFilter ? `<button type="button" class="btn btn-ghost" id="boardClearFilters" style="flex:none;padding:8px 12px;font-size:12px">ล้างตัวกรอง</button>` : ''}
   </div>
 
   <!-- §5-§8/§12 Monthly Summary — reuses the same .dash-summary/.dsum-card tiles Team Dashboard already
@@ -18010,6 +18098,14 @@ function bindEvents(){
     // that sole Artwork's name mirroring Task Name live as she types it, so it's never stuck showing
     // "ยังไม่ได้ตั้งชื่อ" in step 02's tab just because she never had a box to type a name into.
     document.getElementById('f_taskname')?.addEventListener('input', syncSoleArtworkNameFromTaskName);
+    ['f_project','f_taskname_extra'].forEach(id=>{
+      const el = document.getElementById(id);
+      el?.addEventListener('input', ()=>{ TASKNAME_LEGACY = null; syncTaskNameFromParts(); });
+      el?.addEventListener('change', ()=>{ TASKNAME_LEGACY = null; syncTaskNameFromParts(); });
+    });
+    ['f_category','f_type'].forEach(id=>document.getElementById(id)?.addEventListener('change', releaseLegacyTaskName));
+    document.getElementById('f_type_other')?.addEventListener('input', releaseLegacyTaskName);
+    syncTaskNameFromParts();
     const updateResizePreview = ()=>{
       const el = document.getElementById('resizePointPreview');
       if(!el) return;
@@ -18109,6 +18205,12 @@ function bindEvents(){
   // STATE.board bag renderBoard() reads, so they always combine (§2) rather than resetting each other.
   document.getElementById('boardMonthFilter')?.addEventListener('change', e=>{ STATE.board.month=e.target.value; render(); });
   document.getElementById('boardDesignerFilter')?.addEventListener('change', e=>{ STATE.board.designer=e.target.value; render(); });
+  document.getElementById('boardRequesterFilter')?.addEventListener('change', e=>{ STATE.board.requester=e.target.value; render(); });
+  document.getElementById('boardCategoryFilter')?.addEventListener('change', e=>{ STATE.board.category=e.target.value; render(); });
+  document.getElementById('boardPlatformFilter')?.addEventListener('change', e=>{ STATE.board.platform=e.target.value; render(); });
+  document.getElementById('boardClearFilters')?.addEventListener('click', ()=>{
+    Object.assign(STATE.board, {designer:'ALL', project:'ALL', requester:'ALL', category:'ALL', platform:'ALL'}); render();
+  });
 
   // DEV REQUEST — All Work page bindings: month nav, 5 filters, search, sortable headers, chip clear,
   // Clear-filters buttons — all write into the same STATE.allWork bag renderAllWorkPage() reads.
@@ -18258,9 +18360,6 @@ function bindEvents(){
     });
   });
   document.getElementById('boardQueueStatus')?.addEventListener('change', e=>{ STATE.board.queueStatus=e.target.value; render(); });
-  document.getElementById('boardQueuePlatform')?.addEventListener('change', e=>{ STATE.board.queuePlatform=e.target.value; render(); });
-  document.getElementById('boardQueueCategory')?.addEventListener('change', e=>{ STATE.board.queueCategory=e.target.value; render(); });
-  document.getElementById('boardQueueRequester')?.addEventListener('change', e=>{ STATE.board.queueRequester=e.target.value; render(); });
   document.getElementById('boardQueueSearch')?.addEventListener('input', e=>{ STATE.board.queueSearch=e.target.value; render(); });
   document.getElementById('boardProjectFilter')?.addEventListener('change', e=>{ STATE.board.project=e.target.value; render(); });
   // DEV REQUEST — Compact Kanban Card + Column Scroll: reapply + keep tracking each column's own scroll
@@ -19388,6 +19487,7 @@ function bindCapacityExceptionPanel(assignee, dateVal, pts, priority){
 }
 function refreshBriefForm(){
   const catEl=document.getElementById('f_category'), typeEl=document.getElementById('f_type');
+  syncTaskNameFromParts();
   renderUploadGrid();
   // DEV FIX — Backdated Preview = Normal Task Preview: the Backdated Task Form now mounts this SAME shared
   // Artwork Editor (#artworkDetailsSection → refreshArtworkSection() → here) so Artwork/Brief/Images/Canvas
@@ -19752,7 +19852,7 @@ function computeFinalCheckState(){
   // §Basic Information required (Brief/Artwork Final Scope §1): Project/Campaign is now a required
   // field, same validation/scroll-target pattern as Task Name/Category/Type below.
   fields.push({ok:!!projectVal, label:'Project / Campaign', target:'#f_project'});
-  fields.push({ok:!!taskname, label:'Task Name', target:'#f_taskname'});
+  fields.push({ok:!!taskname, label:'Task Name', target: projectVal ? '#f_taskname_extra' : '#f_project'});
   fields.push({ok:!!catVal, label:'Task Category', target:'#f_category'});
   if(catVal) fields.push({ok:typeOk, label:'Artwork Type', target:'#f_type'});
   fields.push({ok:!(!deliverables || Number(deliverables)<1), label:'จำนวน Artwork หลัก', target:'#f_deliverables'});
