@@ -1638,6 +1638,12 @@ body.vb-dragging, body.vb-dragging *{cursor:grabbing!important}
    the one piece of information everyone opening a finished job actually needs (where's the file) is
    reachable in one click from the top of the page, instead of buried in the Brief Links accordion. */
 .fwf-wrap{margin-bottom:0}
+.fwf-alllinks{margin-top:8px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:8px 10px}
+.fwf-alllinks-title{font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:.04em;margin:2px 0 6px}
+.fwf-alllink{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;text-decoration:none;color:var(--ink);font-size:12px}
+.fwf-alllink:hover{background:#F5F7FF}
+.fwf-alllink-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fwf-alllink-src{flex-shrink:0;color:var(--accent);font-weight:700;font-size:11.5px}
 .fwf-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94A3B8;margin-bottom:8px}
 .fwf-card{display:flex;align-items:flex-start;gap:12px;width:100%;box-sizing:border-box;min-height:96px;max-height:104px;
   padding:14px 16px;border-radius:12px;border:1px solid #D5D2FF;background:#F4F3FF;text-align:left;font:inherit;color:inherit;
@@ -6505,8 +6511,8 @@ function closeNotifPortal(){
   document.getElementById('notifPortal')?.remove();
 }
 
-// DEV MASTER REQUEST §5/§6/§9/§15 — TOOLS sidebar group: Studio Flow, then Frame (expandable — Manual /
-// White Background / Automation CSV / Platform Frame), then Image Stitching last. Studio Flow and every
+// DEV MASTER REQUEST §5/§6/§9/§15 — TOOLS sidebar group: Frame (expandable — Manual /
+// White Background / Automation CSV / Platform Frame), then Image Stitching, then Studio Flow last. Studio Flow and every
 // Frame child route through the pre-existing STATE.tab/STATE.frameTool mechanism — those pages, their
 // state and their internal Run Frame/SKU Manager/Platform Product List split are completely untouched;
 // only the entry point moved out of the old Top Nav tabs into this group (§5 "ห้ามเปลี่ยน iframe /
@@ -6559,11 +6565,12 @@ function renderToolsGroupHTML(){
     {sub:'csv', label:'Automation CSV'},
     {sub:'platform', label:'Platform Frame'},
   ];
-  return `<button type="button" class="sidenav-btn ${STATE.tab==='studioflow'?'active':''}" data-navtool="studioflow">Studio Flow</button>
-    <button type="button" class="sidenav-btn" data-navtoolexpand="frame"><span class="sidenav-chev">${frameOpen?'▾':'▸'}</span>Frame</button>
+  // Krissha, 2026-09-24: Studio Flow moved to the bottom of the TOOLS group (was first).
+  return `<button type="button" class="sidenav-btn" data-navtoolexpand="frame"><span class="sidenav-chev">${frameOpen?'▾':'▸'}</span>Frame</button>
     ${frameOpen ? frameChildren.map(c=>`
       <button type="button" class="sidenav-btn sidenav-child ${inRunFrame && curSub===c.sub?'active':''}" data-navtool="frametool" data-ftsub="${c.sub}">${c.label}</button>`).join('') : ''}
-    <button type="button" class="sidenav-btn ${STATE.tab==='workflow' && STATE.sideSection==='imagestitching'?'active':''}" data-side="imagestitching">Image Stitching</button>`;
+    <button type="button" class="sidenav-btn ${STATE.tab==='workflow' && STATE.sideSection==='imagestitching'?'active':''}" data-side="imagestitching">Image Stitching</button>
+    <button type="button" class="sidenav-btn ${STATE.tab==='studioflow'?'active':''}" data-navtool="studioflow">Studio Flow</button>`;
 }
 function renderSidebar(){
   // UX RESTRUCTURE — the sidebar now shows ONLY the items belonging to the currently active category
@@ -7801,7 +7808,7 @@ function myCompletedRowHTML(t, me, opts){
     <td>${t.task_type||t.task_category||'—'}</td>
     <td>${(t.platform||[]).length ? t.platform.join(', ') : '—'}</td>
     ${showRole ? `<td class="hint">${roles.length ? roles.join(' / ') : '—'}</td>` : ''}
-    <td style="white-space:nowrap">${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 เปิด Folder</a>` : '—'}</td>
+    <td style="white-space:nowrap">${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 เปิด Folder</a>` : t.aw_link ? `<a href="${escAttr(t.aw_link)}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Artwork Link" onclick="event.stopPropagation()">🔗 เปิดลิงก์งาน</a>` : '—'}</td>
     <td style="white-space:nowrap;display:flex;gap:6px">
       <button type="button" class="btn btn-sm btn-ghost">ดูงาน →</button>
       ${showReopen ? `<button type="button" class="btn btn-sm btn-ghost" style="color:#b45309" data-act="reopenTask" data-id="${t.task_id}" title="นำงานนี้กลับเข้า Work Queue">เปิดงานใหม่</button>` : ''}
@@ -8211,7 +8218,7 @@ function renderPOBriefsList(kind){
           <td>${fmtDateTime(lastUpdateOf(t))}</td>
           <td class="hint">${t.assigned_user_name || 'Pending Assignment'}</td>
           <td style="white-space:nowrap">
-            ${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 Final Work Folder ↗</a>` : ''}
+            ${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 Final Work Folder ↗</a>` : t.aw_link ? `<a href="${escAttr(t.aw_link)}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Artwork Link" onclick="event.stopPropagation()">🔗 Artwork Link ↗</a>` : ''}
             <!-- User feedback: "ออกแบบให้เห็นชัดๆหน่อย" — Edit was only reachable after opening Task
                  Detail and scrolling to the header, easy to miss. Added directly on the row here too,
                  same canEditBriefTask() gate, same data-editbrief click target as the header button. -->
@@ -9988,6 +9995,10 @@ const BACKDATED_STATUS_OPTIONS = [
   {value:'in_progress', label:'In Progress', review_status:'in_progress'},
   {value:'revision', label:'Revision', review_status:'revision'},
   {value:'pending', label:'Pending', review_status:'pending_review'},
+  // Krissha, 2026-09-24 ("ปุ่มพรูฟของ owner Project หาย"): a backdated job whose work is done but still waiting
+  // for the Project Owner to proof had no status to land in — "Completed" jumps straight to the terminal
+  // 'delivered', so the Owner never gets Approve / Request Revision. This lands it in Awaiting Approval.
+  {value:'awaiting_approval', label:'Awaiting Approval (รอ Owner พรูฟ)', review_status:'pending_client_review'},
   {value:'completed', label:'Completed', review_status:'delivered'},
 ];
 const PRIORITY_TH_LABEL = {CRITICAL:'Critical', URGENT:'Urgent', PRIORITY:'Priority', STANDARD:'Standard', UNKNOWN:'Unknown (Deadline ไม่ทราบ)'};
@@ -10350,6 +10361,8 @@ async function submitBackdatedTask(e){
   // task has no finished file to point to yet, so the field doesn't even show for it (see the change
   // handler above), and never blocks Submit in that case.
   if(isCompleted && !workFolderUrl){ toast('กรุณาระบุ Work Folder Link เมื่อ Status = Completed'); markBtFieldInvalid('bt_workfolder'); return; }
+  if(statusMeta.review_status==='pending_client_review' && !workFolderUrl){ toast('กรุณาใส่ Work Folder Link (ลิงก์งานให้ Owner พรูฟ)'); markBtFieldInvalid('bt_workfolder'); return; }
+  if(statusMeta.review_status==='pending_client_review' && !isValidHttpUrl(workFolderUrl)){ toast('Work Folder Link ไม่ถูกต้อง กรุณาวางลิงก์ URL ที่ถูกต้อง'); markBtFieldInvalid('bt_workfolder'); return; }
   if(isCompleted && workFolderUrl && !isValidHttpUrl(workFolderUrl)){ toast('Work Folder Link ไม่ถูกต้อง กรุณาวางลิงก์ URL ที่ถูกต้อง'); markBtFieldInvalid('bt_workfolder'); return; }
   if(!isCompleted && !assignedDesigner){ toast('กรุณาระบุ Assigned Designer'); markBtFieldInvalid('bt_assignee'); return; }
   if(!reason){ toast('กรุณาระบุเหตุผล (บังคับกรอก)'); markBtFieldInvalid('bt_reason'); return; }
@@ -10456,6 +10469,13 @@ async function submitBackdatedTask(e){
     task.review_history.push({timestamp: now, action:'PRIORITY_OVERRIDE',
       comment: `Calculated: ${priorityOverride.calculated} → Override: ${priorityOverride.value} — เหตุผล: ${priorityOverride.reason}`,
       by: priorityOverride.changed_by});
+  }
+  if(task.review_status==='pending_client_review'){
+    // The proof link goes where a normal delivered-for-review task keeps it (aw_link), so the Artwork Link
+    // Hero shows it to the Owner, and the 2-business-day Auto Complete clock starts from now.
+    recordAwLink(task, workFolderUrl); task.aw_link = workFolderUrl; task.aw_delivery_timestamp = now;
+    startApprovalWaitingTimer(task);
+    notifyUsers([task.project_owner_email], 'งานรอพรูฟ', `${task.task_name} (${task.task_id}) — กรุณา Approve หรือ Request Revision`, task.task_id, {excludeActor:true, eventType:'AWAITING_APPROVAL'});
   }
   STATE.tasks.push(task);
   await saveTasks();
@@ -14493,10 +14513,54 @@ function renderExternalBriefLinksCard(t){
    Brief Links, Brief, Reference Links, Images). Non-collapsible, same "whole card is a link" pattern as
    renderFinalWorkFolderCard. Hidden once the task is delivered — at that point renderFinalWorkFolderCard
    (the finished-file folder) is the one thing that matters at the top instead. */
+/* ALL WORK LINKS (Krissha, 2026-09-24 — "อ่านทุกลิงก์"): every work link a task has ever had, not just the
+   single current one. aw_link is overwritten on each (re)submission, so recordAwLink() now keeps every
+   submitted link in t.aw_link_history before it's replaced; taskWorkLinks() then gathers Final Work Folder +
+   current Artwork Link + every earlier submission + any URL written into the task's history comments
+   (e.g. "Final Work Folder: <url>"), de-duplicated, newest first. */
+function recordAwLink(t, link){
+  const url = String(link||'').trim();
+  if(!url) return;
+  t.aw_link_history = Array.isArray(t.aw_link_history) ? t.aw_link_history : [];
+  if(t.aw_link && !t.aw_link_history.some(h=>h.url===t.aw_link)){
+    t.aw_link_history.push({url:t.aw_link, at:t.aw_delivery_timestamp||'', by:''});
+  }
+  if(!t.aw_link_history.some(h=>h.url===url)){
+    t.aw_link_history.push({url, at:new Date().toISOString(), by: STATE.auth.user?.name || STATE.auth.identity || ''});
+  }
+}
+function taskWorkLinks(t){
+  const out = []; const seen = new Set();
+  const add = (url, label, at) => {
+    url = String(url||'').trim().replace(/[)\].,;]+$/,'');
+    if(!/^https?:\/\//i.test(url) || seen.has(url)) return;
+    seen.add(url); out.push({url, label, at:at||''});
+  };
+  add(t.completedWorkFolderUrl, t.is_backdated ? 'Completed Work Folder' : 'Final Work Folder', t.completed_at);
+  add(t.aw_link, 'Artwork Link (ล่าสุด)', t.aw_delivery_timestamp);
+  (Array.isArray(t.aw_link_history) ? t.aw_link_history.slice().reverse() : []).forEach((h,i)=>add(h.url, 'Artwork Link (ครั้งก่อน)', h.at));
+  (Array.isArray(t.review_history) ? t.review_history.slice().reverse() : []).forEach(h=>{
+    (String(h.comment||'').match(/https?:\/\/[^\s"'<>]+/g)||[]).forEach(u=>add(u, 'ลิงก์จากประวัติงาน', h.timestamp));
+  });
+  return out;
+}
+// Compact list of every link except the ones already shown as the big card above it.
+function renderTaskAllLinksList(t, excludeUrls){
+  const ex = new Set((excludeUrls||[]).filter(Boolean));
+  const links = taskWorkLinks(t).filter(l=>!ex.has(l.url));
+  if(!links.length) return '';
+  return `<div class="fwf-alllinks">
+    <div class="fwf-alllinks-title">ลิงก์งานทั้งหมด (${links.length})</div>
+    ${links.map(l=>`<a class="fwf-alllink" href="${escAttr(l.url)}" target="_blank" rel="noopener" title="${escAttr(l.url)}">
+      <span class="fwf-alllink-label">${escAttr(l.label)}${l.at?` · ${fmtDateTime(l.at)}`:''}</span>
+      <span class="fwf-alllink-src">${detectLinkSource(l.url)} ↗</span>
+    </a>`).join('')}
+  </div>`;
+}
 function renderArtworkLinkHeroCard(t){
   if(t.review_status==='delivered') return '';
   const url = t.aw_link||'';
-  if(!url) return '';
+  if(!url) return renderTaskAllLinksList(t, []);
   return `<a class="fwf-card" href="${escAttr(url)}" target="_blank" rel="noopener">
     <div class="fwf-icon">🔗</div>
     <div class="fwf-body">
@@ -14504,7 +14568,7 @@ function renderArtworkLinkHeroCard(t){
       <div class="fwf-desc">ไฟล์งานที่ส่งตรวจ — ${detectLinkSource(url)}</div>
       <div class="fwf-cta">Open Link ↗</div>
     </div>
-  </a>`;
+  </a>${renderTaskAllLinksList(t, [url])}`;
 }
 /* Final Work Folder (Krissha, request): a permanent, non-collapsible Quick Access card — never buried in
    an accordion — for the one thing everyone opening a Completed task actually wants first: where's the
@@ -14525,11 +14589,29 @@ function canEditWorkFolder(t){
 }
 function renderFinalWorkFolderCard(t){
   if(t.review_status!=='delivered') return '';
-  const url = t.completedWorkFolderUrl||'';
+  // BUG FIX (Krissha, 2026-09-24 — "ลิงก์หาย"): once a task is delivered the Artwork Link Hero hides
+  // itself and this card takes over — but it only ever read completedWorkFolderUrl, so any task completed
+  // through the normal review flow (Approve / Auto Complete), where the only link is the aw_link the
+  // Designer submitted, showed "ยังไม่มีไฟล์งาน" and the link vanished for everyone. Falls back to aw_link.
+  const folderUrl = t.completedWorkFolderUrl||'';
+  const awUrl = t.aw_link||'';
   const canEdit = canEditWorkFolder(t);
   const label = t.is_backdated ? 'Completed Work Folder' : 'Final Work Folder';
   let body;
-  if(url){
+  if(!folderUrl && awUrl){
+    body = `<a class="fwf-card" href="${escAttr(awUrl)}" target="_blank" rel="noopener">
+      <div class="fwf-icon">🔗</div>
+      <div class="fwf-body">
+        <div class="fwf-title">Artwork Link</div>
+        <div class="fwf-desc">ลิงก์ส่งงานล่าสุด — ${detectLinkSource(awUrl)}</div>
+        <div class="fwf-cta">Open Link ↗</div>
+      </div>
+    </a>${canEdit ? `<div class="fwf-addform" style="margin-top:8px">
+          <input type="url" id="fwfInput_${t.task_id}" class="fwf-addinput" placeholder="แนบ Final Work Folder แยก (ถ้ามี)">
+          <button type="button" class="btn btn-ghost fwf-addbtn" data-fwfsubmit="${t.task_id}">+ Add Folder Link</button>
+        </div>` : ''}`;
+  } else if(folderUrl){
+    const url = folderUrl;
     body = `<a class="fwf-card" href="${escAttr(url)}" target="_blank" rel="noopener">
       <div class="fwf-icon">📁</div>
       <div class="fwf-body">
@@ -14559,7 +14641,8 @@ function renderFinalWorkFolderCard(t){
       </div>
     </div>`;
   }
-  return `<div class="fwf-wrap"><div class="fwf-label">FINAL WORK</div>${body}</div>`;
+  const shownUrl = folderUrl || awUrl;
+  return `<div class="fwf-wrap"><div class="fwf-label">FINAL WORK</div>${body}${renderTaskAllLinksList(t, [shownUrl])}</div>`;
 }
 /* "ช่องดรอปงานใหญ่ๆแยกออกมา ให้ดูเป็นมาตรฐานสากล" (Krissha, request): submitting the deliverable is the one
    action every Designer visits this page for while a task is in_progress/revision — it used to be a single
@@ -14712,6 +14795,9 @@ function renderTaskWorkspacePage(t){
   if(isBriefOwnerViewer && !(canAct && isLead) && s==='pending_client_review'){
     reviewActionsHTML += `<button class="btn btn-sm btn-primary" data-act="clientApprove" data-id="${t.task_id}">✓ Approve งาน</button>
       <button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ Request Revision (ขอแก้)</button>`;
+  }
+  if(canAct && isLead && s==='delivered' && t.project_owner_email){
+    actionsHTML += `<button class="btn btn-sm btn-ghost" data-act="sendToOwnerProof" data-id="${t.task_id}">↩ ส่งให้ Owner พรูฟ</button>`;
   }
   if(canAct && isLead && t.deadline_extension_request && t.deadline_extension_request.status==='PENDING'){
     actionsHTML += `<button class="btn btn-sm btn-primary" data-act="approveExt" data-id="${t.task_id}">✓ Approve Extension</button>
@@ -21039,7 +21125,7 @@ function isLeadDesignerName(name){
 async function submitDeliveryLink(taskId, link){
   const t = STATE.tasks.find(x=>x.task_id===taskId);
   if(!t) return;
-  t.aw_link = link; t.aw_delivery_timestamp = new Date().toISOString();
+  recordAwLink(t, link); t.aw_link = link; t.aw_delivery_timestamp = new Date().toISOString();
   // MASTER DEV FINAL §4 — Lead Designer's own submission skips Pending Lead Designer Review entirely.
   const skipLeadQC = isLeadDesignerName(t.assigned_user_name);
   t.review_status = skipLeadQC ? 'pending_client_review' : 'pending_review';
@@ -21115,7 +21201,7 @@ async function handleAction(act, id){
   else if(act==='submitReview'){
     const link = prompt('วาง AW Link:', t.aw_link||'');
     if(!link) return;
-    t.aw_link = link; t.aw_delivery_timestamp = new Date().toISOString();
+    recordAwLink(t, link); t.aw_link = link; t.aw_delivery_timestamp = new Date().toISOString();
     // MASTER DEV FINAL §4 — same Lead-skips-own-QC rule as submitDeliveryLink() above.
     const skipLeadQC = isLeadDesignerName(t.assigned_user_name);
     t.review_status = skipLeadQC ? 'pending_client_review' : 'pending_review';
@@ -21274,6 +21360,23 @@ async function handleAction(act, id){
   // actual_delivery_date are cleared — not kept alongside the new open state — so the task can't show as
   // simultaneously "completed on X" and "back in the active queue" anywhere in the app; the REOPEN_TASK
   // history line preserves the record of when it had been completed, for the audit trail.
+  // Krissha, 2026-09-24: puts a task that was closed as Completed (e.g. a Backdated entry saved as
+  // "Completed" before the Owner had proofed it) back into Awaiting Approval, so the Project Owner gets
+  // Approve / Request Revision and the normal 2-business-day Auto Complete applies again.
+  else if(act==='sendToOwnerProof'){
+    if(!(isLead()||hasAdminAccess())){ toast('ใช้ได้เฉพาะ Lead Designer/Admin'); return; }
+    if(t.review_status!=='delivered'){ toast('งานนี้ไม่ได้อยู่ในสถานะเสร็จแล้ว'); return; }
+    const link = prompt('ลิงก์งานให้ Owner พรูฟ:', t.aw_link || t.completedWorkFolderUrl || '');
+    if(!link) return;
+    if(!isValidHttpUrl(link)){ toast('ลิงก์ไม่ถูกต้อง'); return; }
+    recordAwLink(t, link); t.aw_link = link; t.aw_delivery_timestamp = new Date().toISOString();
+    t.review_status = 'pending_client_review';
+    delete t.completed_at; delete t.cycle_time_ms; delete t.actual_delivery_date;
+    startApprovalWaitingTimer(t);
+    t.review_history.push({timestamp:new Date().toISOString(), action:'SEND_TO_OWNER_PROOF', comment:'ส่งกลับให้ Owner พรูฟ (Completed → Awaiting Approval)', by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+    notifyUsers([t.project_owner_email], 'งานรอพรูฟ', `${t.task_name} (${t.task_id}) — กรุณา Approve หรือ Request Revision`, t.task_id, {excludeActor:true, eventType:'AWAITING_APPROVAL'});
+    toast('↩ ส่งให้ Owner พรูฟแล้ว');
+  }
   else if(act==='reopenTask'){
     if(!(isLead()||hasAdminAccess())){ toast('เปิดงานใหม่ได้เฉพาะ Lead Designer/Admin เท่านั้น'); return; }
     if(t.review_status!=='delivered'){ toast('งานนี้ยังไม่ได้อยู่ในสถานะเสร็จแล้ว'); return; }
