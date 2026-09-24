@@ -14518,6 +14518,12 @@ function renderExternalBriefLinksCard(t){
    submitted link in t.aw_link_history before it's replaced; taskWorkLinks() then gathers Final Work Folder +
    current Artwork Link + every earlier submission + any URL written into the task's history comments
    (e.g. "Final Work Folder: <url>"), de-duplicated, newest first. */
+// Fix a wrongly-pasted Artwork Link without moving the task's status (Krissha, 2026-09-24 — "อัพลิงก์ผิด
+// แก้ยังไง"): the Assigned Designer, the Lead or an Admin, any time before the task is Completed.
+function canEditAwLink(t){
+  if(!STATE.auth.loggedIn || !t || !t.aw_link || t.review_status==='delivered') return false;
+  return t.assigned_user_name===STATE.auth.identity || STATE.auth.identity===LEAD || hasAdminAccess();
+}
 function recordAwLink(t, link){
   const url = String(link||'').trim();
   if(!url) return;
@@ -14539,7 +14545,7 @@ function taskWorkLinks(t){
   add(t.completedWorkFolderUrl, t.is_backdated ? 'Completed Work Folder' : 'Final Work Folder', t.completed_at);
   add(t.aw_link, 'Artwork Link (ล่าสุด)', t.aw_delivery_timestamp);
   (Array.isArray(t.aw_link_history) ? t.aw_link_history.slice().reverse() : []).forEach((h,i)=>add(h.url, 'Artwork Link (ครั้งก่อน)', h.at));
-  (Array.isArray(t.review_history) ? t.review_history.slice().reverse() : []).forEach(h=>{
+  (Array.isArray(t.review_history) ? t.review_history.slice().reverse() : []).filter(h=>h.action!=='EDIT_AW_LINK').forEach(h=>{
     (String(h.comment||'').match(/https?:\/\/[^\s"'<>]+/g)||[]).forEach(u=>add(u, 'ลิงก์จากประวัติงาน', h.timestamp));
   });
   return out;
@@ -14568,7 +14574,9 @@ function renderArtworkLinkHeroCard(t){
       <div class="fwf-desc">ไฟล์งานที่ส่งตรวจ — ${detectLinkSource(url)}</div>
       <div class="fwf-cta">Open Link ↗</div>
     </div>
-  </a>${renderTaskAllLinksList(t, [url])}`;
+  </a>${canEditAwLink(t) ? `<div style="display:flex;justify-content:flex-end;margin-top:6px">
+    <button type="button" class="btn btn-sm btn-ghost" data-act="editAwLink" data-id="${t.task_id}">✎ แก้ลิงก์งาน (อัปลิงก์ผิด)</button>
+  </div>` : ''}${renderTaskAllLinksList(t, [url])}`;
 }
 /* Final Work Folder (Krissha, request): a permanent, non-collapsible Quick Access card — never buried in
    an accordion — for the one thing everyone opening a Completed task actually wants first: where's the
@@ -21363,6 +21371,23 @@ async function handleAction(act, id){
   // Krissha, 2026-09-24: puts a task that was closed as Completed (e.g. a Backdated entry saved as
   // "Completed" before the Owner had proofed it) back into Awaiting Approval, so the Project Owner gets
   // Approve / Request Revision and the normal 2-business-day Auto Complete applies again.
+  else if(act==='editAwLink'){
+    if(!canEditAwLink(t)){ toast('แก้ลิงก์ได้เฉพาะ Designer ที่รับงาน / Lead Designer'); return; }
+    const oldLink = t.aw_link;
+    const link = (prompt('วางลิงก์งานที่ถูกต้อง:', oldLink)||'').trim();
+    if(!link || link===oldLink) return;
+    if(!isValidHttpUrl(link)){ toast('ลิงก์ไม่ถูกต้อง'); return; }
+    // A wrong paste is a correction, not a real earlier submission — drop it from the link list (it stays
+    // in the audit comment below only).
+    recordAwLink(t, link);
+    t.aw_link_history = (t.aw_link_history||[]).filter(h=>h.url!==oldLink);
+    t.aw_link = link;
+    t.review_history.push({timestamp:new Date().toISOString(), action:'EDIT_AW_LINK', comment:`แก้ลิงก์งาน: ${oldLink} → ${link}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+    if(t.review_status==='pending_client_review'){
+      notifyUsers([t.project_owner_email], 'อัปเดตลิงก์งาน', `${t.task_name} (${t.task_id}) — ลิงก์งานถูกแก้ไข กรุณาเปิดลิงก์ใหม่`, t.task_id, {excludeActor:true, eventType:'AW_LINK_UPDATED'});
+    }
+    toast('✎ แก้ลิงก์งานแล้ว');
+  }
   else if(act==='sendToOwnerProof'){
     if(!(isLead()||hasAdminAccess())){ toast('ใช้ได้เฉพาะ Lead Designer/Admin'); return; }
     if(t.review_status!=='delivered'){ toast('งานนี้ไม่ได้อยู่ในสถานะเสร็จแล้ว'); return; }
