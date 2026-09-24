@@ -1788,6 +1788,27 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 .skugrid-cell-dirty{background:#FFF7E6 !important}
 .skugrid-cell-input{width:100%;height:36px;border:1.5px solid var(--brand,#1B76FF);border-radius:4px;padding:0 8px;font-size:12.5px;box-sizing:border-box;outline:none}
 .skugrid-empty{color:#B7BFC9}
+/* CSV Platform Import modal (Platform Product List) */
+.pimp-file{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:6px}
+.pimp-file-name{flex:1;min-width:0;font-weight:700;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pimp-file-meta{font-size:11px;color:var(--ink-faint);font-weight:500}
+.pimp-file select{border:1px solid var(--line);border-radius:8px;padding:5px 6px;font-size:11.5px;max-width:230px;font-family:inherit}
+.pimp-file-x{border:0;background:transparent;color:var(--ink-faint);cursor:pointer;font-size:14px;padding:2px 6px}
+.pimp-drop{display:block;border:1.5px dashed var(--line);border-radius:12px;padding:16px;text-align:center;cursor:pointer;color:var(--ink-soft);font-size:12px;margin:10px 0;background:#F8FAFC}
+.pimp-drop:hover{border-color:var(--accent);color:var(--accent)}
+.pimp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0}
+.pimp-stat{border:1px solid var(--line);border-radius:10px;padding:8px;text-align:center;background:#fff}
+.pimp-stat b{display:block;font-size:17px}
+.pimp-stat span{font-size:10px;color:var(--ink-faint)}
+.pimp-stat.warn b{color:#B45309}
+.pimp-stat.new b{color:#0F9D6C}
+.pimp-stat.del b{color:#DC2626}
+.pimp-details{border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:#fff}
+.pimp-details summary{cursor:pointer;padding:8px 10px;font-weight:700;font-size:12px}
+.pimp-details ul{margin:0;padding:0 12px 10px 28px;max-height:180px;overflow:auto;font-size:11.5px;color:var(--ink-soft)}
+.pimp-details li{margin:2px 0}
+.pimp-details code{font-family:monospace;color:var(--ink)}
+@media(max-width:560px){.pimp-stats{grid-template-columns:repeat(2,1fr)}.pimp-file{flex-wrap:wrap}}
 .skugrid-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#DC2626;vertical-align:middle;margin-left:2px}
 .skugrid-savebar{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#111827;color:#fff;padding:10px 16px;border-radius:10px;margin-top:10px;z-index:4}
 .skugrid-actioncell{display:flex;gap:4px;align-items:center;justify-content:flex-end;padding-right:6px !important}
@@ -3120,7 +3141,7 @@ let STATE = {
   skuUI:{search:'', statusFilter:'ALL', platformFilterId:null, compareMode:false, editCell:null, drafts:{}, addOpen:false, addMultiOpen:false, deleteConfirmId:null, historyId:null, selectedIds:[], bulkWarrantyId:''},
   skuPlatUI:{manageOpen:false, editingId:null, deleteConfirmId:null, catalogPickId:null, addCustomOpen:false},
   skuAssetUI:{manageOpen:false, editingId:null},
-  platProdUI:{activePlatformId:null, search:'', filter:'ALL', pending:{}},
+  platProdUI:{activePlatformId:null, search:'', filter:'ALL', pending:{}, importOpen:false, importFiles:[], importUntick:true, importBusy:false},
   frameProfileUI:{manageOpen:false, editingId:null, newLabel:''},
   // DEV SUMMARY — FRAME MANAGEMENT FINAL: ephemeral UI state for the Frame Manager page. platformId
   // remembers which Platform's Frame config is showing; the gift* fields hold the in-progress (unsaved)
@@ -3294,9 +3315,9 @@ function createSkuProduct(data){
   pushSkuAudit('product', p.id, 'created', null, p.primarySku);
   return p;
 }
-// §38 Add Multiple — paste SKU lines, create one Draft product per non-empty/non-duplicate line. CSV
-// Import is deliberately NOT built here (§38: "ไม่ต้องทำ CSV Import สำหรับระบบใหม่นี้" — the existing
-// Frame Tool CSV mode is untouched and unrelated).
+// §38 Add Multiple — paste SKU lines, create one Draft product per non-empty/non-duplicate line. Per-
+// Platform CSV Import was added later on request (Krissha, 2026-09) — it lives in Platform Product List,
+// see the "CSV PLATFORM IMPORT" block next to renderPlatformProductList().
 function createSkuProductsBulk(lines){
   const created = [], skipped = [];
   lines.map(l=>l.trim()).filter(Boolean).forEach(sku=>{
@@ -3338,15 +3359,23 @@ function updateSkuNestedField(p, group, key, value){
 // only the two things a Run genuinely can't proceed without: Warranty (which drives the auto Frame
 // Profile mapping — see skuAutoFrameProfileId) and, when a Platform is given, that Platform's own image
 // filename. Always computed live, never a stale stored flag.
+// CSV Platform Import (Krissha, 2026-09): Warranty can differ per Platform (e.g. Lazada has separate
+// "1 Year + Motor 3 Years" frames, Shopee files the same SKU under plain "1 Year"). p.platformWarranty
+// = {[platformId]: frameProfileId} overrides the product-level default for that one Platform only;
+// with no override the product-level warranty/frameProfileId applies exactly as before.
+function skuPlatformFrameProfileId(p, platform){
+  if(p && platform && p.platformWarranty && p.platformWarranty[platform.id]) return p.platformWarranty[platform.id];
+  return (p && p.frameProfileId) || '';
+}
 function skuNeedsSetup(p, platform){
-  if(!p.warranty || !p.frameProfileId) return true;
+  if(!skuPlatformFrameProfileId(p, platform)) return true;
   if(platform && !skuPlatformImageFilename(p, platform)) return true;
   return false;
 }
 // §3 "Missing" quick filter — narrower than Needs Setup: basic info (Warranty/Frame Profile) is filled
 // in, but the currently-filtered Platform has no image filename set for this product yet.
 function skuMissingPlatformImage(p, platform){
-  return !!platform && !!p.warranty && !!p.frameProfileId && !skuPlatformImageFilename(p, platform);
+  return !!platform && !!skuPlatformFrameProfileId(p, platform) && !skuPlatformImageFilename(p, platform);
 }
 function addSkuAlias(p, alias){
   const trimmed = (alias||'').trim();
@@ -3566,12 +3595,13 @@ function ftDeleteGiftFrame(mgr, id){
 // The actual Run-priority resolver (§15): Gift Frame override first, else whichever Frame Mode is active.
 // Always returns a {id,label,frameUrl} shape (even when nothing's been uploaded yet — frameUrl:'' then)
 // so callers never need to branch on source.
-function ftResolveFrameForProduct(product, mgr){
+function ftResolveFrameForProduct(product, mgr, platform){
   const gift = (mgr.giftFrames||[]).find(g=>Array.isArray(g.productIds) && g.productIds.includes(product.id));
   if(gift) return {source:'gift', gift, profile:{id:'gift_'+gift.id, label:gift.name||'Gift Frame', frameUrl:gift.frameUrl||''}};
   if(mgr.mode==='single') return {source:'main', profile:{id:'main', label:'Main Frame', frameUrl:mgr.mainFrameUrl||''}};
-  if(!product.warranty || !product.frameProfileId) return {source:'warranty', profile:null, needsWarranty:true};
-  const fp = skuFindFrameProfile(product.frameProfileId);
+  const fpId = skuPlatformFrameProfileId(product, platform);
+  if(!fpId) return {source:'warranty', profile:null, needsWarranty:true};
+  const fp = skuFindFrameProfile(fpId);
   if(!fp) return {source:'warranty', profile:null, deletedProfile:true};
   return {source:'warranty', profile:{id:fp.id, label:fp.label, frameUrl:(mgr.warrantyFrames||{})[fp.id]||''}};
 }
@@ -3604,10 +3634,9 @@ function skuPlatformImageFilename(product, platform){
 function skuComputeRunStatus(product, fileMap, platform, mgr){
   if(product.status==='ARCHIVED') return {status:'ARCHIVED', reason:'สินค้านี้ถูก Archive แล้ว'};
   if(product.status==='HOLD') return {status:'HOLD', reason:'สินค้านี้ถูก Hold อยู่ — ไม่รวมใน Run นี้'};
-  const resolved = ftResolveFrameForProduct(product, mgr || {mode:'single', mainFrameUrl:'', warrantyFrames:{}, giftFrames:[]});
+  const resolved = ftResolveFrameForProduct(product, mgr || {mode:'single', mainFrameUrl:'', warrantyFrames:{}, giftFrames:[]}, platform);
   if(resolved.needsWarranty){
-    const missing = [!product.warranty&&'Warranty', !product.frameProfileId&&'Frame Profile'].filter(Boolean);
-    return {status:'NEEDS_SETUP', reason:`ยังไม่ได้กรอก ${missing.join(' / ')}`};
+    return {status:'NEEDS_SETUP', reason:`ยังไม่ได้กรอก Warranty${platform?` สำหรับ ${platform.name}`:''}`};
   }
   if(resolved.deletedProfile) return {status:'CHECK_REQUIRED', reason:'Frame Profile ที่ตั้งไว้ถูกลบไปแล้ว — เลือกใหม่'};
   const explicitName = skuPlatformImageFilename(product, platform);
@@ -14672,6 +14701,18 @@ function renderTaskWorkspacePage(t){
     reviewActionsHTML += `<button class="btn btn-sm btn-primary" data-act="clientApprove" data-id="${t.task_id}">✓ ลูกค้าอนุมัติแล้ว</button>
       <button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ ลูกค้าขอแก้</button>`;
   }
+  // BUG FIX (Krissha, 2026-09-24 — "ไม่มีปุ่ม Approve"): the Awaiting Approval card tells the Brief Owner
+  // to "Approve หรือ Request Revision ภายใน 2 วันทำงาน", but only the Lead ever got those buttons — the
+  // Project Owner (the actual client reviewer in the 2-tier Lead QC → Client Review flow) had no way to act
+  // and could only wait for Auto Complete. The Brief Owner now gets the same two actions (same handleAction
+  // branches, so history/notifications/revision-limit behave identically).
+  const myEmail = String(STATE.auth.user?.email||'').toLowerCase();
+  const ownerEmail = String(t.project_owner_email||'').toLowerCase();
+  const isBriefOwnerViewer = !!ownerEmail && (ownerEmail===myEmail || ownerEmail===String(STATE.auth.identity||'').toLowerCase());
+  if(isBriefOwnerViewer && !(canAct && isLead) && s==='pending_client_review'){
+    reviewActionsHTML += `<button class="btn btn-sm btn-primary" data-act="clientApprove" data-id="${t.task_id}">✓ Approve งาน</button>
+      <button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ Request Revision (ขอแก้)</button>`;
+  }
   if(canAct && isLead && t.deadline_extension_request && t.deadline_extension_request.status==='PENDING'){
     actionsHTML += `<button class="btn btn-sm btn-primary" data-act="approveExt" data-id="${t.task_id}">✓ Approve Extension</button>
       <button class="btn btn-sm btn-ghost" data-act="rejectExt" data-id="${t.task_id}">✕ Reject Extension</button>`;
@@ -21121,6 +21162,8 @@ async function handleAction(act, id){
     notifyUsers([t.project_owner_email, LEAD], 'ขอแก้ไขงาน', `${t.task_name} (${t.task_id}) — ${comment}`, t.task_id, {excludeActor:true, eventType:'REVISION_REQUESTED', extra:revEmailExtra});
   }
   else if(act==='clientApprove'){
+    if(t.review_status!=='pending_client_review'){ toast('สถานะงานเปลี่ยนไปแล้ว — รีเฟรชหน้าอีกครั้ง'); return; }
+    if(!confirm(`ยืนยัน Approve งาน "${taskDisplayName(t)}"?\nงานจะถูกปิดเป็น Completed`)) return;
     t.review_status='delivered';
     // Dev Spec — Backdated Task & Historical Work Migration §7/§14: an Active Backdated Task that was
     // brought into the Current Workflow (no Actual Delivery Date yet at entry) only gets one the moment it
@@ -22562,7 +22605,12 @@ function renderSkuGridCell(p, path, currentValue, opts){
 function renderSkuWarrantyCell(p, editable, left){
   const draftVal = skuCellVal(p, 'warranty', undefined);
   const activeProfileId = draftVal!==undefined ? draftVal : (p.frameProfileId||'');
-  const profile = activeProfileId ? skuFindFrameProfile(activeProfileId) : null;
+  let profile = activeProfileId ? skuFindFrameProfile(activeProfileId) : null;
+  // CSV Platform Import: when the grid is filtered to one Platform and that Platform has its own
+  // Warranty override, show that (marked with ◆) — editing the cell still edits the product default.
+  const fPlat = STATE.skuUI.platformFilterId ? skuFindPlatform(STATE.skuUI.platformFilterId) : null;
+  const overrideId = draftVal===undefined && fPlat && p.platformWarranty ? p.platformWarranty[fPlat.id] : '';
+  const overrideFp = overrideId && overrideId!==activeProfileId ? skuFindFrameProfile(overrideId) : null;
   const dirty = editable && skuCellDirty(p, 'warranty');
   const widthStyle = `position:sticky;left:${left}px;width:100px;min-width:100px`;
   if(editable && STATE.skuUI.editCell===`${p.id}::warranty`){
@@ -22573,10 +22621,11 @@ function renderSkuWarrantyCell(p, editable, left){
       </select>
     </td>`;
   }
-  const shown = profile ? escAttr(profile.label) : `<span class="skugrid-empty">—</span>`;
+  const shown = overrideFp ? `◆ ${escAttr(overrideFp.label)}` : profile ? escAttr(profile.label) : `<span class="skugrid-empty">—</span>`;
+  const tip = overrideFp ? `${fPlat.name}: ${overrideFp.label} (ค่าหลัก: ${profile?profile.label:'—'})` : (profile?profile.label:'');
   const cls = `skugrid-td skugrid-cell${dirty?' skugrid-cell-dirty':''}${editable?' skugrid-editable':''} skugrid-sticky`;
   const openAttr = editable ? ` data-skucellopen="${p.id}::warranty"` : '';
-  return `<td class="${cls}" style="${widthStyle}"${openAttr} title="${profile?escAttr(profile.label):''}">${shown}</td>`;
+  return `<td class="${cls}" style="${widthStyle}"${openAttr} title="${escAttr(tip)}">${shown}</td>`;
 }
 function renderSkuGridRow(p, ctx){
   const canEditProtected = canEditSkuProtectedFields(p);
@@ -23207,6 +23256,7 @@ function renderPlatformProductList(){
   <div class="ftp-refbtns">
     <button type="button" class="btn btn-ghost" id="pplSelectAll">☑ Select All (${rows.length})</button>
     <button type="button" class="btn btn-ghost" id="pplClearAll">☐ Clear All</button>
+    ${isSkuDesignerOrLead() ? `<button type="button" class="btn btn-ghost" id="pplImportOpen">⬆ Import CSV</button>` : ''}
     <a class="btn btn-ghost" href="${escAttr(cfg.campaignFolderUrl)}" target="_blank" rel="noopener">📁 View Campaign Images</a>
     <a class="btn btn-ghost" href="${escAttr(cfg.wbgFolderUrl)}" target="_blank" rel="noopener">📁 View WBG Images</a>
   </div>
@@ -23227,7 +23277,8 @@ function renderPlatformProductList(){
     }).join('') : `<div class="card placeholder" style="padding-top:22px">ไม่พบ SKU ที่ตรงกับเงื่อนไข</div>`}
   </div>
   <!-- §4 Bulk Action Bar ห้ามทำ Layout Shift — always rendered, same pattern as SKU Manager's savebar. -->
-  <div class="skugrid-savebar" id="pplSavebar" style="${dirty ? '' : 'opacity:.55'}">${pplSavebarContent(dirty)}</div>`;
+  <div class="skugrid-savebar" id="pplSavebar" style="${dirty ? '' : 'opacity:.55'}">${pplSavebarContent(dirty)}</div>
+  ${renderPplImportModal(platform)}`;
 }
 // §4/§5 — pulled out of renderPlatformProductList's template so a row checkbox tick can refresh just the
 // savebar (see refreshPplBar()) without a full render()/list rebuild.
@@ -23304,7 +23355,284 @@ function bindPlatformProductList(){
     STATE.platProdUI.pending[STATE.platProdUI.activePlatformId] = {};
     render();
   });
+  bindPplImportModal();
 }
+/* ============================= CSV PLATFORM IMPORT (Krissha, 2026-09) =============================
+   Makes one Platform's SKU list match the CSV(s) exported for it. Columns: Model_Name (SKU) +
+   Model_Image (that Platform's image filename). Several files can be loaded at once — one per Warranty
+   group (e.g. "LZD_3 years warranty.csv") — and each file's Warranty is detected from its filename and
+   shown as a dropdown the user confirms/changes before anything is written ("ห้ามเดา": an undetected
+   name stays "ไม่ระบุ" and never touches Warranty). Nothing is saved until Apply; Apply re-reads the
+   latest SKU Master / Platform Product List from storage first so a stale tab can't overwrite newer data.
+   Effects on Apply (for the active Platform only):
+     • SKU in CSV, found by Primary SKU or Alias → ticked for this Platform, platformImages[Platform] set
+       to Model_Image, Warranty for this Platform set (p.platformWarranty[platformId]); if the product
+       has no default Warranty yet, the same value becomes its default too.
+     • SKU in CSV, not in SKU Master → new ACTIVE product created with the above.
+     • Ticked for this Platform but not in any loaded CSV → unticked (optional, on by default).
+   Archived products in the CSV are reported, not revived. ---------------------------------------- */
+function pimpParseCsv(text){
+  const rows = []; let row = [], cell = '', q = false;
+  text = String(text||'').replace(/^﻿/, '');
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){ cell+='"'; i++; } else q = false; }
+      else cell += c;
+    } else if(c==='"') q = true;
+    else if(c===','){ row.push(cell); cell=''; }
+    else if(c==='\n' || c==='\r'){
+      if(c==='\r' && text[i+1]==='\n') i++;
+      row.push(cell); rows.push(row); row=[]; cell='';
+    } else cell += c;
+  }
+  if(cell!=='' || row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r=>r.some(v=>String(v).trim()!==''));
+}
+// Returns {rows:[{sku,img,line}], error}
+function pimpReadRows(text){
+  const all = pimpParseCsv(text);
+  if(!all.length) return {rows:[], error:'ไฟล์ว่าง'};
+  const head = all[0].map(h=>String(h).trim().toLowerCase().replace(/\s+/g,'_'));
+  const skuCol = head.findIndex(h=>['model_name','sku','model','primary_sku','seller_sku'].includes(h));
+  const imgCol = head.findIndex(h=>['model_image','image','image_name','filename','file_name'].includes(h));
+  if(skuCol<0) return {rows:[], error:'ไม่พบคอลัมน์ Model_Name'};
+  const rows = all.slice(1).map((r,i)=>({
+    sku: String(r[skuCol]||'').trim(),
+    img: imgCol>=0 ? String(r[imgCol]||'').trim() : '',
+    line: i+2,
+  })).filter(r=>r.sku);
+  return {rows, error: imgCol<0 ? 'ไม่พบคอลัมน์ Model_Image — จะอัปเดตแค่รายการสินค้า ไม่แตะชื่อไฟล์รูป' : ''};
+}
+// Filename → Warranty Master key. Order matters: No Warranty → Compressor/Motor combos → 6M → 3Y → 1Y.
+function pimpDetectWarrantyKey(filename){
+  const n = String(filename||'').toLowerCase().replace(/\.csv$/,'').replace(/[_\-]+/g,' ');
+  if(/(no\s*warranty|non\s*warranty|ไม่มีประกัน|ไม่รับประกัน)/.test(n)) return 'NO_WARRANTY';
+  if(/(compressor|\bcomp?\b|คอมเพรสเซอร์)/.test(n)) return 'WARRANTY_1Y_COMP3Y';
+  if(/(motor|mortor|มอเตอร์)/.test(n)) return 'WARRANTY_1Y_MOTOR3Y';
+  if(/(6\s*months?|6\s*m\b|6\s*เดือน)/.test(n)) return 'WARRANTY_6M';
+  if(/(3\s*years?|3\s*y\b|3\s*ปี)/.test(n)) return 'WARRANTY_3Y';
+  if(/(1\s*years?|1\s*y\b|1\s*ปี)/.test(n)) return 'WARRANTY_1Y';
+  return '';
+}
+// Re-read the three collections Import writes, so Apply always works on the latest saved data.
+async function pimpRefreshFromStorage(){
+  const keys = {skuMaster:'wt_sku_master', platformProducts:'wt_platform_products', auditLog:'wt_sku_audit_log'};
+  for(const [prop,key] of Object.entries(keys)){
+    try{
+      const r = await window.storage.get(key, true);
+      if(r && r.value) STATE[prop] = JSON.parse(r.value);
+    }catch(e){ /* keep in-memory copy */ }
+  }
+  STATE.skuMaster.forEach(p=>{
+    const sm = String(p.secondaryModel||'').trim();
+    p.aliases = Array.isArray(p.aliases) ? p.aliases : [];
+    if(sm && !p.aliases.some(a=>skuNormKey(a)===skuNormKey(sm))) p.aliases.push(sm);
+    delete p.secondaryModel; delete p.productName; delete p.imageName; delete p.imageMappingStatus;
+  });
+}
+// Pure plan — computed from current STATE, nothing written.
+function pimpBuildPlan(platform, ui){
+  const files = ui.importFiles.filter(f=>!f.fatal);
+  const bySku = new Map(); // normKey → entry
+  const issues = [];
+  let dupRows = 0;
+  files.forEach(f=>{
+    f.rows.forEach(r=>{
+      const k = skuNormKey(r.sku);
+      const prev = bySku.get(k);
+      if(!prev){ bySku.set(k, {sku:r.sku, img:r.img, fpId:f.fpId||'', file:f.name}); return; }
+      dupRows++;
+      if(prev.fpId!==(f.fpId||'') && f.fpId){
+        issues.push(`<code>${escAttr(r.sku)}</code> อยู่ในหลายไฟล์ Warranty ต่างกัน (${escAttr(prev.file)} / ${escAttr(f.name)}) — ใช้ค่าจากไฟล์แรก`);
+      } else if(r.img && prev.img && r.img!==prev.img){
+        issues.push(`<code>${escAttr(r.sku)}</code> มีชื่อรูป 2 แบบ (${escAttr(prev.img)} / ${escAttr(r.img)}) — ใช้ค่าแรก`);
+      }
+      if(!prev.img && r.img) prev.img = r.img;
+    });
+  });
+  const plan = {matched:[], created:[], imgChanges:[], warrantyChanges:[], tick:[], untick:[], archived:[], issues, dupRows, total:bySku.size};
+  const inCsv = new Set();
+  bySku.forEach(e=>{
+    const p = skuFindDuplicate(e.sku, null);
+    if(!p){ plan.created.push(e); return; }
+    if(inCsv.has(p.id)){ issues.push(`<code>${escAttr(e.sku)}</code> ชี้ไปสินค้าเดียวกับอีกแถว (${escAttr(p.primarySku)})`); return; }
+    inCsv.add(p.id);
+    plan.matched.push({p, e});
+    if(p.status==='ARCHIVED') plan.archived.push(p);
+    const curImg = skuPlatformImageFilename(p, platform);
+    if(e.img && e.img!==curImg) plan.imgChanges.push({p, from:curImg, to:e.img});
+    const curFp = skuPlatformFrameProfileId(p, platform);
+    if(e.fpId && e.fpId!==curFp) plan.warrantyChanges.push({p, from:curFp, to:e.fpId});
+    if(!isSkuSelectedForPlatform(platform.id, p.id)) plan.tick.push(p);
+  });
+  if(ui.importUntick){
+    skuPlatformProductsFor(platform.id).forEach(pp=>{
+      if(inCsv.has(pp.productId)) return;
+      const p = skuFindProduct(pp.productId);
+      if(p) plan.untick.push(p);
+    });
+  }
+  return plan;
+}
+function pimpFpLabel(id){ const f = id ? skuFindFrameProfile(id) : null; return f ? f.label : '—'; }
+function renderPplImportModal(platform){
+  const ui = STATE.platProdUI;
+  if(!ui.importOpen) return '';
+  const fps = activeFrameProfiles();
+  const hasFiles = ui.importFiles.some(f=>!f.fatal);
+  const plan = hasFiles ? pimpBuildPlan(platform, ui) : null;
+  const list = (title, items, cls) => items.length ? `<details class="pimp-details"${cls?` ${cls}`:''}>
+      <summary>${title} (${items.length})</summary><ul>${items.slice(0,300).map(x=>`<li>${x}</li>`).join('')}${items.length>300?`<li>… อีก ${items.length-300}</li>`:''}</ul></details>` : '';
+  const code = s => `<code>${escAttr(s)}</code>`;
+  return `<div class="modal-bg" id="pimpBg">
+    <div class="modal" style="max-width:640px">
+      <h3>⬆ Import CSV → ${escAttr(platform.name)}</h3>
+      <p class="hint" style="margin-bottom:6px">คอลัมน์ <b>Model_Name</b>, <b>Model_Image</b> · เลือกได้หลายไฟล์ (แยกตาม Warranty) · ระบบอ่าน Warranty จากชื่อไฟล์ ตรวจ/แก้ได้ก่อนกด Apply</p>
+      <label class="pimp-drop" for="pimpFileInput">📄 เลือกไฟล์ CSV (เลือกหลายไฟล์ได้)</label>
+      <input type="file" id="pimpFileInput" accept=".csv,text/csv" multiple style="display:none">
+      ${ui.importFiles.map((f,i)=>`<div class="pimp-file">
+        <div class="pimp-file-name" title="${escAttr(f.name)}">${escAttr(f.name)}
+          <div class="pimp-file-meta">${f.fatal ? `<span style="color:#DC2626">${escAttr(f.fatal)}</span>` : `${f.rows.length} แถว${f.warn?` · <span style="color:#B45309">${escAttr(f.warn)}</span>`:''}`}</div>
+        </div>
+        ${f.fatal ? '' : `<select data-pimpwarranty="${i}" title="Warranty ของไฟล์นี้">
+          <option value="">— ไม่ระบุ (ไม่แตะ Warranty)</option>
+          ${fps.map(fp=>`<option value="${fp.id}" ${f.fpId===fp.id?'selected':''}>${escAttr(fp.label)}</option>`).join('')}
+        </select>`}
+        <button type="button" class="pimp-file-x" data-pimpremove="${i}" title="เอาไฟล์นี้ออก">✕</button>
+      </div>`).join('')}
+      <div style="display:flex;gap:8px;align-items:center;margin:10px 0 2px">
+        <input type="checkbox" id="pimpUntick" style="width:16px;height:16px;margin:0;flex:0 0 auto" ${ui.importUntick?'checked':''}>
+        <span style="font-size:12px;color:var(--ink);font-weight:500;cursor:pointer" onclick="document.getElementById('pimpUntick').click()">เอาติ๊กออกจากสินค้าที่ติ๊กไว้ใน ${escAttr(platform.name)} แต่ไม่อยู่ใน CSV</span>
+      </div>
+      ${plan ? `
+      <div class="pimp-stats">
+        <div class="pimp-stat"><b>${plan.total}</b><span>SKU ใน CSV</span></div>
+        <div class="pimp-stat"><b>${plan.matched.length}</b><span>ตรงกับระบบ</span></div>
+        <div class="pimp-stat new"><b>${plan.created.length}</b><span>เพิ่มใหม่</span></div>
+        <div class="pimp-stat ${plan.issues.length||plan.archived.length?'warn':''}"><b>${plan.issues.length+plan.archived.length}</b><span>ต้องเช็ก</span></div>
+        <div class="pimp-stat new"><b>+${plan.tick.length}</b><span>ติ๊กเพิ่ม</span></div>
+        <div class="pimp-stat del"><b>−${plan.untick.length}</b><span>เอาติ๊กออก</span></div>
+        <div class="pimp-stat"><b>${plan.imgChanges.length}</b><span>ชื่อรูปเปลี่ยน</span></div>
+        <div class="pimp-stat"><b>${plan.warrantyChanges.length}</b><span>Warranty เปลี่ยน</span></div>
+      </div>
+      ${list('⚠ ต้องเช็ก', plan.issues.concat(plan.archived.map(p=>`${code(p.primarySku)} ถูก Archive อยู่ — จะติ๊กให้แต่ไม่แสดงใน Run จนกว่าจะเปลี่ยนสถานะ`)), 'open')}
+      ${list('➕ SKU ใหม่ (สร้างใน SKU Master)', plan.created.map(e=>`${code(e.sku)} · ${escAttr(e.img||'—')} · ${escAttr(pimpFpLabel(e.fpId))}`))}
+      ${list('− เอาติ๊กออก', plan.untick.map(p=>code(p.primarySku)))}
+      ${list('+ ติ๊กเพิ่ม', plan.tick.map(p=>code(p.primarySku)))}
+      ${list('🖼 ชื่อรูปเปลี่ยน', plan.imgChanges.map(c=>`${code(c.p.primarySku)}: ${escAttr(c.from||'—')} → <b>${escAttr(c.to)}</b>`))}
+      ${list('🛡 Warranty เปลี่ยน', plan.warrantyChanges.map(c=>`${code(c.p.primarySku)}: ${escAttr(pimpFpLabel(c.from))} → <b>${escAttr(pimpFpLabel(c.to))}</b>`))}
+      ${plan.dupRows ? `<p class="hint">ข้ามแถวซ้ำ ${plan.dupRows} แถว</p>` : ''}
+      ` : ''}
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button type="button" class="btn btn-ghost" style="flex:1" id="pimpCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" style="flex:1" id="pimpApply" ${hasFiles&&!ui.importBusy?'':'disabled'}>${ui.importBusy?'กำลังบันทึก…':'Apply'}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function bindPplImportModal(){
+  const ui = STATE.platProdUI;
+  document.getElementById('pplImportOpen')?.addEventListener('click', async ()=>{
+    ui.importOpen = true; ui.importFiles = []; ui.importUntick = true; ui.importBusy = false;
+    await pimpRefreshFromStorage();
+    render();
+  });
+  if(!ui.importOpen) return;
+  const close = ()=>{ ui.importOpen = false; ui.importFiles = []; render(); };
+  document.getElementById('pimpCancel')?.addEventListener('click', close);
+  document.getElementById('pimpBg')?.addEventListener('click', e=>{ if(e.target.id==='pimpBg' && !ui.importBusy) close(); });
+  document.getElementById('pimpFileInput')?.addEventListener('change', async e=>{
+    const list = Array.from(e.target.files||[]);
+    for(const file of list){
+      const text = await file.text();
+      const {rows, error} = pimpReadRows(text);
+      const fatal = !rows.length ? (error || 'ไม่พบข้อมูล SKU') : '';
+      const key = pimpDetectWarrantyKey(file.name);
+      const fpId = key ? skuFrameProfileIdForKey(key) : '';
+      ui.importFiles = ui.importFiles.filter(f=>f.name!==file.name);
+      ui.importFiles.push({name:file.name, rows, fatal, warn: fatal ? '' : error, fpId});
+    }
+    render();
+  });
+  document.querySelectorAll('[data-pimpwarranty]').forEach(el=>{
+    el.addEventListener('change', ()=>{ const f = ui.importFiles[+el.getAttribute('data-pimpwarranty')]; if(f){ f.fpId = el.value; render(); } });
+  });
+  document.querySelectorAll('[data-pimpremove]').forEach(el=>{
+    el.addEventListener('click', ()=>{ ui.importFiles.splice(+el.getAttribute('data-pimpremove'), 1); render(); });
+  });
+  document.getElementById('pimpUntick')?.addEventListener('change', e=>{ ui.importUntick = e.target.checked; render(); });
+  document.getElementById('pimpApply')?.addEventListener('click', pimpApply);
+}
+async function pimpApply(){
+  const ui = STATE.platProdUI;
+  const platform = skuFindPlatform(ui.activePlatformId);
+  if(!platform || ui.importBusy) return;
+  if(!isSkuDesignerOrLead()){ toast('Import CSV ใช้ได้เฉพาะ Designer / GD Lead'); return; }
+  ui.importBusy = true; render();
+  await pimpRefreshFromStorage();
+  const plan = pimpBuildPlan(platform, ui);
+  const who = STATE.auth.identity || (STATE.auth.user && STATE.auth.user.email) || 'unknown';
+  const now = new Date().toISOString();
+  const audit = (entityType, entityId, field, prev, next)=>STATE.auditLog.push({
+    id:uidShort('aud'), entityType, entityId, field,
+    previousValue: prev==null?null:String(prev), newValue: next==null?null:String(next), updatedBy:who, updatedAt:now});
+  const imgKeyFor = p => Object.keys(p.platformImages||{}).find(k=>k.toLowerCase()===platform.name.trim().toLowerCase()) || platform.name;
+  const touch = p => { p.updatedAt = now; p.updatedBy = who; };
+  const select = (p, on)=>{
+    let rec = STATE.platformProducts.find(pp=>pp.platformId===platform.id && pp.productId===p.id);
+    if(rec){ rec.selected = on; rec.updatedAt = now; rec.updatedBy = who; }
+    else { rec = {id:uidShort('pp'), platformId:platform.id, productId:p.id, selected:on, updatedAt:now, updatedBy:who}; STATE.platformProducts.push(rec); }
+    audit('platformProduct', p.id, 'platformSelection', on?null:platform.id, on?platform.id:null);
+  };
+  // new products
+  plan.created.forEach(e=>{
+    const fp = e.fpId ? skuFindFrameProfile(e.fpId) : null;
+    const p = {
+      id: uidShort('prod'), primarySku: e.sku, aliases: [],
+      warranty: fp ? fp.label : '', frameProfileId: fp ? fp.id : '',
+      platformWarranty: fp ? {[platform.id]: fp.id} : {},
+      status: 'ACTIVE',
+      platformImages: e.img ? {[platform.name]: e.img} : {}, assets: {},
+      createdAt: now, createdBy: who, updatedAt: now, updatedBy: who,
+    };
+    STATE.skuMaster.push(p);
+    audit('product', p.id, 'created', null, `${p.primarySku} (CSV Import · ${platform.name})`);
+    select(p, true);
+  });
+  // image filenames
+  plan.imgChanges.forEach(c=>{
+    const k = imgKeyFor(c.p);
+    c.p.platformImages = c.p.platformImages || {};
+    c.p.platformImages[k] = c.to; touch(c.p);
+    audit('product', c.p.id, `platformImages.${k}`, c.from, c.to);
+  });
+  // warranty per platform (+ default if empty)
+  plan.warrantyChanges.forEach(c=>{
+    const fp = skuFindFrameProfile(c.to);
+    c.p.platformWarranty = Object.assign({}, c.p.platformWarranty||{}, {[platform.id]: c.to});
+    audit('product', c.p.id, `platformWarranty.${platform.name}`, pimpFpLabel(c.from), fp?fp.label:c.to);
+    if(!c.p.frameProfileId && fp){
+      c.p.frameProfileId = fp.id; c.p.warranty = fp.label;
+      audit('product', c.p.id, 'frameProfileId', null, fp.label);
+    }
+    touch(c.p);
+  });
+  plan.tick.forEach(p=>select(p, true));
+  plan.untick.forEach(p=>select(p, false));
+  audit('system', 'csv_import', `import.${platform.name}`, null,
+    `${plan.total} SKU · +${plan.created.length} new · +${plan.tick.length} tick · −${plan.untick.length} untick · ${plan.imgChanges.length} image · ${plan.warrantyChanges.length} warranty · files: ${ui.importFiles.map(f=>f.name).join(', ')}`);
+  const ok1 = await saveSkuMaster();
+  const ok2 = await savePlatformProducts();
+  await saveSkuAuditLog();
+  ui.pending[platform.id] = {};
+  ui.importBusy = false;
+  if(ok1===false || ok2===false){ render(); return; }
+  ui.importOpen = false; ui.importFiles = [];
+  toast(`Import ${platform.name} เสร็จ — ${plan.matched.length+plan.created.length} SKU (ใหม่ ${plan.created.length}, เอาติ๊กออก ${plan.untick.length})`);
+  render();
+}
+
 async function pplSaveChanges(){
   const ui = STATE.platProdUI;
   const platformId = ui.activePlatformId;
