@@ -2547,6 +2547,22 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
             console.error('storage.saveBackupSnapshot failed', e); return false;
           }
         },
+        // QUOTA FIX (Krissha — Firestore "Quota exceeded", Reads 54K/50K): runAutoBackup() used to call
+        // listBackupSnapshots() every 30 min in EVERY open tab just to learn when the newest backup was made —
+        // that reads every backup document in the collection (all heads + all their parts, 24h of 'frequent'
+        // + 30 days of 'daily'), i.e. hundreds of reads per tick per tab. It now reads ONE tiny meta doc instead.
+        getBackupMeta: async () => {
+          if (!__fbReady) return null;
+          try {
+            const doc = await window.__fbDb.collection(FIRESTORE_COLLECTION).doc('wt_backup_meta').get();
+            return doc.exists ? doc.data() : {};
+          } catch (e) { console.error('storage.getBackupMeta failed', e); return null; }
+        },
+        setBackupMeta: async (fields) => {
+          if (!__fbReady) return false;
+          try { await window.__fbDb.collection(FIRESTORE_COLLECTION).doc('wt_backup_meta').set(fields, { merge: true }); return true; }
+          catch (e) { console.error('storage.setBackupMeta failed', e); return false; }
+        },
         listBackupSnapshots: async () => {
           if (!__fbReady) return [];
           try {
@@ -2583,7 +2599,12 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
           try {
             // Single-field range query only (tier filtered client-side) so no composite index is ever
             // needed — the old created_at + tier compound query failed until an index was created by hand.
-            const snap = await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION).where('created_at', '<', cutoffIso).get();
+            // QUOTA FIX: bounded to the 7 days just before the cutoff — the old open-ended "< cutoff" query
+            // also read every 'daily' snapshot (30 days × parts) on every 30-min 'frequent' prune, only to
+            // filter them out client-side. Anything older than that window was already pruned on an earlier run.
+            const lowerIso = new Date(new Date(cutoffIso).getTime() - 7*24*60*60*1000).toISOString();
+            const snap = await window.__fbDb.collection(FIRESTORE_BACKUP_COLLECTION)
+              .where('created_at', '<', cutoffIso).where('created_at', '>=', lowerIso).get();
             const docs = snap.docs.filter(doc => !tier || (doc.data().tier || 'frequent') === tier);
             for (let i = 0; i < docs.length; i += 400) { // Firestore batches cap at 500 writes
               const batch = window.__fbDb.batch();
@@ -22609,10 +22630,11 @@ const AUTO_BACKUP_RETENTION_MS = 24*60*60*1000; // 'frequent' tier — keep 24 h
 const DAILY_BACKUP_RETENTION_MS = 30*24*60*60*1000; // 'daily' tier — keep 30 days
 async function runAutoBackup(){
   try{
-    const existing = await window.storage.listBackupSnapshots();
-    const frequentSnaps = existing.filter(b=>(b.tier||'frequent')==='frequent');
-    const dailySnaps = existing.filter(b=>b.tier==='daily');
-    const newestFrequent = frequentSnaps[0];
+    // QUOTA FIX: 1 read of the meta doc instead of listing every backup document (see getBackupMeta()).
+    const meta = await window.storage.getBackupMeta();
+    if(meta===null) return; // Firestore unreachable — try again next tick, never write blind
+    const newestFrequent = meta.lastFrequentAt ? {created_at: meta.lastFrequentAt} : null;
+    const newestDaily = meta.lastDailyDate ? {created_at: meta.lastDailyDate} : null;
     let madeFrequent = false;
     if(newestFrequent) lastKnownBackupAt = new Date(newestFrequent.created_at).getTime();
     // Some other tab already made a recent enough 'frequent' snapshot — nothing to do this tick. A
@@ -22621,7 +22643,7 @@ async function runAutoBackup(){
     if(!newestFrequent || Date.now() - lastKnownBackupAt >= AUTO_BACKUP_INTERVAL_MS - 60000){
       const payload = buildFullBackupPayload();
       const ok = await window.storage.saveBackupSnapshot(payload, 'frequent');
-      if(ok){ lastKnownBackupAt = Date.now(); madeFrequent = true; }
+      if(ok){ lastKnownBackupAt = Date.now(); madeFrequent = true; await window.storage.setBackupMeta({lastFrequentAt: new Date().toISOString()}); }
     }
     if(madeFrequent){
       const cutoff = new Date(Date.now() - AUTO_BACKUP_RETENTION_MS).toISOString();
@@ -22629,12 +22651,12 @@ async function runAutoBackup(){
     }
     // Once-a-day 'daily' snapshot — same dedup pattern (by calendar date, not just elapsed time, so
     // "once per day" means the actual date rolling over, not just "24h since the last one").
-    const newestDaily = dailySnaps[0];
     const todayStr = todayISO();
     if(!newestDaily || (newestDaily.created_at||'').slice(0,10) !== todayStr){
       const payload = buildFullBackupPayload();
       const ok = await window.storage.saveBackupSnapshot(payload, 'daily');
       if(ok){
+        await window.storage.setBackupMeta({lastDailyDate: todayStr});
         const dailyCutoff = new Date(Date.now() - DAILY_BACKUP_RETENTION_MS).toISOString();
         await window.storage.pruneBackupSnapshotsOlderThan(dailyCutoff, 'daily');
       }
