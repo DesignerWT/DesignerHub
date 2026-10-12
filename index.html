@@ -17117,6 +17117,16 @@ function monthlyCapacityDayCounts(monthStr){
 function getDesignerDailyLoad(designer, dateStr){
   return dayLoadFor(designer, dateStr).taskLoad;
 }
+// MONTHLY OVERVIEW FIX (Krissha — "อันนี้นับถูกต้องมั้ย"): Monthly Overview used getDesignerDailyLoad()
+// (= dayLoadFor, the forward-looking BOOKING number), which (a) drops every Completed task, so finished work
+// vanished from the month; (b) from today on counts only remaining hours; and (c) adds overdue work onto
+// TODAY while the same task still counts on its past deadline → double-counted in a month sum. A monthly
+// summary needs the whole month's planned work instead: every task's points on the day they're planned
+// (Completed included, Revision rounds on their request day) + Internal Task hours — the same per-task
+// numbers the day breakdown lists, so the two always add up.
+function getDesignerDailyPlannedLoad(designer, dateStr){
+  return Math.round((taskBreakdownFor(designer, dateStr).total + internalLoadFor(designer, dateStr))*100)/100;
+}
 function getDesignerDailyCapacity(designer, dateStr){
   if(isWeekend(dateStr) || isPublicHoliday(dateStr)) return 0;
   const { isFullLeave, leaveDeduct } = dayLoadFor(designer, dateStr);
@@ -17160,23 +17170,32 @@ function getMonthlyCapacitySummary(monthStr){
   for(let d=1; d<=daysInMonth; d++){
     const ds = `${monthStr}-${String(d).padStart(2,'0')}`;
     people.forEach(p=>{
-      const load = getDesignerDailyLoad(p, ds);
+      const load = getDesignerDailyPlannedLoad(p, ds);
       const cap = getDesignerDailyCapacity(p, ds);
       totalLoad += load; totalCapacity += cap;
       perDesigner[p].load += load; perDesigner[p].capacity += cap;
       if(cap>0 && load>cap) perDesigner[p].over++;
     });
   }
-  // Task rollups use the same "brief_timestamp falls in this month" scope Brief Intake Dashboard already
-  // uses, for consistency across dashboards.
-  const monthTasks = STATE.tasks.filter(t=>(t.brief_timestamp||'').slice(0,7)===monthStr);
+  // Krissha: "วันส่งงาน" — tasks now belong to the month of their delivery date (same basis the hours use),
+  // not the month the Brief was sent. A split task counts in the month of its LAST allocated day.
+  const deliveryDateOf = t=>{
+    const ds = [t.prefer_delivery_date, ...((t.capacity_allocation||[]).map(a=>a.date))].filter(Boolean).sort();
+    return ds.length ? ds[ds.length-1] : (t.brief_timestamp||'');
+  };
+  const monthTasks = STATE.tasks.filter(t=>String(deliveryDateOf(t)).slice(0,7)===monthStr);
   monthTasks.forEach(t=>{
     const p = t.assigned_user_name;
     if(p && perDesigner[p]){
       perDesigner[p].tasks.add(t.task_id);
       if(t.review_status==='delivered') perDesigner[p].completed++;
-      if(t.review_status==='revision') perDesigner[p].revision++;
     }
+  });
+  // Revision = tasks with at least one revision round requested IN this month (by round date), not only
+  // tasks sitting in the 'revision' column right now.
+  STATE.tasks.forEach(t=>{
+    const p = t.assigned_user_name;
+    if(p && perDesigner[p] && taskRevisions(t).some(r=>(r.date||'').slice(0,7)===monthStr)) perDesigner[p].revision++;
   });
   const byCategory = {}, byPlatform = {}, byPriority = {};
   monthTasks.forEach(t=>{
@@ -17187,7 +17206,7 @@ function getMonthlyCapacitySummary(monthStr){
   let overCapacityDayCount = 0;
   for(let d=1; d<=daysInMonth; d++){
     const ds = `${monthStr}-${String(d).padStart(2,'0')}`;
-    if(people.some(p=>{ const cap=getDesignerDailyCapacity(p,ds); return cap>0 && getDesignerDailyLoad(p,ds)>cap; })) overCapacityDayCount++;
+    if(people.some(p=>{ const cap=getDesignerDailyCapacity(p,ds); return cap>0 && getDesignerDailyPlannedLoad(p,ds)>cap; })) overCapacityDayCount++;
   }
   return {
     monthStr, daysInMonth, totalLoad, totalCapacity,
@@ -17384,7 +17403,7 @@ function renderMonthlyOverviewPage(){
     <div class="dsum-card"><div class="dv">${summary.totalLoad.toFixed(0)} / ${summary.totalCapacity.toFixed(0)} ชม.</div><div class="dl">Planned Load</div></div>
     <div class="dsum-card"><div class="dv">${summary.utilization}%</div><div class="dl">Utilization</div></div>
     <div class="dsum-card"><div class="dv">${summary.totalTasks}</div><div class="dl">งานทั้งหมด</div></div>
-    <div class="dsum-card ${summary.overCapacityDayCount?'attn':''}"><div class="dv">${summary.overCapacityDayCount}</div><div class="dl">Over Capacity</div></div>
+    <div class="dsum-card ${summary.overCapacityDayCount?'attn':''}"><div class="dv">${summary.overCapacityDayCount}</div><div class="dl">วัน Over Capacity</div></div>
     <div class="dsum-card"><div class="dv">${summary.completedCount}</div><div class="dl">งานเสร็จ</div></div>
   </div>
 
@@ -17415,7 +17434,7 @@ function renderWorkloadByDesigner(summary){
         <div style="height:8px;background:var(--line);border-radius:5px;overflow:hidden;margin-bottom:4px">
           <i style="display:block;height:100%;border-radius:5px;background:${pct>100?'#991B1B':'var(--accent)'};width:${Math.min(100,pct)}%"></i>
         </div>
-        <div class="hint">${d.tasks.size} งาน · ${d.completed} Completed · ${d.revision} Revision · ${d.over} Over Capacity</div>
+        <div class="hint">${d.tasks.size} งาน · ${d.completed} Completed · ${d.revision} Revision · ${d.over} วัน Over Capacity</div>
       </div>`;
     }).join('')}
   </div>`;
@@ -17442,7 +17461,7 @@ function renderMonthlyHeatmap(monthStr){
         if(!ds) return `<div class="mcal-cell mcal-out"></div>`;
         let worstTier='avail', anyWorking=false;
         people.forEach(p=>{
-          const load=getDesignerDailyLoad(p,ds), cap=getDesignerDailyCapacity(p,ds);
+          const load=getDesignerDailyPlannedLoad(p,ds), cap=getDesignerDailyCapacity(p,ds);
           if(cap<=0 && load===0) return;
           anyWorking=true;
           const t=getCapacityStatus(load,cap);
@@ -17471,8 +17490,13 @@ function renderMonthlyOverviewDayBreakdown(dateStr){
   // sorted-by-name "Tasks (N)" list underneath — same underlying data (taskLoadOnDate per task), just
   // grouped by person so a designer's own workload for the day reads as one unit.
   const rows = people.map(p=>{
-    const st = designerDayStatus(p, dateStr);
-    const myTasks = allTasksThatDay.filter(t=>t.assigned_user_name===p);
+    const base = designerDayStatus(p, dateStr);
+    const cap = getDesignerDailyCapacity(p, dateStr);
+    const points = getDesignerDailyPlannedLoad(p, dateStr);
+    const off = base.key==='leave' || base.key==='holiday';
+    const key = off ? base.key : capacityStatusKey(points, cap);
+    const st = {...base, key, points, cap, label: DASH_STATUS_META[key].label, cls: DASH_STATUS_META[key].cls};
+    const myTasks = allTasksThatDay.filter(t=>t.assigned_user_name===p && !["rejected","closed_max_revision"].includes(t.review_status));
     return {person:p, st, myTasks};
   });
   const teamTotal = rows.reduce((s,r)=>s+((r.st.key==='leave'||r.st.key==='holiday')?0:r.st.points),0);
@@ -17486,7 +17510,7 @@ function renderMonthlyOverviewDayBreakdown(dateStr){
           <strong>${r.person}</strong>
           <span class="status-pill ${r.st.cls}">${r.st.label}</span>
         </div>
-        <div class="hint" style="margin-bottom:8px">${(r.st.key==='leave'||r.st.key==='holiday')?'OFF':`${r.st.points.toFixed(1)} / ${DAILY_CAP} ชม.`} · ${r.myTasks.length} Tasks</div>
+        <div class="hint" style="margin-bottom:8px">${(r.st.key==='leave'||r.st.key==='holiday')?'OFF':`${r.st.points.toFixed(1)} / ${r.st.cap} ชม.`} · ${r.myTasks.length} Tasks</div>
         ${r.myTasks.length ? r.myTasks.map(t=>`<div class="sl-row">
           <span class="sl-k">${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''} ${priorityBadgeSm(t.priority)}${t.capacity_override?' 🟠 Override':''}</span>
           <span class="sl-v">${taskLoadOnDate(t,dateStr).toFixed(1)} ชม.</span>
@@ -17504,7 +17528,7 @@ function renderMonthlyInsights(summary){
   for(let d=1; d<=summary.daysInMonth; d++){
     const ds = `${summary.monthStr}-${String(d).padStart(2,'0')}`;
     let total=0;
-    Object.keys(PEOPLE).forEach(p=>{ total += getDesignerDailyLoad(p, ds); });
+    Object.keys(PEOPLE).forEach(p=>{ total += getDesignerDailyPlannedLoad(p, ds); });
     days.push({ds, total});
   }
   const busiest = days.slice().sort((a,b)=>b.total-a.total)[0];
