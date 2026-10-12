@@ -5398,10 +5398,38 @@ function pointsForTask(t){
   base = base * deliverables;
   return Math.round(base*100)/100;
 }
+// REVISION POINT RULE (Krissha — "ต้องดูว่าจำนวนทั้งหมดกี่ชิ้น เช่น 4 ชิ้น 8 Point ถ้าแก้ 1 ชิ้น ก็นับแค่ 0.50"):
+// a Revision no longer REPLACES the task's points with base × rate (that made Output drop the moment a
+// revision was requested). The original work keeps its full base_points, and each revision round ADDS
+// only the pieces actually revised:  Point/ชิ้น = Master points ÷ จำนวน Master AW ทั้งหมด,
+// Revision Point = Point/ชิ้น × จำนวนชิ้นที่แก้ × 25% (ทุกรอบเท่ากัน).
+// e.g. 4 ชิ้น 8 pt → 2 pt/ชิ้น → แก้ 1 ชิ้น รอบแรก = 2 × 1 × 25% = 0.50 → รวมงานนี้ 8.50 pt.
+// Each round is stored in t.revisions[] with the date it was requested (that's the day its points load on).
+const REVISION_FLAT_RATE = 0.25; // every round = 25% of the revised pieces' points
+function pointsPerPiece(t){
+  const pieces = Math.max(1, Number(t.deliverables)||1);
+  const masterOnly = Math.max(0, (t.base_points||0) - resizePoints(t.resize_quantity));
+  return masterOnly / pieces;
+}
+function revisionRoundPoints(t, r){
+  return Math.round(pointsPerPiece(t) * (Number(r.pieces)||0) * (Number(r.rate)||0) * 100)/100;
+}
+// Legacy tasks (revised before this rule existed) only have revise_status — treat that as one round on
+// every piece at that rate, dated at their latest REQUEST_REVISION, so old data still shows sensibly.
+function taskRevisions(t){
+  if(Array.isArray(t.revisions)) return t.revisions;
+  if(t.revise_status && t.revise_status!=="None"){
+    const last = (t.review_history||[]).filter(h=>h.action==='REQUEST_REVISION').pop();
+    return [{round:t.revision_count||1, pieces:Number(t.deliverables)||1, rate:REVISION_FLAT_RATE,
+      date:(last?.timestamp||t.prefer_delivery_date||'').slice(0,10), legacy:true}];
+  }
+  return [];
+}
+function revisionPointsTotal(t){
+  return Math.round(taskRevisions(t).reduce((s,r)=>s+revisionRoundPoints(t,r),0)*100)/100;
+}
 function appliedPoints(t){
-  const rate = REVISE_RATES[t.revise_status] ?? 0;
-  const base = t.base_points || 0;
-  return t.revise_status && t.revise_status!=="None" ? Math.round(base*rate*100)/100 : base;
+  return Math.round(((t.base_points||0) + revisionPointsTotal(t))*100)/100;
 }
 // ===================== ARTWORK SCOPE MODEL (Dev Master Request — Final Workflow Update §3-14) =====================
 // Replaces "แก้ Quantity ได้ตลอด" with: before Production starts, scope is corrected via Designer
@@ -5444,6 +5472,24 @@ function syncScopeToLegacyFieldsAndRecalcPoints(t){
   const cat = MASTER_TABLE[t.task_category]; const def = cat ? cat.types[t.task_type] : null;
   const newBase = (def && def.custom ? (Number(t.customPoints)||0) : pointsForTask(t)) + resizePoints(t.resize_quantity);
   t.base_points = Math.round(newBase*100)/100;
+}
+// BUG FIX (Krissha — นับ AW ที่เพิ่มไม่ตรง): Brief Edit / Edit Quantity write t.deliverables/resize_quantity
+// directly, but t.scope (created lazily the first time anyone opens the task) kept the OLD count — so the next
+// Preflight / Check Quantity re-derived Points from the stale scope (added AW's points reverted) and a plain
+// "✓ จำนวนถูกต้อง" even cancelled the newly added Artwork cards. Call this after any such direct edit:
+// before Production (no Confirmed Scope yet) the Brief Scope simply follows the edited Brief; once Production
+// has started, the difference is recorded as a normal Scope Change ledger entry so history stays intact.
+function syncScopeAfterDirectEdit(t, reason, who){
+  if(!t || !t.scope) return; // never created yet — taskScope() will read the current numbers itself
+  const sc = taskScope(t);
+  const art = Number(t.deliverables)||1, rsz = Number(t.resize_quantity)||0;
+  if(!sc.confirmed){ sc.brief = {artwork_count: art, resize_count: rsz}; return; }
+  const cur = currentScopeFor(t);
+  [['artwork', cur.artwork_count, art], ['resize', cur.resize_count, rsz]].forEach(([type, before, after])=>{
+    if(before===after) return;
+    sc.changes.push({id:genId('SC'), type, delta:after-before, before, after, reason, requestedBy:'Brief Owner',
+      recordedBy: who || STATE.auth.user?.name || STATE.auth.identity || 'system', createdAt:nowIso()});
+  });
 }
 function estimatedOutputFor(scopeLike){ return (Number(scopeLike.artwork_count)||0) + (Number(scopeLike.resize_count)||0); }
 // §04/§07.4: keeps the real Artwork Card count (t.artworks[]) equal to the Current Scope's artwork_count.
@@ -5492,16 +5538,27 @@ function syncArtworkCardsToScope(t, scopeChangeId, reason){
 // of a task counts against a given day, so every capacity view (Calendar, Designer Workload,
 // Dashboard, Assignment, Task Detail, Report) reads it via dayLoadFor()/taskBreakdownFor() below and
 // they can never disagree.
-function taskLoadOnDate(t, dateStr){
-  const total = appliedPoints(t);
+function masterLoadOnDate(t, dateStr){
+  const total = t.base_points || 0;
   if(Array.isArray(t.capacity_allocation) && t.capacity_allocation.length){
     const entry = t.capacity_allocation.find(a=>a.date===dateStr);
     if(!entry) return 0;
-    const base = t.base_points || 0;
-    if(base<=0) return 0;
-    return Math.round(total * (entry.pt/base) * 100)/100;
+    // BUG FIX (Krissha — "ส่งเพิ่ม AW แล้วนับรวมปริมาณงานมั้ย"): divide by the allocation's OWN total
+    // (= base_points at the moment it was split), not today's base_points — otherwise AW/Resize added later
+    // grew base_points while every day's share stayed at its old pt, so the added points vanished on split
+    // tasks. Now the new total is spread over the same days in the same proportions.
+    const allocTotal = t.capacity_allocation.reduce((s,a)=>s+(Number(a.pt)||0),0);
+    if(allocTotal<=0) return 0;
+    return Math.round(total * (entry.pt/allocTotal) * 100)/100;
   }
   return t.prefer_delivery_date===dateStr ? total : 0;
+}
+// Revision rounds load on the day they were requested (see REVISION POINT RULE above appliedPoints).
+function revisionLoadOnDate(t, dateStr){
+  return Math.round(taskRevisions(t).filter(r=>r.date===dateStr).reduce((s,r)=>s+revisionRoundPoints(t,r),0)*100)/100;
+}
+function taskLoadOnDate(t, dateStr){
+  return Math.round((masterLoadOnDate(t,dateStr) + revisionLoadOnDate(t,dateStr))*100)/100;
 }
 function dayLoadFor(person, dateStr, excludeId){
   // DEV SPEC — My Work Kanban + Time Tracking + Capacity §4 "Release Capacity": capacity must free up the
@@ -5558,9 +5615,11 @@ function isTaskOpenForDesigner(t){ return isTaskStillInWorkQueue(t); }
 // Auto-Split allocation) — i.e. the part that is overdue and must count on today instead.
 function overdueCarryLoadFor(t, today){
   if(Array.isArray(t.capacity_allocation) && t.capacity_allocation.length){
-    return t.capacity_allocation.filter(a=>a.date<today).reduce((s,a)=>s+taskLoadOnDate(t,a.date),0);
+    return t.capacity_allocation.filter(a=>a.date<today).reduce((s,a)=>s+masterLoadOnDate(t,a.date),0)
+      + taskRevisions(t).filter(r=>r.date<today).reduce((s,r)=>s+revisionRoundPoints(t,r),0);
   }
-  return (t.prefer_delivery_date && t.prefer_delivery_date<today) ? appliedPoints(t) : 0;
+  return ((t.prefer_delivery_date && t.prefer_delivery_date<today) ? (t.base_points||0) : 0)
+    + taskRevisions(t).filter(r=>r.date<today).reduce((s,r)=>s+revisionRoundPoints(t,r),0);
 }
 function overdueLoadFor(person, today, excludeId){
   return STATE.tasks
@@ -5631,10 +5690,11 @@ function taskBreakdownFor(person, dateStr){
   const tasks = STATE.tasks.filter(t=>t.assigned_user_name===person
     && !["rejected","closed_max_revision"].includes(t.review_status)
     && taskLoadOnDate(t, dateStr) > 0);
-  const master = tasks.filter(t=>!t.revise_status || t.revise_status==="None");
-  const revision = tasks.filter(t=>t.revise_status && t.revise_status!=="None");
-  const masterPts = Math.round(master.reduce((s,t)=>s+taskLoadOnDate(t,dateStr),0)*100)/100;
-  const revisionPts = Math.round(revision.reduce((s,t)=>s+taskLoadOnDate(t,dateStr),0)*100)/100;
+  // A task can appear in both lists on the same day (its Master share + a Revision round requested that day).
+  const master = tasks.filter(t=>masterLoadOnDate(t,dateStr)>0);
+  const revision = tasks.filter(t=>revisionLoadOnDate(t,dateStr)>0);
+  const masterPts = Math.round(master.reduce((s,t)=>s+masterLoadOnDate(t,dateStr),0)*100)/100;
+  const revisionPts = Math.round(revision.reduce((s,t)=>s+revisionLoadOnDate(t,dateStr),0)*100)/100;
   return {master, revision, masterPts, revisionPts, total: Math.round((masterPts+revisionPts)*100)/100, tasks};
 }
 // DEV UPDATE — Weekend / OFF Day Data Logic: which dates a task has REAL, timestamped activity on — never
@@ -15487,6 +15547,8 @@ function bindEditQuantityModal(){
       before, after: {deliverables:newDeliverables, resize_quantity:newResize, base_points: Math.round(newBase*100)/100},
     });
     t.deliverables = newDeliverables; t.resize_quantity = newResize; t.base_points = Math.round(newBase*100)/100;
+    syncScopeAfterDirectEdit(t, 'Edit Quantity — '+reason);
+    syncArtworkCardsToScope(t, null, 'Edit Quantity — '+reason);
     t.review_history.push({timestamp: nowIso(), action:'EDIT_QUANTITY',
       comment: `Deliverables ${before.deliverables} → ${newDeliverables} · Resize ${before.resize_quantity} → ${newResize} — เหตุผล: ${reason}`,
       by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
@@ -18538,8 +18600,8 @@ function renderDesignerDrawerBody(person, drawerDate, opts){
   // Right column: the actual line-item breakdown (what/whose — the part Krissha asked this drawer for).
   const rightHtml = `
       ${bd.tasks.length ? `<div class="eyebrow"${opts.twoColumn?'':' style="margin-top:14px"'}>Tasks on ${fmtDate(drawerDate)}</div>
-        ${bd.master.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Master</div>${bd.master.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${taskLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
-        ${bd.revision.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Revision</div>${bd.revision.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${taskLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
+        ${bd.master.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Master</div>${bd.master.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${masterLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
+        ${bd.revision.length ? `<div class="hint" style="margin:6px 0 2px;font-weight:700">Revision</div>${bd.revision.map(t=>`<div class="sl-row"><span class="sl-k">${taskDisplayName(t)}${t.task_type||t.task_category ? ` <span class="hint">(${escAttr(t.task_type||t.task_category)})</span>` : ''}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</span><span class="sl-v">${revisionLoadOnDate(t,drawerDate).toFixed(1)} ชม.</span></div>`).join('')}` : ''}
       ` : `<div class="hint"${opts.twoColumn?'':' style="margin-top:10px"'}>ไม่มีงานในวันนี้</div>`}
 
       <div class="eyebrow" style="margin-top:16px;display:flex;align-items:center;justify-content:space-between">
@@ -22037,6 +22099,7 @@ async function submitBriefInner(){
       base_points: base, prioritySource: BRIEF_DRAFT.prioritySource, projectedCapacity, overCapacity,
       capacity_allocation: capacityAllocation,
     });
+    syncScopeAfterDirectEdit(existing, 'Brief edited', STATE.auth.user?.name || STATE.auth.identity);
 
     // BUG FIX (Krissha report, 2026-09-21) — a Brief edited to raise Priority into an approval-required
     // tier (needsApproval=true, e.g. Standard/Priority → Urgent/Critical) only ever updated the
@@ -22932,7 +22995,8 @@ async function handleAction(act, id){
     // never asked again once preflight_confirmed is true (§5.6 — refresh/pause/resume/reopen skip it).
     if(!t.preflight_confirmed){
       const sc = taskScope(t);
-      STATE.preflightUI = {taskId:id, artwork: sc.brief.artwork_count, resize: sc.brief.resize_count, error:''};
+      const cur = currentScopeFor(t);
+      STATE.preflightUI = {taskId:id, artwork: cur.artwork_count, resize: cur.resize_count, error:''};
       render();
       return;
     }
@@ -22990,17 +23054,31 @@ async function handleAction(act, id){
   else if(act==='requestRevision'){
     const comment = prompt('รายละเอียดที่ต้องแก้ไข (บังคับกรอก):');
     if(!comment){ toast('ต้องระบุคอมเมนต์ก่อนขอแก้ไข'); return; }
+    const totalPieces = Math.max(1, Number(t.deliverables)||1);
+    let pieces = totalPieces;
+    if(totalPieces>1){
+      const ans = prompt(`แก้กี่ชิ้น? (จาก Master AW ทั้งหมด ${totalPieces} ชิ้น)`, String(totalPieces));
+      if(ans===null) return;
+      pieces = Math.floor(Number(ans));
+      if(!Number.isFinite(pieces) || pieces<1 || pieces>totalPieces){ toast(`จำนวนชิ้นที่แก้ต้องอยู่ระหว่าง 1–${totalPieces}`); return; }
+    }
+    if(!Array.isArray(t.revisions)) t.revisions = taskRevisions(t).map(r=>({...r})); // freeze any legacy round first
     t.revision_count = (t.revision_count||0)+1;
     if(t.revision_count > 3){
       t.review_status='closed_max_revision';
       toast('⛔ เกิน 3 ครั้ง — ปิด Task นี้อัตโนมัติ กรุณาเปิด Task ใหม่');
     } else {
       t.review_status='revision';
-      const rateKeys = Object.keys(REVISE_RATES);
-      t.revise_status = rateKeys[Math.min(t.revision_count, rateKeys.length-1)];
+      // Krissha: "ให้ทุกรอบเป็น 25% เท่ากันหมด" — every revision round uses the same flat rate.
+      t.revise_status = 'Revise 25%';
+      const rate = REVISION_FLAT_RATE;
+      t.revisions.push({round:t.revision_count, pieces, totalPieces, rate, date: todayISO(), at: nowIso(),
+        by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+      const addPts = revisionRoundPoints(t, t.revisions[t.revisions.length-1]);
+      toast(`ขอแก้ ${pieces}/${totalPieces} ชิ้น · ${t.revise_status} → +${addPts.toFixed(2)} pt (รวม ${appliedPoints(t).toFixed(2)} pt)`);
     }
     t.review_comment = comment;
-    t.review_history.push({timestamp:new Date().toISOString(), action:'REQUEST_REVISION', comment, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+    t.review_history.push({timestamp:new Date().toISOString(), action:'REQUEST_REVISION', comment: totalPieces>1 ? `[แก้ ${pieces}/${totalPieces} ชิ้น] ${comment}` : comment, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
     const revEmailExtra = t.revision_count > 3 ? {limitReached:true} : {comment};
     notify(t.assigned_user_name, 'ขอแก้ไขงาน', `${t.task_name} — ${comment}`, t.task_id, 'REVISION_REQUESTED', revEmailExtra);
     // DEV MASTER REQUEST §11 — Revision Requested → PO + Designer + Lead (Designer kept as-is above).
