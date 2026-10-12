@@ -299,7 +299,7 @@ textarea{resize:vertical;min-height:64px}
 .taskcard:hover .tc2-edit{opacity:1}
 .tc2-meta{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:var(--ink-soft);font-weight:600}
 .tc2-left,.tc2-right{display:flex;align-items:center;gap:5px;white-space:nowrap}
-.tc2-left{min-width:0;overflow:hidden}
+.tc2-left{min-width:0;flex-wrap:wrap;row-gap:4px}
 .tc2-right{flex-shrink:0}
 .tc2-due.late{color:var(--crit-tx);font-weight:800}
 .tc2-av{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;
@@ -310,6 +310,8 @@ textarea{resize:vertical;min-height:64px}
 .tc2-lk.done{background:var(--ok-bg);color:var(--ok-tx)}
 .tc2-lk.todo{background:#fff;border-color:var(--accent);color:var(--accent)}
 .tc2-lk.hot{background:var(--accent);border-color:var(--accent);color:#fff}
+.scope-chip{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:5px;background:var(--std-bg);color:var(--std-tx);
+  white-space:nowrap;flex-shrink:0;cursor:help}
 .plat-chip{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:5px;white-space:nowrap;flex-shrink:0;
   background:#F1F5F9;color:#334155;line-height:1.5}
 .plat-shopee{background:#FFE9E2;color:#B42D12}
@@ -5749,8 +5751,12 @@ function resolveNotifyEmail(to){
 }
 // Shared low-level transport for both the legacy title/message mirror (sendEmailNotification) and the
 // new eventType-based templates (sendEventEmail) — one place that talks to the Apps Script proxy.
+// Krissha — "เพิ่มลิงก์ต่อท้ายทุก Action เขาจะได้รู้ว่าต้องมาที่ไหน": every workflow email ends with the
+// app's hosted address. Added here, the one transport every notify()/sendEventEmail() email goes through.
+const APP_PUBLIC_URL = 'https://gdwtworking.netlify.app/';
 function deliverRawEmail(to, subject, body){
   try{
+    body = `${body}\n\n${emailLink('เข้าระบบ GD Worldtech', APP_PUBLIC_URL)}`;
     if(!STATE.gdriveConfig?.emailNotifyEnabled) return;
     const proxyUrl = gdriveProxyUrl();
     if(!proxyUrl) return;
@@ -8159,7 +8165,7 @@ function myWorkKanbanCardHTML(t, colKey){
       style="border-left-color:${priorityAccentColor(t.priority)}">
     <div class="tc2-title">${escAttr(taskDisplayName(t))}</div>
     <div class="tc2-meta">
-      <span class="tc2-left">${cardPlatformMetaHTML(t)}<span class="tc2-due${isOverdue?' late':''}">⏰ ${due.txt}</span>
+      <span class="tc2-left">${cardPlatformMetaHTML(t)}<span class="tc2-due${isOverdue?' late':''}">⏰ ${due.txt}</span>${scopeChangeChipHTML(t)}
         ${t.edit_revision>1 ? `<span class="tc-flag" title="Brief Updated (Rev ${t.edit_revision})">✎</span>` : ''}
         ${t.is_backdated ? `<span class="tc-flag" title="Backdated Task">⏱</span>` : ''}</span>
       <span class="tc2-right"><span style="color:var(--accent);font-weight:800">${appliedPoints(t).toFixed(1)} ชม.</span></span>
@@ -14983,11 +14989,28 @@ function autoCompleteCountdownShort(t){
 }
 // Board redesign — days to Due as a short relative label ("อีก 2 วัน" / "วันนี้" / "เลย 1 วัน"), shared by the
 // Kanban card, the hover popover and the All Work Queue so all three always agree.
+// Working days in (from, to] — e.g. Fri → Mon = 1.
+function workingDaysBetween(from, to){
+  let d = new Date(from+'T00:00:00'), n = 0;
+  const end = new Date(to+'T00:00:00');
+  while(d < end){
+    d.setDate(d.getDate()+1);
+    const ds = toLocalISODate(d);
+    if(!isWeekend(ds) && !isPublicHoliday(ds)) n++;
+  }
+  return n;
+}
 function dueRelative(t){
   if(!t.prefer_delivery_date) return {txt:'—', late:false, days:null};
-  const today = new Date(todayISO()+'T00:00:00');
-  const d = new Date(String(t.prefer_delivery_date).slice(0,10)+'T00:00:00');
-  const days = Math.round((d-today)/86400000);
+  // Krissha — "เดดไลน์วันศุกร์ วันจันทร์ต้องเลยมา 1 วันทำงาน": counted in WORKING days (weekends + Thai
+  // public holidays skipped, same isWeekend/isPublicHoliday the capacity engine uses), not calendar days.
+  const today = todayISO();
+  const dl = String(t.prefer_delivery_date).slice(0,10);
+  let days = 0;
+  if(dl!==today){
+    const bd = workingDaysBetween(dl<today?dl:today, dl<today?today:dl);
+    days = dl<today ? -Math.max(1, bd) : Math.max(1, bd);
+  }
   const finished = ['delivered','rejected','closed_max_revision'].includes(t.review_status);
   if(days<0) return {txt:`เลย ${-days} วัน`, late:!finished, days};
   if(days===0) return {txt:'วันนี้', late:false, days};
@@ -15001,6 +15024,22 @@ function platformChipHTML(p){
 }
 function taskPlatforms(t){ return (Array.isArray(t.platform) ? t.platform : []).filter(Boolean); }
 function taskRequesterName(t){ return findUserByEmail(t.project_owner_email)?.name || t.project_owner_email || '—'; }
+// Krissha — "ตอนส่งงานแล้ว AW มันมีเพิ่ม ตอนใส่เหตุผล มันไม่ขึ้นในการ์ด": Scope Change reasons (recorded by
+// Check Quantity / Adjust Scope into taskScope(t).changes) surfaced on the Kanban card, hover popover,
+// Work Scope card and the Artwork cards a change created — not just in email/history.
+function scopeChangesOf(t){ return (t && t.scope && Array.isArray(t.scope.changes)) ? t.scope.changes.filter(c=>c.delta) : []; }
+function scopeChangeLine(c){
+  return `${c.type==='artwork'?'Artwork':'Resize'} ${c.before} → ${c.after} (${c.delta>0?'+':''}${c.delta})`;
+}
+function scopeChangeChipHTML(t){
+  const ch = scopeChangesOf(t); if(!ch.length) return '';
+  const aw = ch.filter(c=>c.type==='artwork').reduce((n,c)=>n+c.delta,0);
+  const rs = ch.filter(c=>c.type==='resize').reduce((n,c)=>n+c.delta,0);
+  const label = [aw?`AW ${aw>0?'+':''}${aw}`:'', rs?`RS ${rs>0?'+':''}${rs}`:''].filter(Boolean).join(' ');
+  if(!label) return '';
+  const tip = ch.map(c=>`${scopeChangeLine(c)} — ${c.reason||'-'}`).join('\n');
+  return `<span class="scope-chip" title="${escAttr(tip)}">${label}</span>`;
+}
 function cardPlatformMetaHTML(t){
   const plats = taskPlatforms(t);
   return plats.length
@@ -15035,7 +15074,7 @@ function taskCardHTML(t){
     ${canEditBriefTask(t) ? `<button type="button" class="iconbtn tc2-edit" data-editbrief="${t.task_id}" title="Edit Brief" onclick="event.stopPropagation()">✎</button>` : ''}
     <div class="tc2-title">${escAttr(taskDisplayName(t))}</div>
     <div class="tc2-meta">
-      <span class="tc2-left">${platHTML}<span class="tc2-due${due.late?' late':''}">⏰ ${due.txt}</span>${boardCardFlagsHTML(t, false, extPending)}</span>
+      <span class="tc2-left">${platHTML}<span class="tc2-due${due.late?' late':''}">⏰ ${due.txt}</span>${scopeChangeChipHTML(t)}${boardCardFlagsHTML(t, false, extPending)}</span>
       <span class="tc2-right">${linkPill}<span class="tc2-av${assignee?'':' none'}" title="${escAttr(assignee||'Pending Assignment')}">${assignee?escAttr(assignee.trim().charAt(0).toUpperCase()):'?'}</span></span>
     </div>
     ${countdown ? `<div class="hint" style="font-weight:700;color:var(--accent);margin-top:4px">⏳ ${countdown}</div>` : ''}
@@ -15778,6 +15817,12 @@ function renderWorkScopeCard(t){
         <div class="hint">${sc.confirmed.artwork_count} Confirmed${awDelta?` · ${awDelta>0?'+':''}${awDelta} Added during Production`:''}</div></div>
       <div><div class="hint">Resize</div><div style="font-weight:700;font-size:18px">${cur.resize_count} <span class="hint" style="font-weight:400;font-size:12px">Current</span></div>
         <div class="hint">${sc.confirmed.resize_count} Confirmed${rsDelta?` · ${rsDelta>0?'+':''}${rsDelta} Added during Production`:''}</div></div>
+    </div>
+    <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:8px">
+      ${scopeChangesOf(t).map(c=>`<div style="padding:6px 0;font-size:12px">
+        <div style="font-weight:700">${scopeChangeLine(c)} <span class="hint" style="font-weight:500">· ${escAttr(c.recordedBy||'-')} · ${c.createdAt?fmtDate(c.createdAt):''}</span></div>
+        <div style="color:var(--ink-soft);margin-top:2px;white-space:pre-wrap">เหตุผล: ${escAttr(c.reason||'-')}${c.requestedBy?` · Requested by: ${escAttr(c.requestedBy)}`:''}</div>
+      </div>`).join('')}
     </div>`;
 }
 // Scope History (Final Workflow Update §12): the single audit timeline from Brief → Preflight → every
@@ -15991,7 +16036,11 @@ function renderArtworkChecklistCard(t){
     ${arr.map((aw,i)=>{
       const complete = ARTWORK_REQUIRED_FIELDS.every(f=>aw[f.key] && String(aw[f.key]).trim());
       const meta = complete ? ARTWORK_STATUS_META.complete : ARTWORK_STATUS_META.partial;
-      const metaLine = (aw.brief || aw.header || '').trim();
+      let metaLine = escAttr((aw.brief || aw.header || '').trim());
+      if(!metaLine && aw.created_from_scope_change_id){
+        const ch = scopeChangesOf(t).find(c=>c.id===aw.created_from_scope_change_id);
+        metaLine = `<span style="color:var(--std-tx);font-weight:700">➕ เพิ่มระหว่าง Production</span>${ch&&ch.reason?` — ${escAttr(ch.reason)}`:''}`;
+      }
       // When this task has real per-artwork Canvas data, clicking a row switches the Canvas / Brief
       // Content / Images panels above to that Artwork — same numbering the Requester used (Task #76).
       return `<div class="aw-card ${i===activeIdx?'active':''}" style="${perArtwork?'cursor:pointer':'cursor:default'}" ${perArtwork?`data-taskwsartwork="${i}"`:''}>
@@ -28062,6 +28111,7 @@ const STUDIOFLOW_HTML = "<title>Studio Flow</title>\n<!-- \u00a7Font Standardiza
         ${row('Due Date', t.prefer_delivery_date?`${fmtDate(t.prefer_delivery_date)} · <span class="${due.late?'late':''}">${due.txt}</span>`:'—')}
         ${row('Est. Hours', appliedPoints(t).toFixed(2)+' h')}
         ${row('Status', escAttr(STATUS_LABEL[t.review_status]||t.review_status||'—'))}
+        ${scopeChangesOf(t).length ? row('Scope Change', scopeChangesOf(t).map(c=>`<div><b>${scopeChangeLine(c)}</b><div style="color:var(--ink-soft);white-space:pre-wrap">${escAttr(c.reason||'-')}</div></div>`).join('')) : ''}
       </table>`;
     const r = node.getBoundingClientRect(), W = 290, gap = 8;
     p.style.left = '0px'; p.style.top = '0px';
