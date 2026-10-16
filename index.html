@@ -2302,6 +2302,103 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 .todo-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .todo-filters select,.todo-filters input{width:auto;padding:6px 9px;font-size:12px}
 .todo-reason-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+/* Compact Create New Brief: preserve the original white/purple form style. */
+#briefForm .brief-stepper{display:none}
+#briefForm .formgrid{display:block}
+#briefForm .brief-steps{width:100%;min-width:0}
+#briefForm [data-brief-parked]{display:none!important}
+#briefForm #awQuickNamesWrap{display:none}
+#briefForm #step-basic input:not([type=hidden]):not([type=checkbox]),
+#briefForm #step-basic select,
+#briefForm .requester-card input:not([type=hidden]),
+#briefForm .brief-popup-input{height:40px;min-height:40px;max-height:40px;box-sizing:border-box;font:inherit;font-size:13px;line-height:normal}
+#briefForm #step-basic select{appearance:none;padding:0 32px 0 12px;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 18px,calc(100% - 12px) 18px;background-size:5px 5px;background-repeat:no-repeat}
+#briefForm #step-basic .tn-combo{height:40px;min-height:40px;box-sizing:border-box;align-items:center}
+#briefForm #step-basic .tn-combo input{height:38px!important;min-height:38px!important;max-height:38px!important}
+#briefForm #step-basic .tn-prefix{min-height:0;max-height:38px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#briefForm #step-basic .row4>.field>label{min-height:20px}
+.brief-detail-launchers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;margin:18px 0}
+.brief-detail-launchers .field{min-width:0;margin:0}
+.brief-detail-launchers label{font-size:12px;margin-bottom:7px;display:block;font-weight:600}
+.brief-popup-input{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:0 12px;text-align:left;border:1px solid var(--line);border-radius:9px;color:var(--text);background:var(--surface-solid);cursor:pointer}
+.brief-popup-input>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.brief-popup-input:hover{border-color:var(--primary,#635dff)}
+.brief-detail-modal-bg{z-index:121}
+#awApplyPromptPortal .modal-bg,#deliverShrinkPortal .modal-bg{z-index:125}
+.brief-detail-modal{width:min(680px,calc(100vw - 28px));max-width:680px;max-height:90vh;overflow:auto;padding:22px}
+.brief-popup-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.brief-popup-head h3{margin:0}
+.brief-popup-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.brief-popup-count{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:10px}
+#briefPopupBody textarea{width:100%;min-height:140px;resize:vertical}
+#briefPopupBody>#step-artworks,#briefPopupBody>#step-priority{margin:0;border:0;padding:0;box-shadow:none;background:transparent}
+#briefPopupBody .step-title,#briefPopupBody .ebl-card{display:none}
+#briefPopupBody:has(#step-priority){min-height:350px}
+#briefPopupBody .prioritydate-row{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:18px}
+#briefPopupBody:has(#step-artworks){min-width:0}
+#briefDetailPopup:has(#step-artworks) .brief-detail-modal{max-width:960px;width:min(960px,calc(100vw - 28px))}
+@media(max-width:760px){.brief-detail-launchers{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}}
+@media(max-width:560px){.brief-detail-modal{padding:16px}#briefPopupBody .prioritydate-row{grid-template-columns:1fr}#briefForm #step-basic input:not([type=hidden]),#briefForm #step-basic select,#briefForm .brief-popup-input{font-size:16px}#briefForm #step-basic .row4>.field>label{min-height:36px}.brief-detail-launchers label{min-height:32px}}
+
+
+/* Reviewed compact form with live summary. */
+#briefForm #briefFinalCheckCard .fc-progressbar{margin:8px 0;height:5px}
+#briefForm #briefFinalCheckCard .fc-statusarea{padding:8px 10px}
+#briefForm #briefFinalCheckCard .fc-chiprow{margin-top:4px}
+
+#briefForm .brief-review-layout{display:grid;grid-template-columns:minmax(0,3fr) minmax(240px,1fr);gap:18px;align-items:start}
+#briefForm .formgrid{min-width:0;margin:0}
+#briefForm .brief-steps{gap:12px}
+#briefForm .section-card{padding:14px;margin:0}
+#briefForm .field{margin-bottom:10px;min-width:0}
+#briefForm .step-title{margin-bottom:12px}
+#briefForm .brief-detail-launchers{gap:10px;margin:0}
+#briefForm .brief-detail-launchers label{font-size:11px;margin-bottom:6px}
+#briefForm .brief-detail-launchers .field{margin:0}
+#briefForm .brief-assignment-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start;margin-top:4px}
+#briefForm #designerField{margin-top:0!important}
+#briefForm .brief-assignment-row label{display:block;min-height:20px;margin-bottom:6px}
+#briefForm #step-basic .row2,#briefForm #step-basic .row4{gap:12px}
+#briefForm #briefFinalCheckCard{padding:12px}
+#briefForm #briefFinalCheckCard .fc-subtitle{display:none}
+#briefForm #ownerAutoPreview:empty{display:none}
+#briefForm .requester-card label span{color:var(--muted);cursor:help}
+.brief-live-preview{position:sticky;top:16px;min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--surface-solid,#fff);padding:14px;max-height:calc(100vh - 40px);overflow:auto}
+.brief-live-preview h3{font-size:14px;margin:0 0 10px}
+.brief-preview-row{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:9px 0;font:inherit;cursor:pointer}
+.brief-preview-row span{display:block;font-size:11px;color:var(--muted);margin-bottom:3px}
+.brief-preview-row strong{display:block;font-size:12px;font-weight:500;overflow-wrap:anywhere;white-space:pre-line}
+.brief-preview-row:hover strong,.brief-preview-edit{color:var(--accent)}
+.brief-preview-artworks details{border-bottom:1px solid var(--line);padding:9px 0;font-size:12px}
+.brief-preview-artworks summary{cursor:pointer;overflow-wrap:anywhere;font-weight:600}
+.brief-preview-artworks p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;margin:8px 0}
+.brief-preview-edit{border:0;background:none;padding:5px 0;font:inherit;font-size:11px;cursor:pointer}
+.brief-preview-refs{overflow-wrap:anywhere;font-size:11px}
+#briefDetailPopup .brief-detail-modal{padding:16px;max-width:620px;width:min(620px,calc(100vw - 28px))}
+#briefDetailPopup:has(#step-artworks) .brief-detail-modal{max-width:780px;width:min(780px,calc(100vw - 28px))}
+#briefDetailPopup .brief-popup-head{margin-bottom:10px}
+#briefDetailPopup .brief-popup-footer{margin-top:12px;padding-top:10px}
+#briefPopupBody #briefLinksText{height:80px;min-height:72px}
+#briefPopupBody #f_brief{height:260px;min-height:220px}
+#briefPopupBody .aw-tab{padding:5px 9px;font-size:11px;min-height:30px}
+#briefPopupBody .aw-tab-name{max-width:115px}
+#briefPopupBody .aw-tabsbar{margin-bottom:8px}
+#briefPopupBody .vbe-inputs{padding:12px}
+@media(max-width:1100px){#briefForm .brief-review-layout{grid-template-columns:1fr}.brief-live-preview{position:static;max-height:none}#briefForm .brief-detail-launchers{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){#briefForm .brief-assignment-row{grid-template-columns:1fr}#briefForm .brief-review-layout{gap:12px}}
+
+
+/* Compact reference area and larger content field. */
+#briefPopupBody .refimg-row{grid-template-columns:1fr;gap:8px;margin-top:8px}
+#briefPopupBody .refimg-row>.field{margin-bottom:0}
+#briefPopupBody .refquickadd{margin:0}
+#briefPopupBody .reflist:empty{display:none}
+#briefPopupBody .refquickadd-more{margin-top:4px}
+#briefPopupBody .vbe-inputs-grid{gap:8px}
+#briefPopupBody .vbe-inputs{padding:10px}
+#briefPopupBody .vbe-inputs-head{margin-bottom:8px}
+#briefPopupBody .refquickadd-row{gap:8px}
+
 </style>
 </head>
 <body>
@@ -3011,8 +3108,97 @@ const THAI_HOLIDAYS_2026 = [
   "2026-05-01","2026-05-04","2026-05-31","2026-07-28","2026-08-12",
   "2026-10-13","2026-10-16","2026-10-23","2026-12-05","2026-12-10","2026-12-31",
 ];
-function isWeekend(dateStr){ const dow = new Date(dateStr+"T00:00:00").getDay(); return dow===0||dow===6; }
-function isPublicHoliday(dateStr){ return THAI_HOLIDAYS_2026.includes(dateStr); }
+// Company decisions override the baseline calendar, including weekend workdays.
+function calendarOverride(dateStr){ return (STATE.companyCalendar?.overrides||{})[dateStr]; }
+function isWeekend(dateStr){
+  if(calendarOverride(dateStr)) return false;
+  const dow=new Date(dateStr+'T00:00:00').getDay(); return dow===0||dow===6;
+}
+function isPublicHoliday(dateStr){
+  const override=calendarOverride(dateStr);
+  return override ? override.type==='holiday' : (STATE.companyCalendar?.publicHolidays||THAI_HOLIDAYS_2026).includes(dateStr);
+}
+function validCalendarDate(value){
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !isNaN(Date.parse(value)) && new Date(value+'T00:00:00Z').toISOString().slice(0,10)===value;
+}
+function defaultCompanyCalendar(){
+  return {publicHolidays:[...THAI_HOLIDAYS_2026],source:'ปฏิทินตั้งต้นที่มีในระบบ (2026)',overrides:{'2026-10-16':{type:'working',reason:'วันทำงานบริษัท ตามที่ผู้ดูแลยืนยัน',updated_at:'2026-10-16T11:28:35+07:00'}},history:[]};
+}
+async function refreshCompanyCalendar(){
+  try{
+    const raw=await window.storage.get('wt_company_calendar',true);
+    if(!raw) return false;
+    const next=JSON.parse(raw.value);
+    if(!next || !Array.isArray(next.publicHolidays) || !next.overrides) return false;
+    if(JSON.stringify(next)===JSON.stringify(STATE.companyCalendar)) return false;
+    STATE.companyCalendar=next;return true;
+  }catch(e){return false;}
+}
+function renderCompanyCalendarCard(){
+  const cal=STATE.companyCalendar||defaultCompanyCalendar();
+  const year=STATE.companyCalendarYear||todayISO().slice(0,4);
+  const dates=[...new Set([...cal.publicHolidays,...Object.keys(cal.overrides)])].filter(d=>d.startsWith(year+'-')).sort();
+  return `<div class="card" style="margin-bottom:16px;max-width:850px">
+    <h3>ปฏิทินวันทำงานบริษัท</h3>
+    <p class="hint">ใช้วันหยุดจากปฏิทินตั้งต้นก่อน แล้วกำหนดทับเป็นวันทำงานหรือวันหยุดบริษัทได้ รวมถึงเสาร์–อาทิตย์ มีผลต่อ Capacity, SLA และการนับวันทำงาน ไม่เปลี่ยน Deadline ของงานเดิมอัตโนมัติ</p>
+    <p class="hint">แหล่งข้อมูล: ${escAttr(cal.source||'ปฏิทินที่นำเข้า')} · ไม่ได้เชื่อม API วันหยุดสด · นำเข้าปฏิทินปีอื่นด้วยไฟล์ .ics ได้</p>
+    <form id="companyCalendarForm">
+      <div class="form-grid"><div class="field"><label>วันที่</label><input type="date" id="ccDate" required value="${todayISO()}"></div>
+      <div class="field"><label>กำหนดสถานะบริษัท</label><select id="ccType"><option value="working">วันทำงานบริษัท (เปิด Capacity)</option><option value="holiday">วันหยุดบริษัท (ปิด Capacity)</option><option value="default">กลับไปใช้ปฏิทินตั้งต้น</option></select></div></div>
+      <div class="field"><label>ชื่อวันหยุด / เหตุผล</label><input id="ccReason" required maxlength="300" placeholder="เช่น บริษัททำงานตามปกติ / หยุดชดเชย"></div>
+      <button class="btn btn-primary" type="submit">บันทึกวันทำงาน / วันหยุด</button>
+    </form>
+    <div class="field" style="margin-top:16px"><label>นำเข้าวันหยุดจากปฏิทิน (.ics)</label><input type="file" id="ccImport" accept=".ics,text/calendar"><span class="hint">รับเฉพาะกิจกรรมทั้งวัน เพิ่มในปฏิทินตั้งต้น โดยไม่ทับวันที่บริษัทกำหนดเอง</span></div>
+    <div class="field"><label>ปี ค.ศ.</label><input type="number" id="ccYear" min="2000" max="2200" value="${escAttr(year)}"></div>
+    <div style="overflow:auto"><table><thead><tr><th>วันที่</th><th>ปฏิทินตั้งต้น</th><th>สถานะบริษัทที่ใช้จริง</th><th>เหตุผล</th><th></th></tr></thead><tbody>
+    ${dates.map(d=>{const o=cal.overrides[d];return `<tr><td>${fmtDate(d)}</td><td>${cal.publicHolidays.includes(d)?'วันหยุด':'วันทำงาน / สุดสัปดาห์'}</td><td>${isWeekend(d)||isPublicHoliday(d)?'วันหยุดบริษัท':'วันทำงานบริษัท'}${o?' · กำหนดเอง':''}</td><td>${escAttr(o?.reason||'ตามปฏิทินตั้งต้น')}</td><td><button type="button" class="btn btn-sm btn-ghost" data-ccedit="${d}">แก้ไข</button></td></tr>`;}).join('')||'<tr><td colspan="5">ยังไม่มีข้อมูลวันหยุดของปีนี้ — นำเข้าปฏิทินหรือเพิ่มวันที่ได้</td></tr>'}
+    </tbody></table></div>
+  </div>`;
+}
+function bindCompanyCalendar(){
+  document.getElementById('ccYear')?.addEventListener('change',e=>{STATE.companyCalendarYear=String(e.target.value);render();});
+  document.querySelectorAll('[data-ccedit]').forEach(btn=>btn.addEventListener('click',()=>{
+    const date=btn.dataset.ccedit,o=calendarOverride(date);
+    document.getElementById('ccDate').value=date;
+    document.getElementById('ccType').value=o?.type||'default';
+    document.getElementById('ccReason').value=o?.reason||'';
+    document.getElementById('companyCalendarForm').scrollIntoView({block:'center',behavior:'smooth'});
+  }));
+  document.getElementById('companyCalendarForm')?.addEventListener('submit',async e=>{
+    e.preventDefault(); if(!hasAdminAccess()) return;
+    const date=document.getElementById('ccDate').value,type=document.getElementById('ccType').value,reason=document.getElementById('ccReason').value.trim();
+    if(!validCalendarDate(date)||!['working','holiday','default'].includes(type)||!reason){toast('กรุณาระบุวันที่ สถานะ และเหตุผลให้ครบ');return;}
+    await refreshCompanyCalendar();
+    const next=JSON.parse(JSON.stringify(STATE.companyCalendar||defaultCompanyCalendar()));
+    const before=next.overrides[date]||null;
+    if(type==='default') delete next.overrides[date];
+    else next.overrides[date]={type,reason,updated_at:nowIso(),updated_by:STATE.auth.user?.name||STATE.auth.identity};
+    next.history=(next.history||[]).concat([{date,before,after:next.overrides[date]||null,reason,at:nowIso(),by:STATE.auth.user?.name||STATE.auth.identity}]);
+    if(await saveKey('wt_company_calendar',next)){STATE.companyCalendar=next;toast('บันทึกแล้ว — Capacity และวันทำงานใช้ปฏิทินบริษัท');render();}
+  });
+  document.getElementById('ccImport')?.addEventListener('change',async e=>{
+    if(!hasAdminAccess()) return;
+    const file=e.target.files[0];if(!file)return;
+    if(file.size>2000000){toast('ไฟล์ปฏิทินต้องไม่เกิน 2 MB');return;}
+    try{
+      const text=(await file.text()).replace(/\r?\n[ \t]/g,'');
+      const dates=[];
+      for(const event of text.split('BEGIN:VEVENT').slice(1)){
+        const m=event.match(/(?:^|\n)DTSTART(?:;VALUE=DATE)?:(\d{4})(\d{2})(\d{2})\r?(?:\n|$)/);
+        if(!m)continue;
+        const d=`${m[1]}-${m[2]}-${m[3]}`;if(validCalendarDate(d))dates.push(d);
+      }
+      if(!dates.length){toast('ไม่พบกิจกรรมวันหยุดทั้งวันในไฟล์ .ics');return;}
+      if(!confirm(`นำเข้า ${new Set(dates).size} วันเป็นวันหยุดตั้งต้น? วันที่บริษัทกำหนดเองยังคงเดิม`)) return;
+      await refreshCompanyCalendar();
+      const next=JSON.parse(JSON.stringify(STATE.companyCalendar||defaultCompanyCalendar()));
+      next.publicHolidays=[...new Set([...next.publicHolidays,...dates])].sort();next.source='ปฏิทินตั้งต้น + '+file.name;
+      next.history=(next.history||[]).concat([{action:'IMPORT_CALENDAR',dates:[...new Set(dates)],at:nowIso(),by:STATE.auth.user?.name||STATE.auth.identity}]);
+      if(await saveKey('wt_company_calendar',next)){STATE.companyCalendar=next;toast('นำเข้าปฏิทินแล้ว โดยคงวันทำงาน/วันหยุดที่กำหนดเอง');render();}
+    }catch(err){toast('อ่านปฏิทินไม่สำเร็จ กรุณาตรวจไฟล์ .ics');}
+  });
+}
+
 const URGENCY_REASONS = ["Campaign Launch","Live / Event","Marketplace Deadline","Client Deadline","Management Request","Production Emergency","Last-minute Business Requirement","Other"];
 // Format a Date using its LOCAL calendar fields (not toISOString, which converts to UTC and
 // rolls back to the previous day for any positive UTC offset, e.g. Thailand UTC+7).
@@ -3142,7 +3328,7 @@ function evaluateDelivery(person, dateStr, taskPoints, priority){
   // load side instead of the ceiling side) — leave's effect on overCapacity remains intentionally out of
   // scope here, unchanged pre-existing behavior, so this only ever adds a new reason to split/approve, never
   // removes one.
-  const effectiveCap = DAILY_CAP;
+  const effectiveCap = dayLoadFor(person, dateStr).cap;
   const overCapacity = projected > effectiveCap;
   if(!needsApproval && overCapacity){
     // Auto Capacity Allocation (Dev Handoff spec): Standard priority cascades forward across as many
@@ -3323,6 +3509,7 @@ let STATE = {
   // Sidebar is a normal flex column again. Reset to false on every navigation — see resetLeftPageEphemeralState().
   mobileSidebarOpen:false,
   tasks:[], leaves:[], products:[], notifications:[],
+  companyCalendar:defaultCompanyCalendar(), companyCalendarYear:null,
   // Auto Backups admin card (see renderAutoBackupsCard()) — null means "not fetched yet this session",
   // lazily loaded the first time that card is actually rendered rather than at boot.
   autoBackupsList:null, autoBackupsLoading:false,
@@ -4289,7 +4476,7 @@ const IMPORTANT_CHANGE_FIELDS = [
   {key:'project_owner_email', label:'Brief Owner', fmt:v=>v||'—', important:false},
 ];
 // DEV REQUEST — Allow Brief Owner to Edit Brief + Keep Full Change Log §6 — for a list-type field
-// (Platform, External Brief Links, per-artwork References/Attachments), never log the whole
+// (Platform, Brief Links, per-artwork References/Attachments), never log the whole
 // before-array vs whole-after-array — compute exactly what was Added and Removed, so History reads as
 // "Added X" / "Removed Y" instead of two long lists the reader has to diff themselves.
 function diffListField(beforeArr, afterArr, keyFn, labelFn){
@@ -4319,10 +4506,10 @@ function diffBriefFields(before, after){
       before: platDiff.removed.length ? `Removed: ${platDiff.removed.join(', ')}` : '—',
       after: platDiff.added.length ? `Added: ${platDiff.added.join(', ')}` : '—', important:true});
   }
-  // External Brief Links — Added/Removed by URL.
+  // Brief Links — Added/Removed by URL.
   const linkDiff = diffListField(before.external_brief_links, after.external_brief_links, l=>l.url, l=>l.label||l.url);
   if(linkDiff.changed){
-    changes.push({field:'external_brief_links', label:'External Brief Links',
+    changes.push({field:'external_brief_links', label:'Brief Links',
       before: linkDiff.removed.length ? `Removed: ${linkDiff.removed.join(', ')}` : '—',
       after: linkDiff.added.length ? `Added: ${linkDiff.added.join(', ')}` : '—', important:false});
   }
@@ -4367,6 +4554,9 @@ function diffBriefFields(before, after){
 
 /* ============================= STORAGE ============================= */
 async function loadData(){
+  try{ const raw=await window.storage.get('wt_company_calendar',true); STATE.companyCalendar=raw?JSON.parse(raw.value):defaultCompanyCalendar();
+    if(!raw) await saveKey('wt_company_calendar',STATE.companyCalendar);
+  }catch(e){STATE.companyCalendar=defaultCompanyCalendar();}
   const keys = {tasks:'wt_tasks', leaves:'wt_leaves', products:'wt_products', notifications:'wt_notifications',
     users:'wt_users', departments:'wt_departments', drafts:'wt_drafts', internalTasks:'wt_internal_tasks',
     notifDeliveryLog:'wt_notif_delivery_log', pdpPlatforms:'wt_pdp_platforms', bannerPlatforms:'wt_banner_platforms'};
@@ -5363,7 +5553,7 @@ function addBusinessDays(dateStr, days){
     d.setDate(d.getDate()+1);
     const ds = toLocalISODate(d);
     const day = d.getDay();
-    if(day!==0 && day!==6 && !isPublicHoliday(ds)) added++;
+    if(!isWeekend(ds) && !isPublicHoliday(ds)) added++;
   }
   return toLocalISODate(d);
 }
@@ -5433,7 +5623,7 @@ function pointsPerPiece(t){
   return masterOnly / pieces;
 }
 function revisionRoundPoints(t, r){
-  return Math.round(pointsPerPiece(t) * (Number(r.pieces)||0) * (Number(r.rate)||0) * 100)/100;
+  return Math.round(pointsPerPiece(t) * (Number(r.pieces)||0) * REVISION_FLAT_RATE * 100)/100;
 }
 // Legacy tasks (revised before this rule existed) only have revise_status — treat that as one round on
 // every piece at that rate, dated at their latest REQUEST_REVISION, so old data still shows sensibly.
@@ -5579,7 +5769,31 @@ function revisionLoadOnDate(t, dateStr){
   return Math.round(taskRevisions(t).filter(r=>r.date===dateStr).reduce((s,r)=>s+revisionRoundPoints(t,r),0)*100)/100;
 }
 function taskLoadOnDate(t, dateStr){
+  const r=activeRevision(t);
+  if(dateStr>=todayISO() && r) return r.deadline===dateStr ? revisionRoundPoints(t,r) : 0;
   return Math.round((masterLoadOnDate(t,dateStr) + revisionLoadOnDate(t,dateStr))*100)/100;
+}
+// Company schedule: 09:00–12:00 / 13:00–18:00, Asia/Bangkok (8 hours).
+function remainingOfficeHours(dateStr, now=new Date(), deadlineTime='18:00'){
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).map(p=>[p.type,p.value]));
+  const day = `${parts.year}-${parts.month}-${parts.day}`;
+  if(dateStr<day) return 0;
+  const minute = dateStr===day ? Number(parts.hour)*60+Number(parts.minute) : 0;
+  const [h,m] = deadlineTime.split(':').map(Number);
+  const end = Math.min(1080,h*60+m);
+  return [[540,720],[780,1080]].reduce((sum,[a,b])=>sum+Math.max(0,Math.min(b,end)-Math.max(a,minute))/60,0);
+}
+function designerHandoff(t){ return ['pending_review','pending_client_review','delivered'].includes(t.review_status); }
+function activeRevision(t){ return [...taskRevisions(t)].reverse().find(r=>r.deadline && !r.submitted_at && !r.legacy); }
+function designerDeadline(t){ return activeRevision(t)?.deadline || t.prefer_delivery_date || ''; }
+function markDesignerSubmitted(t, at){
+  t.designer_completed_at=at;
+  const r=activeRevision(t);
+  if(r){r.submitted_at=at;r.submitted_pieces=r.pieces;}
+  const start=t.designer_active_started_at || t.started_at;
+  if(start) t.designer_work_ms=(Number(t.designer_work_ms)||0)+Math.max(0,new Date(at)-new Date(start));
+  t.designer_active_started_at=null;
+  t.designer_submissions=(t.designer_submissions||[]).concat([{at,deadline:r?.deadline||t.prefer_delivery_date,deadline_time:r?.deadline_time||'18:00',pieces:r?.pieces||Number(t.deliverables)||1,revision_round:r?.round||0,equivalent_pieces:r? r.pieces*0.25 : Number(t.deliverables)||1}]);
 }
 function dayLoadFor(person, dateStr, excludeId){
   // DEV SPEC — My Work Kanban + Time Tracking + Capacity §4 "Release Capacity": capacity must free up the
@@ -5622,7 +5836,7 @@ function dayLoadFor(person, dateStr, excludeId){
   // productionLoad (points only) and productionCap (hours left for production after Leave + Internal Work)
   // are reported on their own for the surfaces that must show them side by side and never as one number.
   const r2 = n=>Math.round(n*100)/100;
-  const capAfterLeave = r2(DAILY_CAP - leaveDeduct);
+  const capAfterLeave = r2(Math.min(DAILY_CAP - leaveDeduct, dateStr===todayISO() ? remainingOfficeHours(dateStr) : DAILY_CAP));
   return {taskLoad: r2(taskLoad + internalDeduct), leaveDeduct, internalDeduct,
     cap: capAfterLeave,
     productionLoad: r2(taskLoad), overdueLoad: r2(overdueLoad),
@@ -5635,6 +5849,7 @@ function isTaskOpenForDesigner(t){ return isTaskStillInWorkQueue(t); }
 // Points of `t` that were planned on a day BEFORE `today` (its deadline, or the earlier days of an
 // Auto-Split allocation) — i.e. the part that is overdue and must count on today instead.
 function overdueCarryLoadFor(t, today){
+  const r=activeRevision(t); if(r) return r.deadline<today ? revisionRoundPoints(t,r) : 0;
   if(Array.isArray(t.capacity_allocation) && t.capacity_allocation.length){
     return t.capacity_allocation.filter(a=>a.date<today).reduce((s,a)=>s+masterLoadOnDate(t,a.date),0)
       + taskRevisions(t).filter(r=>r.date<today).reduce((s,r)=>s+revisionRoundPoints(t,r),0);
@@ -5665,6 +5880,11 @@ function taskLoggedHours(taskId, beforeDate){
 // 1 Point = 1 Hour. Remaining = task hours − logged, never below 0; a task no longer open has none left.
 function taskRemainingHours(t){
   if(!isTaskOpenForDesigner(t)) return 0;
+  const revision=activeRevision(t);
+  if(revision){
+    const logged=(STATE.dailyTodos||[]).filter(r=>r.source==='assigned' && r.taskId===t.task_id).reduce((a,r)=>a+(Number(r.actualHours)||0),0);
+    return Math.max(0,Math.round((revisionRoundPoints(t,revision)-Math.max(0,logged-(revision.logged_hours_at_request||0)))*100)/100);
+  }
   return Math.max(0, Math.round((appliedPoints(t) - taskLoggedHours(t.task_id))*100)/100);
 }
 function taskRemainingRatio(t){
@@ -5672,7 +5892,7 @@ function taskRemainingRatio(t){
   // it comes back as a Revision, since that status is open again).
   if(QUEUE_HANDED_OFF_STATUSES.includes(t.review_status)) return 0;
   if(!isTaskOpenForDesigner(t)) return 1;
-  const total = appliedPoints(t);
+  const total = activeRevision(t) ? revisionRoundPoints(t,activeRevision(t)) : appliedPoints(t);
   return total>0 ? taskRemainingHours(t)/total : 1;
 }
 
@@ -8222,8 +8442,9 @@ function myWorkKanbanTimerHTML(t, colKey){
   const phase = colKey==='in_progress' ? 'กำลังทำ' : colKey==='revision' ? 'Revision' : '';
   if(!t.prefer_delivery_date) return `<div class="kanban-timer kanban-timer-active">${phase}</div>`;
   const today = todayISO();
-  if(t.prefer_delivery_date<today) return `<div class="kanban-timer kanban-timer-revision">${phase?phase+' · ':''}⚠ เลยเดทไลน์แล้ว</div>`;
-  if(t.prefer_delivery_date===today) return `<div class="kanban-timer kanban-timer-review">${phase?phase+' · ':''}ครบกำหนดวันนี้</div>`;
+  const currentDeadline=designerDeadline(t);
+  if(currentDeadline<today) return `<div class="kanban-timer kanban-timer-revision">${phase?phase+' · ':''}⚠ เลยเดทไลน์แล้ว</div>`;
+  if(currentDeadline===today) return `<div class="kanban-timer kanban-timer-review">${phase?phase+' · ':''}ครบกำหนดวันนี้</div>`;
   return `<div class="kanban-timer kanban-timer-active">${phase?phase+' · ':''}🟢 ทันเดทไลน์</div>`;
 }
 // §7 Card Design: "ไม่ควรใส่ข้อมูลเยอะเกินไป" — task name, type/platform, priority, deadline, requester,
@@ -8278,7 +8499,7 @@ function renderMyWorkKanban(me){
   // Delivered tasks no longer get a column here at all (dev prompt §1) — "เสร็จวันนี้" still shows as its
   // own stat card above, and the full history (today's finishes included) lives in the Completed History
   // section right below this board / its own page (renderMyCompletedJobs).
-  const mine = STATE.tasks.filter(t=>t.assigned_user_name===me && !['rejected','closed_max_revision','delivered'].includes(t.review_status));
+  const mine = STATE.tasks.filter(t=>t.assigned_user_name===me && !designerHandoff(t) && !['rejected','closed_max_revision'].includes(t.review_status));
   const byCol = {}; MYWORK_KANBAN_COLUMNS.forEach(c=>byCol[c.key]=[]);
   mine.forEach(t=>{
     const key = myWorkKanbanColKey(t);
@@ -8344,7 +8565,7 @@ function myWorkKanbanTryMove(taskId, targetColKey){
 // NEVER createdAt. Same rule renderMyCompletedJobs used before this dev prompt, just hoisted out so the
 // Workspace preview can share it too.
 function deliveredDateOf(t){
-  return t.actual_delivery_date || (t.completed_at ? t.completed_at.slice(0,10) : '') || t.prefer_delivery_date || '';
+  return (t.designer_completed_at || t.aw_delivery_timestamp || '').slice(0,10) || t.actual_delivery_date || (t.completed_at ? t.completed_at.slice(0,10) : '') || t.prefer_delivery_date || '';
 }
 const TH_MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
 // Year/Month grouping uses the Thai Buddhist calendar (พ.ศ. = ค.ศ. + 543), matching every date already
@@ -8369,7 +8590,7 @@ function myRoleOnTask(t, me){
 }
 function myCompletedAllTasks(me){
   const myEmail = STATE.auth.user?.email || '';
-  return STATE.tasks.filter(t=>t.review_status==='delivered' && (t.assigned_user_name===me || (t.project_owner_email && (sameEmail(t.project_owner_email, myEmail) || t.project_owner_email===me))));
+  return STATE.tasks.filter(t=>(t.review_status==='delivered' || (designerHandoff(t) && t.assigned_user_name===me)) && (t.assigned_user_name===me || (t.project_owner_email && (sameEmail(t.project_owner_email, myEmail) || t.project_owner_email===me))));
 }
 function myCompletedSearchHay(t){
   return `${taskDisplayName(t)} ${t.task_id||''} ${t.project_name||''} ${t.task_type||''} ${t.task_category||''} ${(t.platform||[]).join(' ')}`.toLowerCase();
@@ -8460,7 +8681,7 @@ function myTodayActionTasks(me){
   // "upcoming" instead of mixing it into today's count. Lead's Proof/Approval items stay in today's group
   // because they're an action waiting on her right now, whatever the Deadline.
   const tiered = mine.map(t=>{
-    const dl = t.prefer_delivery_date || '';
+    const dl = designerDeadline(t);
     const isToday = t.review_status==='pending_lead_approval' || (!!dl && dl<=today);
     let tier;
     if(t.review_status==='pending_lead_approval') tier='approval';
@@ -8592,7 +8813,7 @@ function todoIsResponsible(t, person){
   return t.assigned_user_name===person;
 }
 function todoTaskGroup(t, person, today){
-  if(TODO_COMPLETED_STATUSES.includes(t.review_status) || !todoIsResponsible(t, person)) return null;
+  if(TODO_COMPLETED_STATUSES.includes(t.review_status) || designerHandoff(t) || !todoIsResponsible(t, person)) return null;
   const dl = t.prefer_delivery_date || '';
   return dl && dl<=today ? 'today' : 'upcoming';
 }
@@ -8607,7 +8828,7 @@ function dlWorkloadFor(person, ds){
   let production = 0, overdue = 0;
   STATE.tasks.forEach(t=>{
     if(t.assigned_user_name!==person || TODO_COMPLETED_STATUSES.includes(t.review_status)) return;
-    const dl = t.prefer_delivery_date; if(!dl) return;
+    const dl = designerDeadline(t); if(!dl) return;
     if(ds===today ? dl<=today : dl===ds){
       const rem = taskRemainingHours(t);
       production += rem;
@@ -10117,7 +10338,7 @@ function newArtwork(name){
 // there is no more "shared across every Artwork" concept (removed per Krissha's Dev Summary: "ห้ามรวม
 // Reference ทุก AW ไว้เป็นกองเดียวระดับ Task" — Reference must never pool at Task level; AW01's Reference
 // must never leak under AW02). Anything that genuinely belongs to the whole Task (Master Brief, Campaign
-// Brief, Client Brief, etc.) now lives in the separate External Brief Links list (BRIEF_DRAFT.extraLinks,
+// Brief, Client Brief, etc.) now lives in the separate Brief Links list (BRIEF_DRAFT.extraLinks,
 // see renderExtraLinksHTML below) instead of a "shared" Reference.
 function detectReferenceType(url){
   const u = String(url||'').toLowerCase();
@@ -10187,7 +10408,7 @@ const ARTWORK_REQUIRED_FIELDS = [
   {key:'name', label:'Artwork Name'},
 ];
 const ARTWORK_APPLYALL_FIELDS = ['brief'];
-const ARTWORK_APPLYALL_LABELS = {brief:'Brief / Content'};
+const ARTWORK_APPLYALL_LABELS = {brief:'Brief / Content Details'};
 function artworkFieldFilled(aw, key){ return !!(aw && aw[key] && String(aw[key]).trim()); }
 function artworkMissingFields(aw){ return ARTWORK_REQUIRED_FIELDS.filter(f=>!artworkFieldFilled(aw,f.key)); }
 function artworkIsComplete(aw){ return artworkMissingFields(aw).length===0; }
@@ -10303,7 +10524,7 @@ function resetBriefDraft(){
   BRIEF_DRAFT = {
     platforms:new Set(), customPlatform:'', kv:'', kvAssetLink:'', priority:'STANDARD', prioritySource:'system_default',
     urgencyReason:'', urgencyNote:'', deptOther:'', typeOther:'', categoryOther:'', designerOverride:'',
-    // extraLinks = External Brief Links (Task-level: Master Brief/Campaign Brief/Client Brief/etc — DEV
+    // extraLinks = Brief Links (Task-level: Master Brief/Campaign Brief/Client Brief/etc — DEV
     // SPEC: Brief Links / Reference Split). Filled once per Task, shown above the Artwork Tabs, never
     // duplicated per-Artwork. Not to be confused with per-Artwork References (aw.references[]).
     mode:'unified', extraLinks:[], extraLinkDraft:'', extraLinkError:'',
@@ -10356,11 +10577,12 @@ function loadBriefDraftFromTask(t, startArtworkIndex){
   // Migrate legacy data into the new model (DEV SPEC — Brief Links / Reference Split):
   //  - each Artwork's single `brieflink` string (if any, and no references yet) seeds a one-item
   //    aw.references[] so nothing is silently dropped for older saved Tasks/Drafts.
-  //  - External Brief Links rehydrate from t.external_brief_links (the current, dedicated Task-level
+  //  - Brief Links rehydrate from t.external_brief_links (the current, dedicated Task-level
   //    field) when present; older Tasks saved before this split only have the legacy mirror
   //    bd.extra_links (which, on THOSE old tasks, doubled as the "shared reference" list) — read as a
   //    fallback so nothing already submitted silently disappears.
   artworksRehydrated = artworksRehydrated.map(a=>{
+    if(String(a.name||'').trim() && !a._autoGeneratedName) a._nameManual=true;
     if(!Array.isArray(a.references)) a.references = [];
     if(!a.references.length && a.brieflink && a.brieflink.trim()){
       a.references = [{id:uidShort('ref'), name:'Reference / Brief Link', url:a.brieflink.trim(), note:''}];
@@ -10464,7 +10686,7 @@ function buildDraftSnapshot(){
     platform: platforms,
     priority: BRIEF_DRAFT.priority,
     prefer_delivery_date: STATE.cal.selectedDate,
-    // External Brief Links (DEV SPEC — Brief Links / Reference Split): a real, dedicated Task-level
+    // Brief Links (DEV SPEC — Brief Links / Reference Split): a real, dedicated Task-level
     // field — NOT a mirror of any one Artwork — so it reads correctly no matter which Artwork tab is
     // active. Filled once by the Briefer, shown once above the Artwork Tabs, and read from this exact
     // field by every role's view (renderExternalBriefLinksCard) — see Core Rule: "External Brief = ใช้
@@ -10567,6 +10789,7 @@ let briefDraftAutosaveTimer = null;
 // write was still in the middle of recreating it, or race the deletion outright.
 let briefDraftAutosaveInFlight = null;
 function scheduleBriefDraftAutosave(){
+  if(BRIEF_POPUP) return; // Popup changes are committed or rolled back together on close.
   // BUG FIX (Krissha dev-report §10 — "Autosave ต้องรองรับทุก Role ที่สร้าง Brief ได้"): Autosave used to
   // gate on STATE.auth.role==='po' only, but a Designer/Lead with brief.create can also compose a brief
   // on someone else's behalf and deserves the exact same protection against losing typed work. Still
@@ -10681,14 +10904,14 @@ function renderPlatformSelectHTML(category){
     <div id="customPlatformWrap" style="display:${current==='อื่นๆ ระบุ'?'block':'none'};margin-top:8px"><input id="f_platform_custom" value="${BRIEF_DRAFT.customPlatform||''}" placeholder="ระบุชื่อแพลตฟอร์ม"></div>`;
 }
 
-// External Brief Links (DEV SPEC — Brief Links / Reference Split, point 1): Task-level, shown ONCE above
+// Brief Links (DEV SPEC — Brief Links / Reference Split, point 1): Task-level, shown ONCE above
 // the Artwork Tabs — Master Brief / Campaign Brief / Google Docs / Marketing Requirement / Client Brief /
 // other external links that apply to every Artwork in this Task. Filled once, never re-entered per
 // Artwork — the opposite of References & Assets (point 2), which is strictly per-Artwork and never
 // shared. Revives the pre-existing linkcard/linkrow markup+CSS (this exact list UI already existed as
 // the old standalone Attachments step, later disconnected from the DOM when References went per-Artwork
 // — see the removal note this comment replaces) rather than inventing a new pattern.
-// §2.1 Persistent Link Input (Final Workflow Update — External Brief Links): the input is always on
+// §2.1 Persistent Link Input (Final Workflow Update — Brief Links): the input is always on
 // screen — no more "กด + Add Link ก่อนจึงเห็นช่องกรอก". Pasting a URL and pressing Enter (or the button)
 // adds it immediately with a label auto-detected from the URL (detectReferenceType, same helper the
 // per-Artwork References already use), clears the box, and returns focus to it for the next paste.
@@ -10696,7 +10919,7 @@ function renderExternalBriefLinksSectionHTML(){
   const err = BRIEF_DRAFT.extraLinkError;
   return `<div class="section-card ebl-card">
     <div class="refbox-head">
-      <label style="margin:0;font-weight:800;font-size:13px">External Brief Links</label>
+      <label style="margin:0;font-weight:800;font-size:13px">Brief Links</label>
     </div>
     <div class="hint" style="margin-bottom:10px">Master Brief / Campaign Brief / Google Docs / Marketing Requirement / Client Brief / ลิงก์ภายนอกอื่นๆ — กรอกครั้งเดียว ใช้ร่วมกันทุก Artwork ใน Task นี้</div>
     <div class="refquickadd">
@@ -10805,7 +11028,7 @@ function renderExtraLinksHTML(){
 // without a full render() so the field never loses focus mid-type.
 function renderOwnerAutoPreviewHTML(email){
   const e = (email||'').trim();
-  if(!e) return `<div class="hint">พิมพ์อีเมลของ Project Owner เพื่อให้ระบบดึงชื่อ/แผนกอัตโนมัติ</div>`;
+  if(!e) return '';
   const rec = findUserByEmail(e);
   if(!rec) return `<div class="hint" style="color:var(--crit-tx)">ไม่พบบัญชีนี้ในระบบ — ยังบันทึกบรีฟได้ แต่ Requester Info จะแสดงเฉพาะอีเมลนี้</div>`;
   return `<div style="display:flex;align-items:center;gap:10px">
@@ -10813,6 +11036,147 @@ function renderOwnerAutoPreviewHTML(email){
     <div style="min-width:0"><div style="font-weight:700;font-size:13px">${rec.name}</div><div class="hint" style="margin:0">${rec.department||'—'}${rec.email?' · '+rec.email:''}</div></div>
   </div>`;
 }
+// Compact briefing layout: a single form model, with existing editors mounted inside dialogs.
+let BRIEF_POPUP = null;
+function briefAutoArtworkName(index){
+  const project=(document.getElementById('f_project')?.value||'').trim();
+  const type=(document.getElementById('f_type')?.value||'').trim();
+  return [project,type].filter(Boolean).join(' – ')+(project||type?' ':'')+String(index+1).padStart(2,'0');
+}
+function ensureBriefArtworkNames(){
+  if(!document.getElementById('briefDetailLaunchers')) return;
+  briefArtworks().forEach((aw,i)=>{
+    if(!String(aw.name||'').trim() || (aw._autoGeneratedName && aw.name===aw._autoGeneratedName)){
+      aw.name=briefAutoArtworkName(i);aw._autoGeneratedName=aw.name;
+    }
+  });
+}
+function briefPopupLines(text){return String(text).split(/\r?\n/).map(v=>v.trim()).filter(Boolean);}
+function renderBriefDetailLaunchers(){
+  return `<div id="briefDetailLaunchers" class="brief-detail-launchers">
+    <div class="field"><label>Brief Links</label><button type="button" class="brief-popup-input" data-briefpopup="links"><span id="briefLinksSummary">เพิ่มลิงก์บรีฟ</span><span aria-hidden="true">↗</span></button></div>
+    <div class="field"><label>ชื่อ Artwork</label><button type="button" class="brief-popup-input" data-briefpopup="names"><span id="briefNamesSummary">ชื่ออัตโนมัติ</span><span aria-hidden="true">↗</span></button></div>
+    <div class="field"><label>Brief / Content Details *</label><button type="button" class="brief-popup-input" data-briefpopup="content"><span id="briefContentSummary">กรอกรายละเอียดงาน</span><span aria-hidden="true">↗</span></button></div>
+    <div class="field"><label>Priority &amp; Delivery *</label><button type="button" class="brief-popup-input" data-briefpopup="delivery"><span id="briefDeliverySummary">เลือกกำหนดวันส่งงาน</span><span aria-hidden="true">↗</span></button></div>
+  </div>`;
+}
+function updateBriefDetailSummaries(){
+  if(!document.getElementById('briefDetailLaunchers'))return;
+  ensureBriefArtworkNames();
+  const arr=briefArtworks();
+  const named=arr.filter(a=>String(a.name||'').trim()).length;
+  const text=(id,value)=>{const el=document.getElementById(id);if(el){el.textContent=value;el.title=value;}};
+  text('briefNamesSummary',`ตั้งชื่อครบ ${named}/${arr.length} AW`);
+  const count=(BRIEF_DRAFT.extraLinks||[]).length;
+  text('briefLinksSummary',count?`แนบแล้ว ${count} ลิงก์`:'เพิ่มลิงก์บรีฟ');
+  const ready=arr.filter(a=>String(a.brief||a.briefContent||a.brief_content||a.content||'').trim() || (a.references||[]).length || (a.attachments||[]).length || (a.pages||[]).some(p=>(p.elements||[]).length)).length;
+  text('briefContentSummary',ready?`รายละเอียด ${ready}/${arr.length} AW`:'กรอกรายละเอียดงาน');
+  const date=STATE.cal.selectedDate || document.getElementById('f_date')?.value;
+  const label={STANDARD:'Standard',PRIORITY:'Priority',URGENT:'Urgent',CRITICAL:'Critical'}[BRIEF_DRAFT.priority]||'Standard';
+  text('briefDeliverySummary',date?`${label} · ${fmtDate(date)}`:'เลือกกำหนดวันส่งงาน');
+  updateBriefLivePreview();
+}
+function updateBriefLivePreview(){
+  const root=document.getElementById('briefLivePreview');if(!root)return;
+  const val=id=>document.getElementById(id)?.value||'';
+  const selected=id=>{const el=document.getElementById(id);return el?.value?el.options?.[el.selectedIndex]?.textContent||el.value:'';};
+  const esc=v=>escAttr(String(v||'ยังไม่ระบุ'));
+  const row=(name,value,target)=>`<button type="button" class="brief-preview-row" data-preview-target="${target}"><span>${name}</span><strong>${esc(value)}</strong></button>`;
+  const date=STATE.cal.selectedDate||val('f_date');
+  const artworks=briefArtworks();
+  const expanded=Array.from(root.querySelectorAll('details')).map(d=>d.open);
+  const owner=findUserByEmail(val('f_owner'));
+  root.innerHTML=`<h3>สรุปบรีฟ</h3><div class="brief-preview-body">${row('เจ้าของบรีฟ',owner?.name||val('f_owner'),'f_owner')}${row('แผนก',owner?.department||val('f_dept'),'f_owner')}${row('แคมเปญ',val('f_project'),'f_project')}${row('ชื่องาน',val('f_taskname'),'f_taskname_extra')}${row('หมวดงาน',selected('f_category'),'f_category')}${row('ประเภทงาน',selected('f_type'),'f_type')}${row('Platform',Array.from(BRIEF_DRAFT.platforms||[]).map(p=>p==='อื่นๆ ระบุ'?(BRIEF_DRAFT.customPlatform||p):p).join(', '),'platformPillsWrap')}${row('KV / Revise',selected('f_kv'),'f_kv')}${row('Designer',selected('f_designer'),'f_designer')}${row('จำนวน',`${artworks.length} AW · ${val('f_resize')||0} Resize`,'f_deliverables')}
+  <div class="brief-preview-artworks">${artworks.map((aw,i)=>`<details ${expanded[i]?'open':''}><summary>${i+1}. ${esc(aw.name)}</summary><button type="button" class="brief-preview-edit" data-preview-target="names">แก้ชื่อ</button><p>${esc(aw.brief||aw.briefContent||aw.brief_content||aw.content)}</p><button type="button" class="brief-preview-edit" data-preview-target="content" data-preview-aw="${i}">แก้รายละเอียด ↗</button><div class="brief-preview-refs">${[...(aw.references||[]),...(aw.attachments||[])].map(r=>esc(r.url||r.label||r.name)).join('<br>')}</div></details>`).join('')}</div>
+  ${row('Brief Links',(BRIEF_DRAFT.extraLinks||[]).map(l=>l.url).join('\n'),'links')}${row('Priority',({STANDARD:'Standard',PRIORITY:'Priority',URGENT:'Urgent',CRITICAL:'Critical'})[BRIEF_DRAFT.priority]||'Standard','delivery')}${row('กำหนดส่ง',date?fmtDate(date):'','delivery')}</div>`;
+}
+function bindBriefDetailLaunchers(){
+  const form=document.getElementById('briefForm');
+  if(form && !form.dataset.popupSubmitBound){
+    form.dataset.popupSubmitBound='1';
+    const refreshPreview=()=>queueMicrotask(updateBriefLivePreview);
+    form.addEventListener('input',refreshPreview);form.addEventListener('change',refreshPreview);
+    form.addEventListener('click',e=>{const btn=e.target.closest('[data-preview-target]');if(!btn)return;const target=btn.dataset.previewTarget;if(['links','names','content','delivery'].includes(target)){openBriefPopup(target);if(btn.dataset.previewAw){document.querySelector('[data-awtab="'+btn.dataset.previewAw+'"]')?.click();}}else{const el=document.getElementById(target);(el?.matches('input:not([type=hidden]),select,textarea,button')?el:el?.querySelector('input,select,button'))?.focus();}});
+    form.addEventListener('submit',e=>{if(BRIEF_POPUP){e.preventDefault();e.stopImmediatePropagation();closeBriefPopup(true);}},true);
+  }
+  document.querySelectorAll('[data-briefpopup]').forEach(btn=>{
+    if(btn.dataset.popupBound)return;btn.dataset.popupBound='1';
+    btn.addEventListener('click',()=>openBriefPopup(btn.dataset.briefpopup));
+  });
+  updateBriefDetailSummaries();
+}
+function openBriefPopup(kind){
+  if(BRIEF_POPUP)return;
+  const form=document.getElementById('briefForm');if(!form)return;
+  ensureBriefArtworkNames();
+  const titles={links:'Brief Links',names:'ชื่อ Artwork',content:'Brief / Content Details',delivery:'Priority & Delivery'};
+  if(!titles[kind])return;
+  const wrap=document.createElement('div');wrap.id='briefDetailPopup';
+  wrap.innerHTML=`<div class="modal-bg brief-detail-modal-bg"><div class="modal brief-detail-modal" role="dialog" aria-modal="true" aria-labelledby="briefPopupTitle"><div class="brief-popup-head"><h3 id="briefPopupTitle">${titles[kind]}</h3><button type="button" class="btn btn-ghost btn-sm" id="briefPopupClose" aria-label="ปิด">✕</button></div><div id="briefPopupBody"></div><div id="briefPopupError" class="field-error" role="alert"></div><div class="brief-popup-footer"><button type="button" class="btn btn-ghost" id="briefPopupCancel">ยกเลิก</button><button type="button" class="btn btn-primary" id="briefPopupSave">บันทึกและปิด</button></div></div></div>`;
+  const state=BRIEF_POPUP={kind,wrap,focus:document.activeElement,snapshot:JSON.parse(JSON.stringify({artworks:briefArtworks(),extraLinks:BRIEF_DRAFT.extraLinks,activeArtworkIndex:BRIEF_DRAFT.activeArtworkIndex,applyAllFields:BRIEF_DRAFT.applyAllFields,priority:BRIEF_DRAFT.priority,cal:STATE.cal})),node:null,marker:null};
+  if(briefDraftAutosaveTimer){clearTimeout(briefDraftAutosaveTimer);briefDraftAutosaveTimer=null;}
+  form.appendChild(wrap);
+  const body=document.getElementById('briefPopupBody');
+  if(kind==='names'){
+    body.innerHTML=`<p class="hint">1 บรรทัด = 1 AW · แก้ชื่อหรือวางรายชื่อจาก Excel ได้</p><label for="briefNamesText">รายชื่อ Artwork</label><textarea id="briefNamesText" rows="7">${escAttr(briefArtworks().map(a=>a.name).join('\n'))}</textarea><div class="brief-popup-count"><span id="briefNamesCount" class="hint" aria-live="polite"></span><button type="button" class="btn btn-ghost btn-sm" id="briefNamesFill">เติมชื่ออัตโนมัติที่เหลือ</button></div>`;
+    const area=document.getElementById('briefNamesText');
+    const update=()=>{document.getElementById('briefNamesCount').textContent=`ชื่อ ${briefPopupLines(area.value).length}/${briefArtworks().length} AW`;};
+    area.addEventListener('input',update);
+    document.getElementById('briefNamesFill').onclick=()=>{const lines=briefPopupLines(area.value);while(lines.length<briefArtworks().length)lines.push(briefAutoArtworkName(lines.length));area.value=lines.join('\n');update();};update();
+  }else if(kind==='links'){
+    body.innerHTML=`<p class="hint">ลิงก์บรีฟที่ใช้ร่วมกันทุก Artwork · 1 ลิงก์ต่อบรรทัด</p><label for="briefLinksText">Brief Links</label><textarea id="briefLinksText" rows="3" placeholder="https://docs.google.com/…">${escAttr((BRIEF_DRAFT.extraLinks||[]).map(l=>l.url).concat(BRIEF_DRAFT.extraLinkDraft?[BRIEF_DRAFT.extraLinkDraft]:[]).join('\n'))}</textarea><div id="templateBtnWrap"></div>`;
+    updateTemplateButton(document.getElementById('f_category')?.value);
+  }else{
+    const node=document.getElementById(kind==='content'?'step-artworks':'step-priority');
+    if(!node){closeBriefPopup(false);return;}
+    const marker=document.createComment('brief-editor-position');node.before(marker);state.node=node;state.marker=marker;
+    node.removeAttribute('data-brief-parked');body.appendChild(node);
+    if(kind==='content'){refreshArtworkSection();}
+    else refreshBriefForm();
+  }
+  document.getElementById('briefPopupClose').onclick=()=>closeBriefPopup(false);
+  document.getElementById('briefPopupCancel').onclick=()=>closeBriefPopup(false);
+  document.getElementById('briefPopupSave').onclick=()=>closeBriefPopup(true);
+  wrap.querySelector('.modal-bg').addEventListener('click',e=>{if(e.target===e.currentTarget)closeBriefPopup(false);});
+  state.keyHandler=e=>{
+    if(e.key==='Escape'){e.preventDefault();closeBriefPopup(false);}
+    if(e.key==='Tab'){
+      const nodes=[...wrap.querySelectorAll('button,input,textarea,select,a[href]')].filter(n=>!n.disabled && n.getClientRects().length);
+      const first=nodes[0],last=nodes[nodes.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}
+    }
+  };wrap.addEventListener('keydown',state.keyHandler);
+  document.getElementById('briefPopupClose').focus();
+}
+function closeBriefPopup(save){
+  const state=BRIEF_POPUP;if(!state)return;
+  const fail=message=>{const el=document.getElementById('briefPopupError');el.style.display='block';el.textContent=message;return false;};
+  if(save && state.kind==='names'){
+    const lines=briefPopupLines(document.getElementById('briefNamesText').value);
+    if(lines.length!==briefArtworks().length)return fail(`กรุณาใส่ชื่อให้ครบ ${briefArtworks().length} บรรทัด (ไม่นับบรรทัดว่าง)`);
+    briefArtworks().forEach((aw,i)=>{aw.name=lines[i];aw._nameManual=aw.name!==aw._autoGeneratedName;});
+  }
+  if(save && state.kind==='links'){
+    const links=[...new Set(briefPopupLines(document.getElementById('briefLinksText').value))];
+    if(links.some(url=>!isLikelyValidUrl(url)))return fail('กรุณาตรวจลิงก์ ต้องขึ้นต้นด้วย http:// หรือ https://');
+    BRIEF_DRAFT.extraLinks=links.map(url=>(BRIEF_DRAFT.extraLinks||[]).find(l=>l.url===url)||{id:uidShort('lnk'),url,label:detectReferenceType(url).label});
+    BRIEF_DRAFT.extraLinkDraft='';BRIEF_DRAFT.extraLinkError='';
+  }
+  if(save && state.kind==='content' && !commitPendingQuickAddLinks())return fail('กรุณาตรวจลิงก์ที่กรอกให้ถูกต้อง');
+  if(!save){
+    const snap=state.snapshot;
+    BRIEF_DRAFT.artworks=snap.artworks;BRIEF_DRAFT.extraLinks=snap.extraLinks||[];
+    BRIEF_DRAFT.activeArtworkIndex=snap.activeArtworkIndex;
+    BRIEF_DRAFT.applyAllFields=snap.applyAllFields||[];BRIEF_DRAFT.priority=snap.priority;STATE.cal=snap.cal;
+  }
+  if(state.node){state.node.setAttribute('data-brief-parked','');state.marker.replaceWith(state.node);}
+  state.wrap.remove();BRIEF_POPUP=null;
+  document.querySelectorAll('[data-priorityopt]').forEach(b=>b.classList.toggle('active',b.dataset.priorityopt===BRIEF_DRAFT.priority));
+  refreshArtworkSection();refreshBriefForm();updateBriefDetailSummaries();scheduleBriefDraftAutosave();
+  state.focus?.focus();
+}
+
 function renderBriefForm(){
   const editing = !!STATE.editingTaskId;
   // A resumed Draft (STATE.editingDraftId) has already been rehydrated into BRIEF_DRAFT by resumeDraft() —
@@ -10844,7 +11208,7 @@ function renderBriefForm(){
     ${STATE.auth.role==='po' ? `<span class="vbe-savepill" id="briefAutosavePill" style="margin-left:10px;vertical-align:middle;display:none"></span>` : ''}</h1>
   <p class="pagesub">${editing ? 'แก้ไขบรีฟที่ส่งไปแล้ว — บันทึกจะสร้าง Revision ใหม่ และแจ้งเตือน Designer หากมีการเปลี่ยนแปลงสำคัญ' : 'ยื่นบรีฟใหม่ — ระบบจะคำนวณชั่วโมงงาน, Auto-Assign ดีไซเนอร์ และตรวจ Capacity ให้อัตโนมัติ'}</p>
   <form id="briefForm">
-  <div class="formgrid">
+  <div class="brief-review-layout"><div class="formgrid">
     <div class="brief-stepper" id="briefStepper">
       ${[
         {id:'step-basic', num:'01', th:'ข้อมูลพื้นฐาน', en:'Basic Info'},
@@ -10871,17 +11235,17 @@ function renderBriefForm(){
             <div class="hint" style="margin:0">${reqEmail}</div>
           </div>
         </div>
-        <div class="hint" style="margin-top:8px">ข้อมูลผู้ยื่นบรีฟดึงจากบัญชีที่ Login อัตโนมัติ — แก้ไขไม่ได้</div>
+        
       </div>` : `
       <div class="section-card requester-card">
         <div class="plabel" style="margin-bottom:8px">Brief Owner</div>
         <div class="field" style="margin-bottom:0">
-          <label>Brief Owner Email *</label>
+          <label>Brief Owner Email * <span tabindex="0" title="ระบุเจ้าของบรีฟ ระบบดึงชื่อและแผนกจากบัญชีให้อัตโนมัติ" aria-label="คำแนะนำเจ้าของบรีฟ">ⓘ</span></label>
           <input type="email" id="f_owner" required value="${prefillEmail}" placeholder="name@${COMPANY_DOMAIN}" list="briefOwnerEmailList" autocomplete="off">
           <datalist id="briefOwnerEmailList">${(STATE.users||[]).filter(u=>(u.role==='po'||u.role==='designer'||u.role==='lead')&&u.status==='active').map(u=>`<option value="${u.email}" label="${u.name} — ${ROLE_LABEL[u.role]||u.role} · ${u.email}">`).join('')}</datalist>
         </div>
         <div id="ownerAutoPreview" style="margin-top:10px">${renderOwnerAutoPreviewHTML(prefillEmail)}</div>
-        <div class="hint" style="margin-top:8px">กรอกอีเมลของ Brief Owner ที่เป็นเจ้าของบรีฟนี้ — เลือกได้ทั้ง Project Owner, Designer หรือ Lead Designer ระบบดึงชื่อ/แผนกให้อัตโนมัติถ้าพบบัญชีในระบบ (คุณเป็นผู้สร้างบรีฟ — Created By — ไม่ใช่ Brief Owner)</div>
+
       </div>`}
       <div class="section-card" id="step-basic">
         <div class="step-title"><span class="step-num">01</span>Basic Information</div>
@@ -10892,7 +11256,7 @@ function renderBriefForm(){
             <input id="f_project" list="projList" value="${pf?pf.project:''}" placeholder="เลือกหรือพิมพ์ชื่อใหม่">
             <datalist id="projList">${projectList().map(p=>`<option value="${p}">`).join('')}</datalist>
           </div>
-          <div class="field"><label>ชื่องาน (Task Name) * <span class="hint" style="font-weight:400">— ตั้งอัตโนมัติจาก Campaign Tag + Artwork</span></label>
+          <div class="field"><label>ชื่องาน * <span class="hint" style="font-weight:400">อัตโนมัติ</span></label>
             <div class="tn-combo">
               <span class="tn-prefix" id="tnPrefix" title="ล็อกอัตโนมัติจาก Project / Campaign Tag + Artwork / ประเภทงานย่อย"></span>
               <input id="f_taskname_extra" value="${escAttr(splitTaskNameExtra(pf))}" placeholder="พิมพ์เพิ่มได้ (ไม่บังคับ)" autocomplete="off">
@@ -10910,14 +11274,14 @@ function renderBriefForm(){
             <div id="typeOtherWrap" style="display:none;margin-top:6px"><input id="f_type_other" value="${BRIEF_DRAFT.typeOther||''}" placeholder="ระบุประเภทงาน"></div>
           </div>
           <div class="field">
-            <label>จำนวน Artwork หลัก *</label>
+            <label>จำนวน AW หลัก *</label>
             <input type="number" id="f_deliverables" min="1" step="1" value="${briefArtworks().length}">
-            <div class="hint">จำนวนดีไซน์หลัก ไม่รวม Resize</div>
+            
             <span class="hint" id="deliverCountDisplay" style="display:none"></span>
           </div>
-          <div class="field"><label>Resize / Adapt AW</label>
+          <div class="field"><label>จำนวน Resize <span tabindex="0" title="จำนวนไฟล์ปรับขนาดเพิ่มเติมจาก AW หลัก">ⓘ</span></label>
             <input type="number" id="f_resize" min="0" step="1" value="${pf?(pf.resize||0):0}">
-            <div class="hint">จำนวนไฟล์ที่ปรับขนาดเพิ่มเติมจาก Artwork หลัก</div>
+            
             <div id="resizePointPreview" class="hint" style="display:none"></div>
           </div>
         </div>
@@ -10928,7 +11292,7 @@ function renderBriefForm(){
         <div id="customWrap" class="field" style="display:none">
           <label>ชั่วโมงงาน (กำหนดโดย Lead Designer)</label><input type="number" step="0.5" id="f_custom" value="2">
         </div>
-        <div class="row2" style="margin-top:12px;align-items:end">
+        <div class="brief-assignment-row">
           <div class="field" id="platformField" style="display:none;margin-bottom:0"><label>แพลตฟอร์ม (Platform)</label>
             <div id="platformPillsWrap"></div>
           </div>
@@ -10938,7 +11302,7 @@ function renderBriefForm(){
                  def.noKv split, badge said "เฉพาะ E-Commerce" from when only E-Commerce had any. Now
                  shown (and required) for every Category/Type except "อื่นๆ ระบุ" (custom, Lead sets
                  hours manually there instead) — see kvVisible in refreshBriefForm(). -->
-            <label>KV / Revise Status <span class="req-badge">บังคับ (ทุก Category)</span></label>
+            <label>KV / Revise Status <span aria-label="จำเป็น">*</span></label>
             <select id="f_kv">
               <option value="">เลือก Status</option>
               <option value="HAS_WORKING_FILE" data-kvopt="legacy" ${BRIEF_DRAFT.kv==='HAS_WORKING_FILE'?'selected':''}>มี KV / Working File</option>
@@ -10955,7 +11319,6 @@ function renderBriefForm(){
             </select>
             <div id="kvLinkField" class="field" style="display:none;margin-bottom:0;margin-top:8px"></div>
           </div>
-        </div>
         <!-- DEV FIX (Krissha — "ค่าตั้งต้นดีไซน์เนอร์ตาม Category แต่เปลี่ยนเป็นคนอื่นๆได้"): pre-selects
              defaultDesignerForRole(role) (Krissha=E-Commerce, Pongpoj=Content, Suriya=Product) but the
              requester can pick any other active Designer/Lead instead — options populated live in
@@ -10963,19 +11326,21 @@ function renderBriefForm(){
              STATE.users, neither of which BRIEF_DRAFT tracks directly (see f_category-based gating there).
              Hidden entirely for Offline Artwork/"อื่นๆ ระบุ" (role has no default — Lead assigns manually). -->
         <div class="field" id="designerField" style="display:none;margin-top:12px;margin-bottom:0">
-          <label>Designer <span class="hint" style="font-weight:400">(ค่าเริ่มต้นตาม Category — เลือกเปลี่ยนได้)</span></label>
+          <label>Designer <span tabindex="0" title="เลือกค่าเริ่มต้นตามหมวดงาน และเปลี่ยนได้">ⓘ</span></label>
           <select id="f_designer"></select>
+        </div>
         </div>
       </div>
 
-      <div class="section-card" id="step-artworks" style="padding:14px">
+      ${renderBriefDetailLaunchers()}
+      <div class="section-card" id="step-artworks" style="padding:14px" data-brief-parked>
         <div class="step-title"><span class="step-num">02</span>Artwork Brief &amp; Canvas</div>
         <!-- The "ข้อมูลที่ใช้ร่วมกันทุกแผ่น / Common" explainer note removed per feedback — internal
              data-model explanation the person filling the Brief doesn't need to see. -->
         <div id="artworkDetailsSection"></div>
       </div>
 
-      <div class="section-card" id="step-priority">
+      <div class="section-card" id="step-priority" data-brief-parked>
         <div class="step-title"><span class="step-num">03</span>Priority &amp; Delivery</div>
         <div class="prioritydate-row">
           <div>
@@ -11014,6 +11379,7 @@ function renderBriefForm(){
       <div class="section-card" id="briefFinalCheckCard"></div>
     </div>
   </div>
+  <aside id="briefLivePreview" class="brief-live-preview" aria-label="สรุปบรีฟ"></aside></div>
   </form>`;
 }
 
@@ -11156,6 +11522,7 @@ function updateDeliverCountDisplay(){
   if(dcd) dcd.textContent = `= AW01–AW${artworkSeqLabel(briefArtworks().length-1)} ด้านล่าง ↓ — เพิ่มเลขจะสร้าง Artwork ใหม่ให้อัตโนมัติ ลดเลขจะถามยืนยันถ้า Artwork นั้นมีข้อมูลแล้ว`;
 }
 function refreshArtworkSection(){
+  ensureBriefArtworkNames();
   const box = document.getElementById('artworkDetailsSection');
   if(!box) return;
   syncDeliverablesField();
@@ -11330,24 +11697,14 @@ function closeDeliverablesShrinkConfirmModal(revertField){
 //     for a single-Artwork Brief).
 //   - 2+ Artworks: one small text box per Artwork, right there, so she never has to open step 02's tabs
 //     just to give each one a name (though she still can, any time, in "Artwork Brief & Canvas").
-function renderArtworkQuickNamesHTML(){
-  const arr = briefArtworks();
-  if(arr.length<2) return '';
-  return `<div class="field" style="margin-top:12px">
-    <label>ชื่อแต่ละ Artwork</label>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
-      ${arr.map((aw,i)=>`<div>
-        <div class="hint" style="margin-bottom:3px">AW${artworkSeqLabel(i)}</div>
-        <input type="text" data-awquickname="${i}" value="${escAttr(aw.name||'')}" placeholder="เช่น Banner 1200x628">
-      </div>`).join('')}
-    </div>
-  </div>`;
-}
+function renderArtworkQuickNamesHTML(){ return ''; }
 // Rebuilds #awQuickNamesWrap after any structural change (count grew/shrank — never on a plain keystroke,
 // same rule as refreshArtworkSection()) and rewires its inputs — typing into one writes straight into
 // briefArtworks()[i].name, same live-mutate-in-place pattern bindArtworkEditFields() already uses elsewhere
 // so no field the user is actively typing in can lose focus in the middle of a keystroke.
 function refreshArtworkQuickNamesBox(){
+  ensureBriefArtworkNames();
+  updateBriefDetailSummaries();
   const wrap = document.getElementById('awQuickNamesWrap');
   if(!wrap) return;
   wrap.innerHTML = renderArtworkQuickNamesHTML();
@@ -11426,12 +11783,13 @@ function syncTaskNameFromParts(){
   if(prev) prev.innerHTML = !full ? '' : keepLegacy
     ? `ชื่องานเดิม: <strong>${escAttr(full)}</strong> — ยังไม่เปลี่ยน จนกว่าจะแก้ Campaign Tag / Artwork / ช่องพิมพ์เพิ่ม`
     : `ชื่องานที่จะใช้: <strong>${escAttr(full)}</strong>`;
-  if(changed){ syncSoleArtworkNameFromTaskName(); updateBriefReadiness(); }
+  if(changed){ syncSoleArtworkNameFromTaskName(); ensureBriefArtworkNames(); updateBriefReadiness(); }
 }
 function syncSoleArtworkNameFromTaskName(){
   const arr = briefArtworks();
-  if(arr.length!==1) return;
-  arr[0].name = document.getElementById('f_taskname')?.value || '';
+  if(arr.length!==1 || arr[0]._nameManual) return;
+  arr[0].name = document.getElementById('briefDetailLaunchers') ? briefAutoArtworkName(0) : (document.getElementById('f_taskname')?.value || '');
+  if(document.getElementById('briefDetailLaunchers')) arr[0]._autoGeneratedName=arr[0].name;
   refreshArtworkListAndNav();
   const h = document.getElementById('awEditHeaderName');
   if(h) h.textContent = artworkDisplayName(arr[0], 0);
@@ -11564,6 +11922,7 @@ function bindArtworkEditFields(){
     el.addEventListener(evt, e=>{
       aw[field] = e.target.value;
       if(field==='name'){
+        aw._nameManual=true;
         // Artwork Name live-syncs to the single header, its Tab label, AND the "ชื่อแต่ละ Artwork" quick-box
         // up in step 01 (DEV SPEC §02.2 + Krissha's "ชื่อต้องลิงก์กัน" follow-up) as the user types — no
         // separate "rename" step, no stale label anywhere on screen, whichever of the two name boxes she
@@ -11599,7 +11958,7 @@ function bindArtworkSection(){
   bindArtworkTabEvents();
   bindArtworkHeaderActionEvents();
   bindArtworkEditFields();
-  // External Brief Links (Task-level, above the Artwork Tabs — see renderExternalBriefLinksSectionHTML).
+  // Brief Links (Task-level, above the Artwork Tabs — see renderExternalBriefLinksSectionHTML).
   bindExtraLinks();
   // DEV MASTER REQUEST §2 — "บันทึกลิงก์" is the one Primary Action that confirms/saves the link
   // (click, or Enter in the field); "+ เพิ่มลิงก์" never confirms anything — its only job is to make
@@ -11738,7 +12097,7 @@ function renderBackdatedTaskForm(){
       <!-- DEV FIX — Backdated Preview = Normal Task Preview: Artwork Brief & Canvas now reuses the EXACT
            SAME Artwork Editor as Normal Task (renderArtworkDetailsHTML()/#artworkDetailsSection →
            bindArtworkSection()/refreshArtworkSection() — see bindBackdatedTaskForm() below), so Artwork
-           Name / Brief / Content / Images / Reference Links / Canvas / External Brief Links all behave
+           Name / Brief / Content / Images / Reference Links / Canvas / Brief Links all behave
            identically for Backdated as for a Normal Task, instead of a separate/duplicated implementation
            that could drift out of sync. -->
       <div class="bt-section">
@@ -11846,7 +12205,7 @@ function bindBackdatedTaskForm(){
   if(!document.getElementById('backdatedForm')) return;
   BACKDATED_DRAFT = { kv:'' };
   // DEV FIX — Backdated Preview = Normal Task Preview: Artwork Name / Brief / Content / Images / Reference
-  // Links / Canvas / External Brief Links for Backdated Task now live in the SAME BRIEF_DRAFT.artworks data
+  // Links / Canvas / Brief Links for Backdated Task now live in the SAME BRIEF_DRAFT.artworks data
   // model Normal Task uses (never a separate Backdated-only copy — see submitBackdatedTask() below, which
   // saves straight off briefArtworks() exactly like submitBrief() does). resetBriefDraft() here mirrors
   // exactly what renderBriefForm() does for a brand-new Normal Brief (both run once per full render() while
@@ -12030,7 +12389,7 @@ async function submitBackdatedTask(e){
   const liveDeliveryDate = isCompleted ? deliveryDate : liveTargetDateForActiveBackdated(deadlineDate, deadlineUnknown);
   const owner = findUserByEmail(ownerEmail);
   // DEV FIX — Backdated Preview = Normal Task Preview: save Artwork Name / Brief / Content / Images /
-  // Reference Links / Canvas straight off the SAME BRIEF_DRAFT.artworks data model + External Brief Links
+  // Reference Links / Canvas straight off the SAME BRIEF_DRAFT.artworks data model + Brief Links
   // list submitBrief() saves a Normal Task from — never a separate Backdated-only schema — so the shared
   // Task Preview (renderTaskWorkspacePage) has real data to show for Backdated exactly like it does for a
   // Normal Task. brief_link/brief_details below stay only as the same backward-compat AW01 mirror every
@@ -12383,25 +12742,21 @@ function renderReferencesAssetsHTML(aw){
   const expanded = refListExpandedSet().has(aw.artworkId);
   const shown = (all.length>REF_LIST_COLLAPSE_THRESHOLD && !expanded) ? all.slice(0,REF_LIST_COLLAPSE_THRESHOLD) : all;
   return `<div class="field">
-    <div class="refbox-head">
-      <label style="margin:0">References &amp; Assets</label>
-    </div>
     <div class="refquickadd">
       <label class="refquickadd-label">Reference Link</label>
       <!-- DEV FIX (Krissha — "ทุกที่ที่กรอกลิงก์ ให้เพิ่มปุ่มบันทึกลิงก์"): brought up to the same
-           "บันทึกลิงก์" Primary Action convention as External Brief Links (DEV MASTER REQUEST §2) —
+           "บันทึกลิงก์" Primary Action convention as Brief Links (DEV MASTER REQUEST §2) —
            "บันทึกลิงก์" is now the one button that confirms/commits the link (disabled until something
            is typed); "+ Add another reference" never confirms anything, it only refocuses the input,
-           exactly like "+ เพิ่มลิงก์" does for External Brief Links. Enter still commits too. -->
+           exactly like "+ เพิ่มลิงก์" does for Brief Links. Enter still commits too. -->
       <div class="refquickadd-row">
         <input type="url" class="refquickadd-input" id="refQuickAdd_${aw.artworkId}" data-refquickaddinput="${aw.artworkId}" placeholder="วางลิงก์ Reference / Google Drive / Website / Pinterest...">
         <button type="button" class="refquickadd-save" id="saveRefBtn_${aw.artworkId}" data-refquickadd="${aw.artworkId}" disabled>บันทึกลิงก์</button>
       </div>
       <button type="button" class="refquickadd-more" data-refquickaddfocus="${aw.artworkId}">+ Add another reference</button>
     </div>
-    <div class="hint" style="margin-top:2px;margin-bottom:10px">กด Enter หรือปุ่ม "บันทึกลิงก์" เพื่อยืนยันลิงก์ก่อนบันทึก</div>
     <div class="reflist" id="refList_${aw.artworkId}">
-      ${all.length ? shown.map(r=>renderRefItemHTML(r)).join('') : '<div class="refempty">ยังไม่มี Reference</div>'}
+      ${all.length ? shown.map(r=>renderRefItemHTML(r)).join('') : ''}
     </div>
     ${all.length>REF_LIST_COLLAPSE_THRESHOLD ? `<button type="button" class="refviewall-btn" data-refviewall="${aw.artworkId}">${expanded?'Show less ↑':`View all ${all.length} ↓`}</button>` : ''}
   </div>`;
@@ -12509,7 +12864,7 @@ function bindReferencesAssetsEvents(aw){
     commitRefQuickAdd(aw, document.getElementById('refQuickAdd_'+b.dataset.refquickadd));
   });
   // "+ Add another reference" never confirms anything — it only focuses the input, ready for the next
-  // paste, exactly like "+ เพิ่มลิงก์" does for External Brief Links (DEV MASTER REQUEST §2).
+  // paste, exactly like "+ เพิ่มลิงก์" does for Brief Links (DEV MASTER REQUEST §2).
   document.querySelectorAll('[data-refquickaddfocus]').forEach(b=>b.onclick=()=>{
     document.getElementById('refQuickAdd_'+b.dataset.refquickaddfocus)?.focus();
   });
@@ -12561,7 +12916,7 @@ function renderVBInputsPanel(){
       <button type="button" class="vbe-collapse-btn" id="vbInputsCollapseBtn">Collapse ▴</button>
     </div>
     <div class="vbe-inputs-grid">
-      <div class="field vif-detail" style="grid-column:1/-1"><label>Brief / Content</label><textarea id="f_brief" style="height:96px;min-height:76px" placeholder="Text Content / Concept / Mood &amp; Tone / ข้อมูลเพิ่มเติมของ Artwork นี้">${aw.brief||''}</textarea>${applyChk('brief')}</div>
+      <div class="field vif-detail" style="grid-column:1/-1"><label>Brief / Content Details *</label><textarea id="f_brief" style="height:260px;min-height:220px" placeholder="Text Content / Concept / Mood &amp; Tone / ข้อมูลเพิ่มเติมของ Artwork นี้">${escAttr(aw.brief||'')}</textarea>${applyChk('brief')}</div>
     </div>
     <div class="refimg-row">
       ${renderReferencesAssetsHTML(aw)}
@@ -12578,8 +12933,7 @@ function renderVBInputsPanel(){
            images on older artworks are untouched and still show up for the Designer on Task Workspace
            (renderKeyVisualCard/briefImagesSrc) — this only hides the "add more" upload box. -->
     </div>
-    <div class="field" id="templateBtnWrap" style="margin-top:8px"></div>
-    <div class="vbe-autosync-note">✓ ข้อมูลด้านบนอัปเดต Visual Brief Summary อัตโนมัติ — แยกเป็นรายชิ้นต่อ Artwork (ไม่ใช้ร่วมกัน)</div>
+
   </div>`;
 }
 // Master Dev Request §18-22: Multi-Page Canvas stays (an Artwork can hold several Canvas Pages — a
@@ -15082,17 +15436,18 @@ function workingDaysBetween(from, to){
   return n;
 }
 function dueRelative(t){
-  if(!t.prefer_delivery_date) return {txt:'—', late:false, days:null};
+  if(!designerDeadline(t)) return {txt:'—', late:false, days:null};
   // Krissha — "เดดไลน์วันศุกร์ วันจันทร์ต้องเลยมา 1 วันทำงาน": counted in WORKING days (weekends + Thai
   // public holidays skipped, same isWeekend/isPublicHoliday the capacity engine uses), not calendar days.
   const today = todayISO();
-  const dl = String(t.prefer_delivery_date).slice(0,10);
+  const dl = designerDeadline(t).slice(0,10);
   let days = 0;
   if(dl!==today){
     const bd = workingDaysBetween(dl<today?dl:today, dl<today?today:dl);
     days = dl<today ? -Math.max(1, bd) : Math.max(1, bd);
   }
-  const finished = ['delivered','rejected','closed_max_revision'].includes(t.review_status);
+  const finished = designerHandoff(t) || ['rejected','closed_max_revision'].includes(t.review_status);
+  if(designerHandoff(t)) return {txt:'กราฟิกเสร็จแล้ว · รอผู้ตรวจ',late:false,days:0};
   if(days<0) return {txt:`เลย ${-days} วัน`, late:!finished, days};
   if(days===0) return {txt:'วันนี้', late:false, days};
   return {txt:`อีก ${days} วัน`, late:false, days};
@@ -15814,7 +16169,7 @@ function renderCollapsibleSection(id, title, bodyHtml, opts){
   </div>`;
 }
 // DEV FIX (Krissha — "กล่องลิงก์ทุกกล่อง ห้ามมีลูกศรย่อหุบกล่อง ใช้โชว์ขึ้นมาเลย"): the link cards a
-// Designer needs immediately (External Brief Links / Reference Links / Key Visual) must never be
+// Designer needs immediately (Brief Links / Reference Links / Key Visual) must never be
 // collapsed or collapsible — no caret, no click-to-toggle, always fully expanded. Same visual shell as
 // renderCollapsibleSection (same classes/padding) minus the toggle button and the
 // STATE.taskWs.sectionOpen persistence, since there's nothing here to remember or toggle.
@@ -16068,7 +16423,7 @@ function renderTaskWsInfoCard(t, hideRequesterOverlap){
 }
 // Backdated / Historical Record (DEV FIX — Backdated Preview = Normal Task Preview): the ONLY part of a
 // Backdated Task's preview that's allowed to differ from a Normal Task — everything else (Task Info,
-// Artworks, External Brief Links, Key Visual, Brief Content, Reference Links, Images, Canvas...) reuses the
+// Artworks, Brief Links, Key Visual, Brief Content, Reference Links, Images, Canvas...) reuses the
 // exact same cards/order/layout Normal Task uses, unchanged. This card is appended in its own section right
 // after Task Info, never mixed into it, and obeys the same "มีข้อมูล → แสดง / ไม่มีข้อมูล → ซ่อน" rule as
 // every other field on this page — each of the 4 groups (Historical Work Dates / Current Work Information /
@@ -16172,7 +16527,7 @@ function renderImagesCard(atts){
   </div>`;
 }
 /* REFERENCE LINKS card (DEV SPEC — Brief Links / Reference Split, points 2 & 7) — shows ONLY the currently
-   active Artwork's own References. Deliberately does NOT merge in External Brief Links or the KV/AW links
+   active Artwork's own References. Deliberately does NOT merge in Brief Links or the KV/AW links
    any more — those moved to their own dedicated cards (renderExternalBriefLinksCard, renderArtworkLinkHeroCard)
    so that AW01's References can never visually blend with AW02's, or with Task-level links. Core Rule:
    "Reference = ผูกกับแต่ละ Artwork" — References must NEVER be pooled at Task level. */
@@ -16506,6 +16861,12 @@ function renderTaskWorkspacePage(t){
     reviewActionsHTML += `<button class="btn btn-sm btn-primary" data-act="clientApprove" data-id="${t.task_id}">✓ Approve งาน</button>
       <button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ Request Revision (ขอแก้)</button>`;
   }
+  if(designerHandoff(t) && (isAssignee || isBriefOwnerViewer || isLead) && !reviewActionsHTML.includes('data-act="requestRevision"')){
+    reviewActionsHTML += `<button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ ขอแก้ไข / บันทึกคำขอปากเปล่า</button>`;
+  }
+  if(t.revisions?.length){
+    actionsHTML += `<span class="hint">แก้ไขส่งแล้ว ${t.revisions.filter(r=>r.submitted_at).reduce((n,r)=>n+Number(r.pieces||0),0)} แผ่น · งานแก้สะสม ${t.revisions.reduce((n,r)=>n+Number(r.pieces||0)*0.25,0)} ชิ้นงาน (1:0.25)</span>`;
+  }
   if(canAct && isLead && s==='delivered' && t.project_owner_email){
     actionsHTML += `<button class="btn btn-sm btn-ghost" data-act="sendToOwnerProof" data-id="${t.task_id}">↩ ส่งให้ Owner พรูฟ</button>`;
   }
@@ -16534,7 +16895,7 @@ function renderTaskWorkspacePage(t){
   const hasImages = briefImagesSrc.length > 0;
   const kvHasData = !!(t.kv_status_check || (t.kv_asset_link && t.kv_asset_link.trim()));
   // hasReferenceLinks / hasExternalLinks split per DEV SPEC point 2 — these must never be combined into one
-  // flag any more, since Reference (per-Artwork) and External Brief Links (Task-level) are now two separate
+  // flag any more, since Reference (per-Artwork) and Brief Links (Task-level) are now two separate
   // cards with two separate default-open states.
   const hasReferenceLinks = !!(t.brief_link || (wsAw?.references||[]).length);
   const externalLinksSrc = Array.isArray(t.external_brief_links) ? t.external_brief_links : (t.brief_details?.extra_links||[]);
@@ -16574,7 +16935,7 @@ function renderTaskWorkspacePage(t){
       <div class="taskws-panel-col${CANVAS_EDITOR_ENABLED?'':' taskws-panel-col-full'}">
         ${renderFinalWorkFolderCard(t)}
         <!-- Artwork Link hero (DEV SPEC point 7): "ต้องเด่นและอยู่บนสุด" — the single primary link a
-             Reviewer must open goes above External Brief Links / Brief / Reference Links / Images. Hidden
+             Reviewer must open goes above Brief Links / Brief / Reference Links / Images. Hidden
              once delivered, where the Final Work Folder card above takes its place at the top instead. -->
         ${renderArtworkLinkHeroCard(t)}
         <!-- DEV FIX (Krissha — "สำหรับตรวจงาน เอาปุ่มพรูฟ ไว้บนๆได้มั้ย มันหายากอ่ะ อาจเอาไว้ใต้ลิงก์ ส่งงาน"):
@@ -16588,13 +16949,13 @@ function renderTaskWorkspacePage(t){
         </div>` : ''}
         <!-- DEV FIX (Krissha — "ลิงก์บรีฟ เอาไปไว้บนสุด ดีไซนเนอร์จะได้ไม่ต้องหา รวมถึงลิงค์เรฟด้วย" +
              "Link KV ด้วย เอาไว้ด้านบน" + "กล่องลิงก์ทุกกล่อง ห้ามมีลูกศรย่อหุบกล่อง ใช้โชว์ขึ้นมาเลย"):
-             External Brief Links / Reference Links / Key Visual used to sit further down (Key Visual
+             Brief Links / Reference Links / Key Visual used to sit further down (Key Visual
              was even after Task Info/Backdated/Artworks), each collapsible — a Designer had to scroll
              past a wall of metadata AND click each one open to find the links they need to start work.
              All three are now moved up to right under the work-link hero cards above (Final Work Folder /
              Artwork Link Hero), before everything else on the page, and rendered with renderStaticLinkSection
              (no caret, never collapsible, always fully expanded) instead of renderCollapsibleSection. -->
-        ${renderStaticLinkSection('External Brief Links', renderExternalBriefLinksCard(t))}
+        ${renderStaticLinkSection('Brief Links', renderExternalBriefLinksCard(t))}
         ${renderStaticLinkSection('Reference Links', renderReferenceLinksCard(t, wsAw))}
         ${renderStaticLinkSection('Key Visual', renderKeyVisualCard(t))}
         <!-- Feedback: this page felt unfriendly/incomplete-at-a-glance for a Project Owner because the one
@@ -16620,7 +16981,7 @@ function renderTaskWorkspacePage(t){
              against or switch to. Both only earn their place once a Brief actually HAS more than one. -->
         ${(t.artworks && t.artworks.length>1) ? renderCollapsibleSection('artworks', `Artworks (${t.artworks.length})`, renderArtworkChecklistCard(t), {defaultOpen:true}) : ''}
         ${(wsAw && t.artworks.length>1) ? `<div class="taskws-card"><div class="hint">กำลังดู Brief Content / Images ของ <strong>AW ${artworkSeqLabel(activeTaskWsArtworkIndex(t))}${wsAw.name?' — '+wsAw.name:''}</strong> — สลับได้จากปุ่ม AW เหนือ Canvas หรือคลิกในรายการ Artworks ด้านบน</div></div>` : ''}
-        <!-- DEV SPEC point 7 order (External Brief Links / Reference Links / Key Visual now moved to the
+        <!-- DEV SPEC point 7 order (Brief Links / Reference Links / Key Visual now moved to the
              top of the page — see comment above): Brief (of active AW) → Images/Assets (of active AW). -->
         ${renderCollapsibleSection('briefcontent', 'Brief Content', renderBriefContentCard(briefContentSrc), {defaultOpen:true})}
         ${renderCollapsibleSection('images', `Images${hasImages?` (${briefImagesSrc.length})`:''}`, renderImagesCard(briefImagesSrc), {defaultOpen:hasImages})}
@@ -17157,7 +17518,7 @@ function getDesignerDailyCapacity(designer, dateStr){
   // leave zeroed out capacity, so Team Capacity / Monthly Overview both showed this designer's FULL 8.0 ชม.
   // ceiling on a half-day-leave day, silently missing anyone who was actually over their real (halved)
   // capacity that day and inflating the month's total capacity/utilization numbers.
-  return Math.max(0, Math.round((base - (leaveDeduct||0))*100)/100);
+  return Math.max(0, Math.round(Math.min(base-(leaveDeduct||0),dateStr===todayISO()?remainingOfficeHours(dateStr):base)*100)/100);
 }
 function getCapacityStatus(load, capacity){
   if(capacity<=0) return load>0 ? 'over' : 'off';
@@ -18729,7 +19090,9 @@ function renderLeave(){
       <p class="hint" style="margin-bottom:12px">บันทึกวันลาและอัปเดต Capacity อัตโนมัติ</p>
       <form id="leaveForm">
         <div class="field"><label>บุคคล</label><input value="${me}" disabled style="background:#F1F5F9;font-weight:700"></div>
-        <div class="field"><label>วันที่ลา</label><input type="date" id="lv_date" required value="${editingRecord?editingRecord.date:''}"></div>
+        <div class="row2"><div class="field"><label>${editingRecord?'วันที่ลา':'วันเริ่มลา'}</label><input type="date" id="lv_date" required value="${editingRecord?editingRecord.date:''}"></div>
+        ${!editingRecord?`<div class="field"><label>วันสิ้นสุด</label><input type="date" id="lv_end" aria-label="วันสิ้นสุดการลา"></div>`:''}</div>
+        ${!editingRecord?'<div id="lv_range_summary" class="hint" aria-live="polite" style="margin-bottom:12px">เลือกวันลาย้อนหลังได้ · ลา 1 วัน เลือกเฉพาะวันเริ่มลา</div>':''}
         <div class="field"><label>ประเภทการลา</label>
           <select id="lv_type">
             <option value="full" ${formType==='full'?'selected':''}>ลาวันเต็ม — Capacity -8.0 ชม. · Hard Lock</option>
@@ -19593,6 +19956,7 @@ function renderAdminPanel(){
   <h1 class="pagetitle">Admin Control Panel</h1>
   <p class="pagesub">Backup & Restore · ข้อมูลแยกจาก Source Code ผ่าน Storage กลาง — Deploy โค้ดใหม่ได้โดยข้อมูลไม่หาย</p>
 
+  ${renderCompanyCalendarCard()}
   ${renderTaskArchitectureMigrationCard()}
   ${renderNotificationsKillSwitchCard()}
 
@@ -19862,6 +20226,7 @@ function bindEvents(){
   bindFrameTool(); // also dispatches bindSkuManager()/bindPlatformProductList() when that Frame Tool section is active
   // Admin Mode toggle in the top nav (Enter/Exit) + its password panel
   bindAdminModePanel();
+  bindCompanyCalendar();
 
   // brief form
   const cat = document.getElementById('f_category');
@@ -19958,6 +20323,7 @@ function bindEvents(){
     document.getElementById('f_upload')?.addEventListener('change', handleImageUpload);
 
     refreshBriefForm();
+    bindBriefDetailLaunchers();
     refreshArtworkQuickNamesBox(); // wires up the initial ชื่อแต่ละ Artwork box's inputs (e.g. editing an
                                     // existing Brief that already has 2+ Artworks) — see its own comment above.
     ['f_owner','f_taskname'].forEach(id=>document.getElementById(id)?.addEventListener('input', updateBriefReadiness));
@@ -20055,7 +20421,7 @@ function bindEvents(){
     // mount it once so Header/Sub-header/Detail + the Canvas are all live from the start.
     refreshVisualEditor();
     bindBriefStepper();
-    // External Brief Links (Task-level) now render+bind as part of the Artwork section itself — see
+    // Brief Links (Task-level) now render+bind as part of the Artwork section itself — see
     // renderExternalBriefLinksSectionHTML / bindArtworkSection — since it always mounts right alongside
     // it (above the Artwork Tabs); no separate bind needed here any more.
 
@@ -20247,7 +20613,9 @@ function bindEvents(){
   document.getElementById('leaveForm')?.addEventListener('submit', submitLeave);
   document.getElementById('lv_type')?.addEventListener('change', e=>{
     document.getElementById('lv_periodWrap').style.display = e.target.value==='half' ? 'block':'none';
+    updateLeaveRangeSummary();
   });
+  ['lv_date','lv_end'].forEach(id=>document.getElementById(id)?.addEventListener('change',updateLeaveRangeSummary));
   document.getElementById('cancelEditLeave')?.addEventListener('click', ()=>{ STATE.leaveUI.editingId=null; render(); });
   document.getElementById('lvFilterPerson')?.addEventListener('change', e=>{ STATE.leaveUI.filterPerson=e.target.value; render(); });
   document.getElementById('lvFilterType')?.addEventListener('change', e=>{ STATE.leaveUI.filterType=e.target.value; render(); });
@@ -21190,7 +21558,7 @@ function updateTemplateButton(catVal){
   if(!wrap) return;
   const link = catVal ? BRIEF_TEMPLATES[catVal] : null;
   if(catVal && catVal!==OTHER_CATEGORY && link){
-    wrap.innerHTML = `<a href="${link}" target="_blank" rel="noopener" class="btn btn-ghost" style="width:100%;display:block;text-align:center;text-decoration:none">📑 เปิด ${TEMPLATE_LABELS[catVal]} ↗</a>`;
+    wrap.innerHTML = `<a href="${link}" target="_blank" rel="noopener" class="btn btn-ghost" style="margin-top:8px;text-decoration:none;font-size:12px">เปิด Platform Brief Template ↗</a>`;
   } else {
     wrap.innerHTML = '';
   }
@@ -21839,6 +22207,7 @@ if(!window.__fcGestureGuardBound){
   document.addEventListener('click', ()=>{ window.__fcGestureInFlight = false; }, true);
 }
 function updateBriefReadiness(){
+  updateBriefDetailSummaries();
   const card = document.getElementById('briefFinalCheckCard');
   if(!card) return;
   const apply = ()=>{
@@ -21850,6 +22219,11 @@ function updateBriefReadiness(){
 // Missing-field click-to-fix (DEV SPEC): switch to the right Artwork sheet first if the field lives inside
 // one, then scroll → focus → temporarily highlight the exact input — never just a generic jump.
 function focusFinalCheckTarget(targetSelector, artworkIdx){
+  if(document.getElementById('briefDetailLaunchers')){
+    const target=document.querySelector(targetSelector);
+    if(target?.closest('#step-artworks') && !BRIEF_POPUP) openBriefPopup('content');
+    else if(target?.closest('#step-priority') && !BRIEF_POPUP) openBriefPopup('delivery');
+  }
   const go = ()=>{
     const el = document.querySelector(targetSelector);
     if(!el) return;
@@ -22070,13 +22444,13 @@ async function submitBriefInner(){
   // "ยังไม่ได้ตั้งชื่อ" just because she never touched a naming box that isn't even shown for count===1 (see
   // renderArtworkQuickNamesHTML()). Enforced here as the final safety net regardless of which live sync
   // listener did or didn't fire while she was filling the form out.
-  if(briefArtworks().length===1) briefArtworks()[0].name = taskName.trim();
+  if(briefArtworks().length===1 && !briefArtworks()[0]._nameManual) syncSoleArtworkNameFromTaskName();
 
   // Backward-compat mirror of AW01 — see legacyBriefDetailsMirror(). The real per-artwork content is
   // `artworks` (assigned onto `task` / `existing` further below), never this DOM-read snapshot.
   const legacyMirror = legacyBriefDetailsMirror();
   const briefDetails = legacyMirror.brief_details;
-  // External Brief Links (DEV SPEC — Brief Links / Reference Split): a real Task-level field, not a
+  // Brief Links (DEV SPEC — Brief Links / Reference Split): a real Task-level field, not a
   // mirror of any one Artwork — see buildDraftSnapshot's matching comment.
   const externalBriefLinks = (BRIEF_DRAFT.extraLinks||[]).filter(l=>l.url && l.url.trim()).map(l=>({id:l.id, label:(l.label||'').trim()||'Brief Link', url:l.url.trim()}));
 
@@ -22366,28 +22740,55 @@ async function submitBriefInner(){
   render();
 }
 
+function leaveRangeDates(start,end){
+  const valid=v=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(new Date(v+'T00:00:00').getTime())&&toLocalISODate(new Date(v+'T00:00:00'))===v;
+  if(!valid(start)||!valid(end)||end<start)return null;
+  const dates=[];
+  for(let d=start;d<=end;d=addDaysISO(d,1)){
+    if(!isWeekend(d)&&!isPublicHoliday(d))dates.push(d);
+  }
+  return dates;
+}
+function updateLeaveRangeSummary(){
+  const start=document.getElementById('lv_date')?.value;
+  const endEl=document.getElementById('lv_end');if(endEl)endEl.min=start||'';
+  const summary=document.getElementById('lv_range_summary');if(!summary)return;
+  if(!start){summary.textContent='เลือกวันลาย้อนหลังได้ · ลา 1 วัน เลือกเฉพาะวันเริ่มลา';return;}
+  const dates=leaveRangeDates(start,endEl?.value||start);
+  if(!dates){summary.textContent='วันสิ้นสุดต้องไม่ก่อนวันเริ่มลา';return;}
+  const half=document.getElementById('lv_type')?.value==='half';
+  summary.textContent=`ลา ${dates.length} วันทำงาน · ลด Capacity รวม ${dates.length*(half?4:8)} ชม. · ข้ามวันหยุดบริษัท${half?' · ครึ่งวันช่วงเดียวกันทุกวันที่เลือก':''}`;
+}
 async function submitLeave(e){
   e.preventDefault();
-  const person = STATE.auth.identity; // Designer can only add their own leave (per permission spec)
-  const date = document.getElementById('lv_date').value;
-  const type = document.getElementById('lv_type').value;
-  const period = type==='half' ? document.getElementById('lv_period').value : null;
-  if(!date){ toast('กรุณาเลือกวันที่'); return; }
-
-  const editingId = STATE.leaveUI.editingId;
-  const dup = STATE.leaves.find(l=>l.person===person && l.date===date && l.id!==editingId);
-  if(dup){ toast('มีการบันทึกวันลาของวันที่นี้แล้ว'); return; }
-
-  if(editingId){
-    const l = STATE.leaves.find(x=>x.id===editingId);
-    if(l) Object.assign(l, {date, type, period});
-    toast('บันทึกการแก้ไขแล้ว');
-  } else {
-    STATE.leaves.push({id:'lv_'+Math.random().toString(36).slice(2,9), person, date, type, period, createdAt:new Date().toISOString(), createdBy:person});
-    toast('เพิ่มวันลาเรียบร้อยแล้ว');
+  if(!canManageLeave())return;
+  const person=STATE.auth.identity;
+  const date=document.getElementById('lv_date').value;
+  const end=document.getElementById('lv_end')?.value||date;
+  const type=document.getElementById('lv_type').value;
+  const period=type==='half'?document.getElementById('lv_period').value:null;
+  const editingId=STATE.leaveUI.editingId;
+  const record=editingId?STATE.leaves.find(l=>l.id===editingId&&l.person===person):null;
+  if(editingId&&!record){toast('ไม่พบรายการวันลาของคุณ');return;}
+  if(!date){toast('กรุณาเลือกวันเริ่มลา');return;}
+  const dates=leaveRangeDates(date,editingId?date:end);
+  if(!dates){toast('กรุณาตรวจวันเริ่มลาและวันสิ้นสุด');return;}
+  if(!dates.length){toast('ช่วงวันที่เลือกไม่มีวันทำงาน');return;}
+  const duplicates=STATE.leaves.filter(l=>l.person===person&&dates.includes(l.date)&&l.id!==editingId);
+  if(duplicates.length){toast('มีวันลาซ้ำ: '+duplicates.map(l=>fmtDate(l.date)).join(', ')+' — กรุณาปรับช่วงวันที่');return;}
+  const previousLeaves=JSON.parse(JSON.stringify(STATE.leaves));
+  if(record){Object.assign(record,{date,type,period});}
+  else{
+    const createdAt=new Date().toISOString();
+    dates.forEach(d=>STATE.leaves.push({id:'lv_'+uidShort(),person,date:d,type,period,createdAt,createdBy:person}));
   }
-  await saveLeaves();
-  STATE.leaveUI.editingId = null;
+  try{
+    const saved=await saveLeaves();
+    if(saved===false){STATE.leaves=previousLeaves;toast('บันทึกวันลาไม่สำเร็จ กรุณาลองอีกครั้ง');return;}
+  }catch(err){STATE.leaves=previousLeaves;toast('บันทึกวันลาไม่สำเร็จ กรุณาลองอีกครั้ง');return;}
+  STATE.leaveUI.editingId=null;
+  const first=new Date(date+'T00:00:00');STATE.leaveUI.calMonth=first.getMonth();STATE.leaveUI.calYear=first.getFullYear();
+  toast(record?'บันทึกการแก้ไขแล้ว':`เพิ่มวันลา ${dates.length} วันทำงานเรียบร้อยแล้ว`);
   render();
 }
 
@@ -22545,7 +22946,7 @@ function buildFullBackupPayload(){
     dailyTodos:STATE.dailyTodos,
     users:STATE.users, departments:STATE.departments, drafts:STATE.drafts,
     ciCategories:STATE.ciCategories, ciGuidelines:STATE.ciGuidelines,
-    briefTemplates:BRIEF_TEMPLATES,
+    briefTemplates:BRIEF_TEMPLATES, companyCalendar:STATE.companyCalendar,
     // SKU Automation (§45 Persistent Data) — included in the same full-system Backup/Restore as
     // everything else above, never a separate export path.
     skuMaster:STATE.skuMaster, skuPlatforms:STATE.skuPlatforms, platformProducts:STATE.platformProducts,
@@ -22569,6 +22970,7 @@ function exportBackup(){
 async function applyBackupData(data){
   if(Array.isArray(data.tasks)) STATE.tasks = data.tasks;
   if(Array.isArray(data.leaves)) STATE.leaves = data.leaves;
+  if(data.companyCalendar && Array.isArray(data.companyCalendar.publicHolidays) && data.companyCalendar.overrides) STATE.companyCalendar=data.companyCalendar;
   if(Array.isArray(data.products)) STATE.products = data.products;
   if(Array.isArray(data.productCategories)) STATE.productCategories = data.productCategories;
   if(Array.isArray(data.platforms)) STATE.platforms = data.platforms;
@@ -22595,6 +22997,7 @@ async function applyBackupData(data){
   if(Array.isArray(data.auditLog)) STATE.auditLog = data.auditLog;
   if(data.skuRunConfig && typeof data.skuRunConfig==='object') STATE.skuRunConfig = Object.assign({}, STATE.skuRunConfig, data.skuRunConfig);
   await Promise.all([
+    saveKey('wt_company_calendar',STATE.companyCalendar),
     saveTasks(), saveLeaves(), saveProducts(), saveCategories(), savePlatforms(), saveDesignAssets(),
     saveBrandColors(), saveNotifs(), saveInternalTasks(), saveUsers(), saveDepartments(), saveDrafts(),
     saveCICategories(), saveCIGuidelines(), saveTemplates(),
@@ -22885,7 +23288,9 @@ const LATE_REASON_CATEGORIES = [
 let LATE_REASON_RESUME = null;      // the submission to continue once a reason is confirmed
 const LATE_REASON_PENDING = {};     // taskId -> {category, detail}, consumed by applyLateSubmissionRecord()
 function isSubmissionLate(t, atIso){
-  const dl = t && t.prefer_delivery_date;
+  const dl = t && designerDeadline(t);
+  const r=t && activeRevision(t);
+  if(r?.deadline_time) return new Date(atIso||Date.now()).getTime()>new Date(`${dl}T${r.deadline_time}:00+07:00`).getTime();
   if(!dl) return false;
   return toLocalISODate(atIso ? new Date(atIso) : new Date()) > dl;
 }
@@ -22903,11 +23308,11 @@ function applyLateSubmissionRecord(t, submittedAtIso){
   if(!pending || !isSubmissionLate(t, submittedAtIso)) return;
   delete LATE_REASON_PENDING[t.task_id];
   // Late Duration is measured from the END of the Deadline day (a date-only field), in hours + calendar days.
-  const dlEnd = new Date(t.prefer_delivery_date+'T23:59:59');
+  const dlEnd = new Date(designerDeadline(t)+'T'+(activeRevision(t)?.deadline_time||'23:59')+':00+07:00');
   const lateMs = Math.max(0, new Date(submittedAtIso).getTime() - dlEnd.getTime());
   const rec = {
     late_status: 'LATE',
-    original_deadline: t.prefer_delivery_date,
+    original_deadline: designerDeadline(t),
     submitted_at: submittedAtIso,
     late_duration_hours: Math.round(lateMs/36e5*10)/10,
     late_days: Math.max(1, Math.ceil(lateMs/864e5)),
@@ -22936,7 +23341,7 @@ function renderLateReasonModal(){
   const ui = STATE.lateReasonUI;
   const t = STATE.tasks.find(x=>x.task_id===ui.taskId);
   if(!t) return '';
-  const lateDays = Math.max(1, Math.ceil((Date.now() - new Date(t.prefer_delivery_date+'T23:59:59').getTime())/864e5));
+  const lateDays = Math.max(0, Math.ceil((Date.now() - new Date(designerDeadline(t)+'T'+(activeRevision(t)?.deadline_time||'23:59')+':00+07:00').getTime())/864e5));
   return `<div class="modal-bg" id="lateReasonBg">
     <div class="modal" style="max-width:460px">
       <h3>ส่งงานหลัง Deadline — กรุณาระบุเหตุผล</h3>
@@ -22991,6 +23396,7 @@ async function submitDeliveryLink(taskId, link){
   if(!requireQtyCheck(t, ()=>submitDeliveryLink(taskId, link))) return;
   recordAwLink(t, link); t.aw_link = link; t.aw_delivery_timestamp = new Date().toISOString();
   applyLateSubmissionRecord(t, t.aw_delivery_timestamp);
+  markDesignerSubmitted(t, t.aw_delivery_timestamp);
   // MASTER DEV FINAL §4 — Lead Designer's own submission skips Pending Lead Designer Review entirely.
   const skipLeadQC = isLeadDesignerName(t.assigned_user_name);
   t.review_status = skipLeadQC ? 'pending_client_review' : 'pending_review';
@@ -23009,7 +23415,7 @@ async function submitDeliveryLink(taskId, link){
     notifyUsers([LEAD], 'มีงานรอตรวจ QC', `${t.task_name} (${t.task_id}) — ${link}`, t.task_id, {excludeActor:true, eventType:'WORK_SUBMITTED_QC'});
   }
   STATE.linkFormOpenId = null;
-  toast('✅ แนบลิงก์ส่งงานแล้ว ส่งตรวจ Lead Designer');
+  toast(`✓ ฝั่งกราฟิกเสร็จแล้ว · คืน Capacity${t.revision_count ? ' · แก้ไขส่งแล้ว '+(t.revisions||[]).filter(r=>r.submitted_at).reduce((n,r)=>n+Number(r.pieces||0),0)+' แผ่น (1:0.25)' : ''}`);
   render();
 }
 
@@ -23028,7 +23434,8 @@ async function submitDeliveryLink(taskId, link){
 //     ordinary workflow.
 function finalizeTaskCompletion(t){
   t.completed_at = new Date().toISOString();
-  if(t.started_at) t.cycle_time_ms = new Date(t.completed_at).getTime() - new Date(t.started_at).getTime();
+  if(t.started_at) t.workflow_cycle_time_ms = new Date(t.completed_at).getTime() - new Date(t.started_at).getTime();
+  t.cycle_time_ms = t.designer_work_ms ?? t.workflow_cycle_time_ms ?? 0;
   t.review_history.push({timestamp:t.completed_at, action:'CAPACITY_RELEASED', comment:'', by:'system'});
 }
 async function handleAction(act, id){
@@ -23052,6 +23459,7 @@ async function handleAction(act, id){
     // starts the Timer (a task never returns to "new" afterwards, so this can never fire twice for the same
     // task). Guarded with `if(!t.started_at)` anyway, purely defensive — never overwrite a real start time.
     if(!t.started_at) t.started_at = new Date().toISOString();
+    t.designer_active_started_at = new Date().toISOString();
     // §46 Global Audit Rule: every action affecting Workflow must leave a history entry — this was the
     // one workflow-status transition (new/revision -> in_progress) that updated the database silently.
     t.review_history.push({timestamp:new Date().toISOString(), action:'START_TASK', comment:`${oldStatus} → in_progress`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
@@ -23071,6 +23479,7 @@ async function handleAction(act, id){
     if(!link){ delete LATE_REASON_PENDING[id]; return; }
     recordAwLink(t, link); t.aw_link = link; t.aw_delivery_timestamp = new Date().toISOString();
     applyLateSubmissionRecord(t, t.aw_delivery_timestamp);
+  markDesignerSubmitted(t, t.aw_delivery_timestamp);
     // MASTER DEV FINAL §4 — same Lead-skips-own-QC rule as submitDeliveryLink() above.
     const skipLeadQC = isLeadDesignerName(t.assigned_user_name);
     t.review_status = skipLeadQC ? 'pending_client_review' : 'pending_review';
@@ -23098,37 +23507,38 @@ async function handleAction(act, id){
     notifyUsers([t.assigned_user_name, LEAD], 'ผ่าน QC แล้ว', `${t.task_name} (${t.task_id}) ผ่าน QC แล้ว`, t.task_id, {excludeActor:true, eventType:'QC_APPROVED'});
   }
   else if(act==='requestRevision'){
-    const comment = prompt('รายละเอียดที่ต้องแก้ไข (บังคับกรอก):');
-    if(!comment){ toast('ต้องระบุคอมเมนต์ก่อนขอแก้ไข'); return; }
-    const totalPieces = Math.max(1, Number(t.deliverables)||1);
-    let pieces = totalPieces;
-    if(totalPieces>1){
-      const ans = prompt(`แก้กี่ชิ้น? (จาก Master AW ทั้งหมด ${totalPieces} ชิ้น)`, String(totalPieces));
-      if(ans===null) return;
-      pieces = Math.floor(Number(ans));
-      if(!Number.isFinite(pieces) || pieces<1 || pieces>totalPieces){ toast(`จำนวนชิ้นที่แก้ต้องอยู่ระหว่าง 1–${totalPieces}`); return; }
+    const actor=STATE.auth.user?.name || STATE.auth.identity || 'system';
+    const owner=String(t.project_owner_email||'').toLowerCase();
+    const permitted=t.assigned_user_name===STATE.auth.identity || STATE.auth.identity===LEAD || (owner && [STATE.auth.user?.email,STATE.auth.identity].some(v=>String(v||'').toLowerCase()===owner));
+    if(!permitted || !designerHandoff(t)){toast('ขอแก้ไขได้เฉพาะงานที่ส่งแล้ว โดยเจ้าของบรีฟ กราฟิกผู้รับผิดชอบ หรือลีด');return;}
+    const comment=(prompt('เหตุผล / รายละเอียดแก้ไข (รวมคำขอปากเปล่า):')||'').trim();
+    if(!comment) return;
+    const totalPieces=Math.max(1,Number(t.deliverables)||1);
+    const ans=prompt(`แก้ไขกี่ AW? (1–${totalPieces})`,String(totalPieces));
+    if(ans===null) return;
+    const pieces=Number(ans);
+    if(!Number.isInteger(pieces)||pieces<1||pieces>totalPieces){toast('จำนวน AW ไม่ถูกต้อง');return;}
+    const deadline=prompt('Deadline แก้ไข (YYYY-MM-DD):',todayISO());
+    if(!deadline) return;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(deadline)||isNaN(Date.parse(deadline))||deadline<todayISO()){toast('กรุณาเลือกวันที่ถูกต้องตั้งแต่วันนี้');return;}
+    const deadlineTime=prompt('เวลาส่งแก้ไข (HH:MM):','18:00');
+    if(!deadlineTime) return;
+    if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(deadlineTime)){toast('เวลาไม่ถูกต้อง');return;}
+    const hours=Math.round(pointsPerPiece(t)*pieces*0.25*100)/100;
+    const load=dlWorkloadFor(t.assigned_user_name,deadline);
+    const available=Math.max(0,Math.min(load.cap,remainingOfficeHours(deadline,new Date(),deadlineTime))-load.total);
+    if(isWeekend(deadline)||isPublicHoliday(deadline)||load.isFullLeave||hours>available+0.001){
+      toast(`Capacity ไม่พอ: ต้องใช้ ${hours.toFixed(2)} ชม. ว่าง ${available.toFixed(2)} ชม. — เลือก Deadline ใหม่ หรือให้ลีดจัดคิว`);
+      return;
     }
-    if(!Array.isArray(t.revisions)) t.revisions = taskRevisions(t).map(r=>({...r})); // freeze any legacy round first
-    t.revision_count = (t.revision_count||0)+1;
-    if(t.revision_count > 3){
-      t.review_status='closed_max_revision';
-      toast('⛔ เกิน 3 ครั้ง — ปิด Task นี้อัตโนมัติ กรุณาเปิด Task ใหม่');
-    } else {
-      t.review_status='revision';
-      // Krissha: "ให้ทุกรอบเป็น 25% เท่ากันหมด" — every revision round uses the same flat rate.
-      t.revise_status = 'Revise 25%';
-      const rate = REVISION_FLAT_RATE;
-      t.revisions.push({round:t.revision_count, pieces, totalPieces, rate, date: todayISO(), at: nowIso(),
-        by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-      const addPts = revisionRoundPoints(t, t.revisions[t.revisions.length-1]);
-      toast(`ขอแก้ ${pieces}/${totalPieces} ชิ้น · ${t.revise_status} → +${addPts.toFixed(2)} pt (รวม ${appliedPoints(t).toFixed(2)} pt)`);
-    }
-    t.review_comment = comment;
-    t.review_history.push({timestamp:new Date().toISOString(), action:'REQUEST_REVISION', comment: totalPieces>1 ? `[แก้ ${pieces}/${totalPieces} ชิ้น] ${comment}` : comment, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    const revEmailExtra = t.revision_count > 3 ? {limitReached:true} : {comment};
-    notify(t.assigned_user_name, 'ขอแก้ไขงาน', `${t.task_name} — ${comment}`, t.task_id, 'REVISION_REQUESTED', revEmailExtra);
-    // DEV MASTER REQUEST §11 — Revision Requested → PO + Designer + Lead (Designer kept as-is above).
-    notifyUsers([t.project_owner_email, LEAD], 'ขอแก้ไขงาน', `${t.task_name} (${t.task_id}) — ${comment}`, t.task_id, {excludeActor:true, eventType:'REVISION_REQUESTED', extra:revEmailExtra});
+    if(!Array.isArray(t.revisions)) t.revisions=taskRevisions(t).map(r=>({...r}));
+    const round=(t.revision_count||0)+1;
+    t.revisions.push({round,pieces,totalPieces,rate:REVISION_FLAT_RATE,date:deadline,deadline,deadline_time:deadlineTime,at:nowIso(),by:actor,reason:comment,logged_hours_at_request:taskLoggedHours(t.task_id)});
+    t.revision_count=round;t.review_status='revision';t.revise_status='Revise 25%';t.review_comment=comment;
+    t.designer_active_started_at=nowIso();
+    t.review_history.push({timestamp:nowIso(),action:'REQUEST_REVISION',comment:`แก้ ${pieces} แผ่น = ${pieces*0.25} ชิ้นงาน · ${hours} ชม. · Deadline ${deadline} ${deadlineTime} — ${comment}`,by:actor});
+    notifyUsers([t.assigned_user_name,t.project_owner_email,LEAD],'ขอแก้ไขงาน',`${t.task_name} — ${pieces} AW / ${hours} ชม. · ${deadline} ${deadlineTime} — ${comment}`,t.task_id,{excludeActor:true,eventType:'REVISION_REQUESTED',extra:{comment}});
+    toast(`เข้าคิวแก้ไข ${pieces} แผ่น · ${hours} ชม. ไม่ต้องขออนุมัติงานด่วน`);
   }
   else if(act==='clientApprove'){
     if(t.review_status!=='pending_client_review'){ toast('สถานะงานเปลี่ยนไปแล้ว — รีเฟรชหน้าอีกครั้ง'); return; }
@@ -28156,14 +28566,14 @@ function ftExportAllIndividually(mode){
     let didChange = false;
     if(processApprovalAutoCompletes()) didChange = true;
     if(processDeadlineReminders()) didChange = true;
-    if(didChange) render();
+    if(didChange || (!document.querySelector('.modal-bg') && !document.activeElement?.matches('input,textarea,select,[contenteditable]'))) render();
   }, 60000);
   // Krissha — "รีเช็คว่างานจะเป็นปัจจุบัน เรียลทามกับผู้ใช้คนอื่นๆ" / "ข้อมูลเรียลทาม ไวสุด 1 นาที ทำได้มั้ย":
   // a SEPARATE interval from the local-only checks above, since this one is a real Firestore read. Sped up
   // to every 1 minute (was slowed to 5 minutes only to fix the rate-limit bug below — see
   // TASKS_REFRESH_MIN_GAP_MS's own comment for why 1 minute is safe) — refreshTasksFromServer()'s own gap
   // still protects the tab-focus listener below from firing right on top of this.
-  setInterval(async ()=>{ if(await refreshTasksFromServer()) render(); }, 60000);
+  setInterval(async ()=>{ const calendarChanged=await refreshCompanyCalendar(); const tasksChanged=await refreshTasksFromServer(); if(calendarChanged || tasksChanged) render(); }, 60000);
   // PHASE 2 CUTOVER (§7, Acceptance Test G) — once STATE.gdriveConfig.useTaskDocArchitecture is on,
   // this replaces the 60s poll above (which is now a guaranteed no-op — see its own updated
   // comment) as the actual sync mechanism for tasks: every task change from anyone, anywhere,
