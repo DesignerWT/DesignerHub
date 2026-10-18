@@ -2400,6 +2400,186 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 #briefPopupBody .refquickadd-row{gap:8px}
 
 </style>
+<style>
+.gd-entry-modes{display:flex;gap:6px;margin:14px 0 16px;padding:5px;background:#e9edf5;border-radius:12px;width:max-content;max-width:100%}
+.gd-entry-mode{font:inherit;background:transparent;border:0;border-radius:9px;padding:10px 18px;cursor:pointer;color:#46516a;font-weight:700}
+.gd-entry-mode.active{background:#fff;color:#514ef4;box-shadow:0 1px 5px #0001}
+.bt-page{max-width:1280px;margin:auto}.bt-wrap{max-width:none!important;width:100%!important}.bt-form{max-width:none!important}
+.bt-page .bt-section{background:#fff;border:1px solid #e4e8ef;border-radius:14px;padding:19px 22px;margin:12px 0;box-shadow:0 1px 2px #00000008}
+.bt-page .bt-section-title{font-weight:800;font-size:14px;color:#17233b;margin-bottom:16px}
+.bt-page .bt-helper-row{color:#8190aa}.bt-page .bt-footer{background:#fff;border:1px solid #e4e8ef;border-radius:14px;padding:16px}
+</style><style>
+.bt-wrap{display:grid;grid-template-columns:minmax(0,1fr) 295px;gap:16px;align-items:start}
+.bt-wrap>.info-box{grid-column:1/-1;margin-bottom:0}
+.bt-wrap>.bt-form{min-width:0;padding:10px 16px 20px;background:transparent;border:0;box-shadow:none}
+.gd-backdated-summary{position:sticky;top:14px;background:#fff;border:1px solid #e4e8ef;border-radius:15px;padding:20px 17px;box-shadow:0 2px 7px #00000009}
+.gd-summary-row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:12px 0;border-bottom:1px solid #eff0f5;font-size:12px}
+.gd-summary-row span{color:#73809a}.gd-summary-row strong{text-align:right;color:#222c44;max-width:65%;overflow-wrap:anywhere}
+.gd-summary-note{background:#edf5ff;color:#3066a4;font-size:11px;padding:11px;border-radius:10px;margin-top:18px;line-height:1.6}
+@media(max-width:1000px){.bt-wrap{grid-template-columns:1fr}.gd-backdated-summary{position:static}.bt-wrap>.bt-form{padding:0}}
+</style><style>
+/* Compact backdated view: same card + four entry points as the live Brief & Intake page */
+.bt-page{max-width:none!important}
+.bt-wrap{grid-template-columns:minmax(0,1fr) 285px!important;gap:14px!important}
+.bt-wrap>.bt-form{padding:0!important}
+.bt-page .bt-section{padding:13px 15px!important;margin:0 0 10px!important}
+.bt-page .bt-section-title{margin-bottom:10px!important}
+.bt-page .bt-section .field{margin-bottom:8px}
+.bt-page .bt-section .hint{font-size:11px}
+.bt-page .bt-history-card .bt-grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.bt-mini-hint{font-size:11px;font-weight:400;color:#7d8ba1;margin-left:auto}
+.bt-history-dates{padding-top:4px}
+.bt-history-card .bt-history-dates>.bt-grid-2{grid-template-columns:repeat(3,minmax(0,1fr))}
+.bt-history-card .bt-history-dates>.bt-grid-2>.field{min-width:0}
+.bt-history-card .bt-history-dates .hint{margin:2px 0 8px!important}
+.bt-audit-help{display:none}
+.bt-popup-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:9px 0 10px}
+.bt-popup-shortcut{border:1px solid #e2e6ef;border-radius:10px;padding:12px 9px;background:#fff;color:#31405a;text-align:left;display:flex;justify-content:space-between;align-items:center;gap:5px;font:600 12px var(--font-app);cursor:pointer;min-height:48px}
+.bt-popup-shortcut span{font-size:17px;color:#6c72fa}.bt-popup-shortcut:hover{border-color:#8589ff;background:#f7f8ff}
+.bt-popup-overlay{position:fixed;z-index:100000;inset:0;background:rgba(14,25,49,.42);display:none;justify-content:center;align-items:center;padding:20px}
+.bt-popup-overlay.is-open{display:flex}.bt-modal-open{overflow:hidden}
+.bt-popup-panel{display:flex;flex-direction:column;background:#f6f8fc;border-radius:16px;width:min(850px,100%);max-height:min(88vh,940px);box-shadow:0 15px 45px #1116;overflow:hidden}
+.bt-popup-header,.bt-popup-bottom{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#fff;border-bottom:1px solid #e9ecf4;flex-shrink:0}
+.bt-popup-bottom{justify-content:flex-end;border-top:1px solid #e9ecf4;border-bottom:none}
+.bt-popup-body{overflow-y:auto;padding:16px}
+.bt-popup-body .bt-section{margin-bottom:12px!important}
+.bt-page .bt-footer{padding:12px!important;margin:0!important}
+.bt-page .gd-backdated-summary{padding:15px!important}
+.bt-page .gd-summary-row{padding:8px 0!important}
+@media(max-width:1000px){.bt-wrap{grid-template-columns:1fr!important}}
+@media(max-width:650px){.bt-popup-links{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-history-card .bt-history-dates>.bt-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-popup-overlay{padding:6px}.bt-popup-panel{max-height:97vh}}
+</style><style>
+/* Three historic dates only: Brief / DL / Submitted. Keep the whole card two rows. */
+.bt-page .bt-history-three-dates{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.bt-page .bt-history-three-dates .field{min-width:0;margin-bottom:0}
+.bt-page .bt-history-three-dates input{height:35px;min-height:35px;padding:6px 10px}
+.bt-page .bt-history-card .bt-status-row select{min-height:35px;height:35px;padding:5px 10px}
+.bt-page .bt-history-card .bt-status-row .hint{display:none}
+.bt-page .bt-history-card{padding:11px 14px!important}
+.bt-page .bt-history-card .bt-section-title{margin-bottom:7px!important}
+.bt-page .bt-history-dates{padding-top:0}
+.bt-optional{color:#96a0af;font-weight:400;font-size:11px}
+@media(max-width:650px){.bt-page .bt-history-three-dates{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.bt-page .bt-history-three-dates input{padding:4px;font-size:11px}}
+</style><style>
+/* Match standard Brief form: owner, basic info, three popup shortcuts, then 2-row history card. */
+.bt-page .bt-popup-links{grid-template-columns:repeat(3,minmax(0,1fr));margin:6px 0 12px}
+.bt-page .bt-section-title:has(.bt-extra-link){display:flex;align-items:center;gap:8px}
+.bt-extra-link{margin-left:auto;background:none;border:0;color:#5f63ed;font:600 11px var(--font-app);cursor:pointer;padding:3px 5px}
+.bt-extra-link:hover{text-decoration:underline}
+.bt-page .bt-history-card .bt-status-row{margin-bottom:8px}
+.bt-page .bt-history-card .field label{margin-bottom:4px}
+@media(max-width:650px){.bt-page .bt-popup-links{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.bt-page .bt-popup-shortcut{font-size:10px;padding:7px 5px;min-height:40px}}
+</style><style id="gd-backdated-three-sections-v3">
+/* Explicit accepted reference layout. Only applies to the historical form, not new briefs. */
+.bt-page:has(#backdatedForm) .bt-wrap {display:grid!important;grid-template-columns:minmax(0,1fr) 285px!important;gap:14px!important;align-items:start!important;max-width:none!important}
+.bt-page:has(#backdatedForm) #backdatedForm {display:flex!important;flex-direction:column!important;gap:0!important;min-width:0!important;max-width:none!important;background:transparent!important;border:none!important;padding:0!important;box-shadow:none!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.bt-section {background:#fff!important;border:1px solid #e0e6ef!important;border-radius:13px!important;padding:14px 16px!important;margin:0 0 10px!important;box-shadow:0 1px 2px #00000007!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.bt-section .bt-section-title {margin:0 0 9px!important;font-size:14px!important;line-height:23px!important}
+.bt-page:has(#backdatedForm) #backdatedForm .bt-section-title .step-num {display:inline-flex!important;align-items:center;justify-content:center;border-radius:7px;background:#6366f1;color:#fff;min-width:22px;width:22px;height:22px;font-size:11px;font-weight:800;margin-right:3px}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.field {margin:0 0 9px!important;width:100%!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.field input {display:block!important;width:100%!important;height:39px!important;min-height:39px!important;box-sizing:border-box!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.bt-grid-4 {display:grid!important;grid-template-columns:30fr 30fr 20fr 20fr!important;gap:12px!important;align-items:start!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.bt-grid-4>.field {margin:0!important;min-width:0!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.bt-grid-4 input,.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.bt-grid-4 select {height:40px!important;min-height:40px!important;box-sizing:border-box!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-shortcuts {display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;margin:0 0 10px!important;width:100%!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-shortcuts>button {display:flex!important;align-items:center!important;justify-content:space-between!important;min-height:51px!important;padding:12px 11px!important;line-height:1.3!important;background:#fff!important;border:1px solid #e0e6ef!important;border-radius:10px!important;color:#273852!important;text-align:left!important;font-weight:700!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-shortcuts>button span{color:#6366f1!important;font-size:18px!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates {padding:11px 14px!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates .bt-section-title {margin-bottom:8px!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates .bt-status-row {display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;margin:0 0 10px!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates .bt-history-three-dates {display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates .field {margin:0!important;min-width:0!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates label {margin:0 0 4px!important;font-size:12px!important;line-height:17px!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates .bt-status-row select,.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates .bt-history-three-dates input {height:36px!important;min-height:36px!important;box-sizing:border-box!important;width:100%!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates .bt-status-row .hint,.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates .bt-audit-help {display:none!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.bt-footer {margin-top:0!important}
+@media(max-width:1000px){.bt-page:has(#backdatedForm) .bt-wrap {grid-template-columns:1fr!important}}
+@media(max-width:680px){.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.bt-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))!important}.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-shortcuts{gap:6px!important}.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-shortcuts>button{padding:9px 7px!important;font-size:11px!important}.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates .bt-history-three-dates{gap:5px!important}}
+</style><style id="gd-feedback-20261017">
+/* Three modal launchers; AW names now live with Brief / Content Details. */
+.brief-detail-launchers{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+.bt-page .gd-bd-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.gd-aw-simple-list{display:flex;flex-direction:column;gap:12px}
+.gd-aw-simple-item{border:1px solid #e4e8f0;border-radius:12px;padding:14px;background:#fff}
+.gd-aw-simple-head{font-size:13px;font-weight:750;margin-bottom:10px;color:#344054}
+.gd-aw-simple-item .field{margin-bottom:10px}
+.gd-aw-simple-item textarea{width:100%;min-height:110px;resize:vertical}
+.gd-aw-simple-item input{width:100%}
+.gd-aw-simple-note{font-size:12px;color:#7c8da5;margin:0 0 12px}
+@media(max-width:650px){.brief-detail-launchers{grid-template-columns:1fr!important}.bt-page .gd-bd-shortcuts{grid-template-columns:1fr!important}}
+</style><style id="gd-bd-basic-identical-to-live-brief">
+/* Historical Basic Information: same two-column naming row, combo and four-column bottom as live Brief. */
+.bt-page #backdatedForm>.gd-bd-basic>.gd-bd-name-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px!important;align-items:start;margin-bottom:13px}
+.bt-page #backdatedForm>.gd-bd-basic>.gd-bd-name-row>.field{margin:0!important;min-width:0}
+.bt-page #backdatedForm>.gd-bd-basic>.gd-bd-name-row input#bt_campaign{width:100%!important;min-height:40px;height:40px;box-sizing:border-box}
+.bt-page #backdatedForm>.gd-bd-basic>.gd-bd-name-row .tn-combo{display:flex;align-items:center;width:100%;min-height:40px;height:40px;border:1px solid #e4e7ed;border-radius:10px;overflow:hidden;background:#fff;box-sizing:border-box}
+.bt-page #backdatedForm>.gd-bd-basic>.gd-bd-name-row .tn-prefix{display:block;flex:0 1 auto;min-width:0;max-width:75%;padding:0 10px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-weight:700;color:#6366f1}
+.bt-page #backdatedForm>.gd-bd-basic>.gd-bd-name-row .tn-prefix.empty{color:#94a3b8;font-weight:500}
+.bt-page #backdatedForm>.gd-bd-basic>.gd-bd-name-row #bt_taskname_extra{min-width:85px;flex:1;border:0!important;border-left:1px solid #e5e7eb!important;border-radius:0!important;outline:none!important;padding:0 10px!important;height:100%!important;background:transparent!important;box-shadow:none!important}
+.bt-page #backdatedForm>.gd-bd-basic>.bt-grid-4{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+@media(max-width:700px){.bt-page #backdatedForm>.gd-bd-basic>.gd-bd-name-row{grid-template-columns:1fr!important}.bt-page #backdatedForm>.gd-bd-basic>.bt-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+</style>
+<style id="gd-bd-section02-brief-details">
+/* Sec 02 groups existing Brief Links and Brief / Content Details, without duplicating fields. */
+.bt-page #backdatedForm>.gd-bd-brief-details{padding:14px 15px!important;margin-bottom:10px!important}
+.bt-page #backdatedForm>.gd-bd-brief-details>.bt-section-title{margin-bottom:10px!important}
+.bt-page #backdatedForm>.gd-bd-brief-details>.gd-bd-shortcuts{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;width:100%!important;margin:0!important}
+.bt-page #backdatedForm>.gd-bd-brief-details>.gd-bd-shortcuts>button{display:flex!important;justify-content:space-between!important;align-items:center!important;min-height:47px!important;border:1px solid #e0e6ef!important;border-radius:10px!important;background:#fff!important;padding:10px 12px!important;font-weight:700!important;text-align:left!important;color:#273852!important}
+.bt-page #backdatedForm>.gd-bd-brief-details>.gd-bd-shortcuts>button span{color:#6366f1!important}
+@media(max-width:600px){.bt-page #backdatedForm>.gd-bd-brief-details>.gd-bd-shortcuts{grid-template-columns:1fr!important}}
+</style>
+
+<style id="gd-backdated-match-normal-brief-spacing-20261017">
+/* Match the EXISTING normal Brief layout tokens. This stylesheet is scoped to
+   historical entry only; the new Brief form remains unchanged. */
+.bt-page:has(#backdatedForm){width:100%;max-width:none!important;margin:0!important;padding:0!important;box-sizing:border-box}
+.bt-page:has(#backdatedForm) .bt-wrap{
+  display:grid!important;
+  grid-template-columns:minmax(0,3fr) minmax(240px,1fr)!important;
+  gap:18px!important;
+  align-items:start!important;
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  padding:0!important;
+}
+.bt-page:has(#backdatedForm) #backdatedForm{
+  min-width:0!important;
+  width:100%!important;
+  margin:0!important;
+  padding:0!important;
+  gap:12px!important;
+}
+.bt-page:has(#backdatedForm) #backdatedForm>.bt-section,
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-brief-details,
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates{
+  padding:14px!important;
+  margin:0!important;
+  box-sizing:border-box!important;
+  border-radius:14px!important;
+}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-brief-details>.bt-section-title,
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.bt-section-title,
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-dates>.bt-section-title{
+  margin-bottom:12px!important;
+}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.gd-bd-name-row{gap:12px!important;margin-bottom:12px!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-basic>.bt-grid-4{gap:12px!important}
+.bt-page:has(#backdatedForm) #backdatedForm>.gd-bd-brief-details>.gd-bd-shortcuts{gap:10px!important}
+.bt-page:has(#backdatedForm) .gd-backdated-summary{
+  box-sizing:border-box!important;
+  width:100%!important;
+  min-width:0!important;
+  padding:14px!important;
+  border-radius:14px!important;
+  top:16px!important;
+}
+.bt-page:has(#backdatedForm) #backdatedForm>.bt-footer{margin:0!important;padding:12px!important;box-sizing:border-box!important}
+@media(max-width:1100px){
+  .bt-page:has(#backdatedForm) .bt-wrap{grid-template-columns:1fr!important;gap:12px!important}
+  .bt-page:has(#backdatedForm) .gd-backdated-summary{position:static!important}
+}
+</style>
 </head>
 <body>
 <div class="app" id="app"></div>
@@ -7416,7 +7596,7 @@ function renderSidebar(){
     ${[['mytodo','My To-do'],['security','Account'],['leave','Leave Calendar'],['performance','Performance']].map(([id,label])=>
       // active only while actually on that page — sideSection keeps its old value after going to Overview
       `<button class="sidenav-btn ${STATE.tab==='workflow' && STATE.sideSection===id?'active':''}" data-side="${id}">${label}</button>`).join('')}`;
-  else if(cat==='workingprocess') itemsHtml = navItemsHtml([['brief','Brief & Intake'],['board','Process Board'],['allwork','All Work'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview'],['backdated','Backdated Task'],['myCompleted','ประวัติงาน']]);
+  else if(cat==='workingprocess') itemsHtml = navItemsHtml([['brief','Brief & Intake'],['board','Process Board'],['allwork','All Work'],['dashboard','Team Capacity'],['monthlyoverview','Monthly Overview'],['myCompleted','ประวัติงาน']]);
   else if(cat==='tools') itemsHtml = renderToolsGroupHTML();
   else if(cat==='assets') itemsHtml = renderAssetsCenterGroupHTML();
   else if(cat==='product') itemsHtml = renderProductGroupHTML();
@@ -7737,8 +7917,8 @@ function renderMain(){
   if(STATE.tab==='products') return renderProductsDirectory();
   if(STATE.tab==='platforms') return renderPlatformsDirectory();
   if(STATE.tab==='studioflow') return renderStudioFlowPage();
-  if(STATE.sideSection==='brief') return renderBriefForm();
-  if(STATE.sideSection==='backdated') return renderBackdatedTaskForm();
+  if(STATE.sideSection==='brief') return GD_BACKDATED_MODE ? renderBackdatedTaskForm() : renderBriefForm();
+  if(STATE.sideSection==='backdated') { STATE.sideSection='brief'; GD_BACKDATED_MODE=true; return renderBackdatedTaskForm(); }
   if(STATE.sideSection==='myCompleted') return renderMyCompletedJobs();
   if(STATE.sideSection==='mytodo') return renderMyTodoPage();
   if(STATE.sideSection==='poHome') return renderPOWorkspace();
@@ -9627,6 +9807,8 @@ function renderWorkspace(){
 
   // ---- สรุปงานวันนี้
   const capLoad = dl.total, cap = dl.cap;
+  // Clock-based office time is distinct from capacity budget. Lunch 12:00–13:00 is excluded.
+  const shiftHoursLeft = Math.round(remainingOfficeHours(today)*10)/10;
   const capLeft = Math.round((cap - capLoad)*10)/10;
   const capPct = cap>0 ? Math.min(100, Math.round(capLoad/cap*100)) : 100;
   const capStatus = wsDayStatus(me, today);
@@ -9734,7 +9916,8 @@ function renderWorkspace(){
           <div class="wsv-lbl">Capacity วันนี้</div>
           <div class="wsv-big">${wsHoursNum(capLoad)} <small>/ ${wsHoursNum(cap)} ชม.</small></div>
           <div class="wsv-bar"><span style="width:${capPct}%;background:${WS_DAY_STATUS[capStatus.key].color}"></span></div>
-          <div class="wsv-note" style="color:${capLeft<0?'var(--crit-tx)':WS_DAY_STATUS[capStatus.key].color}">${capLeft>=0 ? `เหลือ ${wsHours(capLeft)} (${cap>0?Math.round(capLeft/cap*100):0}%)` : `เกิน ${wsHours(-capLeft)}`}${dl.overdue>0?` · รวมงานค้าง ${wsHours(dl.overdue)}`:''}</div>
+          <div class="wsv-note" style="color:${capLeft<0?'var(--crit-tx)':WS_DAY_STATUS[capStatus.key].color}">${capLeft>=0 ? `เหลือ Capacity ${wsHours(capLeft)} (${cap>0?Math.round(capLeft/cap*100):0}%)` : `เกิน Capacity ${wsHours(-capLeft)}`}${dl.overdue>0?` · รวมงานค้าง ${wsHours(dl.overdue)}`:''}</div>
+          <div class="wsv-note" title="เวลาตามกะงาน 09:00–12:00 และ 13:00–18:00 ไม่รวมเวลาพักเที่ยง">เวลาทำงานที่เหลือในกะ ${wsHours(shiftHoursLeft)} (ไม่รวมพัก 12:00–13:00)</div>
         </div>
       </div>
       <div class="wsv-card">
@@ -11055,7 +11238,6 @@ function briefPopupLines(text){return String(text).split(/\r?\n/).map(v=>v.trim(
 function renderBriefDetailLaunchers(){
   return `<div id="briefDetailLaunchers" class="brief-detail-launchers">
     <div class="field"><label>Brief Links</label><button type="button" class="brief-popup-input" data-briefpopup="links"><span id="briefLinksSummary">เพิ่มลิงก์บรีฟ</span><span aria-hidden="true">↗</span></button></div>
-    <div class="field"><label>ชื่อ Artwork</label><button type="button" class="brief-popup-input" data-briefpopup="names"><span id="briefNamesSummary">ชื่ออัตโนมัติ</span><span aria-hidden="true">↗</span></button></div>
     <div class="field"><label>Brief / Content Details *</label><button type="button" class="brief-popup-input" data-briefpopup="content"><span id="briefContentSummary">กรอกรายละเอียดงาน</span><span aria-hidden="true">↗</span></button></div>
     <div class="field"><label>Priority &amp; Delivery *</label><button type="button" class="brief-popup-input" data-briefpopup="delivery"><span id="briefDeliverySummary">เลือกกำหนดวันส่งงาน</span><span aria-hidden="true">↗</span></button></div>
   </div>`;
@@ -11207,6 +11389,7 @@ function renderBriefForm(){
   <h1 class="pagetitle">Brief & Intake Form${editing?` <span class="chip" style="margin-left:8px;vertical-align:middle">✎ Editing ${STATE.editingTaskId}</span>`:''}${resumingDraft?` <span class="chip" style="margin-left:8px;vertical-align:middle">🗎 Draft</span>`:''}
     ${STATE.auth.role==='po' ? `<span class="vbe-savepill" id="briefAutosavePill" style="margin-left:10px;vertical-align:middle;display:none"></span>` : ''}</h1>
   <p class="pagesub">${editing ? 'แก้ไขบรีฟที่ส่งไปแล้ว — บันทึกจะสร้าง Revision ใหม่ และแจ้งเตือน Designer หากมีการเปลี่ยนแปลงสำคัญ' : 'ยื่นบรีฟใหม่ — ระบบจะคำนวณชั่วโมงงาน, Auto-Assign ดีไซเนอร์ และตรวจ Capacity ให้อัตโนมัติ'}</p>
+  <div class="gd-entry-modes"><button type="button" class="gd-entry-mode active" onclick="GD_BACKDATED_MODE=false;render()">งานใหม่</button>${canCreateBackdated()?`<button type="button" class="gd-entry-mode" onclick="GD_BACKDATED_MODE=true;render()">บันทึกงานย้อนหลัง</button>`:''}</div>
   <form id="briefForm">
   <div class="brief-review-layout"><div class="formgrid">
     <div class="brief-stepper" id="briefStepper">
@@ -11497,21 +11680,37 @@ function renderArtworkEditAreaHTML(){
 // 02.1 Artwork Navigation (DEV SPEC — Final Redesign): Horizontal, scrollable Artwork Tabs replace both
 // the old right-side sidebar AND the old vertical Artwork Card list. Exactly ONE "+ Add Artwork" control,
 // at the end of the tab row — never duplicated elsewhere. A <select> fallback covers very narrow screens.
+// Feedback 2026-10-17: one row per AW, no tabs, add, copy, duplicate, delete, or apply-all.
+// The number of rows is controlled exclusively by the Basic Information AW quantity.
 function renderArtworkDetailsHTML(){
-  const arr = briefArtworks();
-  return `
-    ${renderExternalBriefLinksSectionHTML()}
-    <div class="aw-tabsbar">
-      <div class="aw-tabs-scroll" id="artworkTabsScroll">${renderArtworkTabsHTML()}</div>
-      <button type="button" class="aw-tab-addbtn" id="awAddBtn">+ Add Artwork</button>
-    </div>
-    <div class="aw-dropdown-nav">
-      <select id="artworkDropdownSelect">${renderArtworkDropdownOptionsHTML()}</select>
-    </div>
-    <div class="aw-main">
-      ${renderArtworkEditAreaHTML()}
-    </div>
-  `;
+  const arr=briefArtworks();
+  return `${renderExternalBriefLinksSectionHTML()}
+    <div class="gd-aw-simple-list" id="gdSimpleArtworkList">
+      <p class="gd-aw-simple-note">ชื่อ Artwork และรายละเอียดแต่ละ AW · จำนวนรายการอิงตามช่องจำนวน Artwork หลักใน Basic Information</p>
+      ${arr.map((aw,i)=>`<div class="gd-aw-simple-item" data-gd-aw="${escAttr(aw.artworkId)}">
+        <div class="gd-aw-simple-head">Artwork ${String(i+1).padStart(2,'0')} / ${arr.length}</div>
+        <div class="field"><label>ชื่อ Artwork ${String(i+1).padStart(2,'0')} *</label>
+          <input type="text" data-gd-aw-name="${escAttr(aw.artworkId)}" value="${escAttr(aw.name||'')}" placeholder="ชื่อ Artwork"></div>
+        <div class="field"><label>Brief / Content Details</label>
+          <textarea data-gd-aw-brief="${escAttr(aw.artworkId)}" placeholder="รายละเอียดงาน / Concept / Mood & Tone">${escAttr(aw.brief||'')}</textarea></div>
+      </div>`).join('')}
+    </div>`;
+}
+function bindGDSimpleArtworkInputs(){
+  const root=document.getElementById('gdSimpleArtworkList');if(!root)return;
+  root.querySelectorAll('[data-gd-aw-name],[data-gd-aw-brief]').forEach(input=>{
+    input.addEventListener('input',()=>{
+      const id=input.dataset.gdAwName||input.dataset.gdAwBrief;
+      const aw=briefArtworks().find(x=>x.artworkId===id);if(!aw)return;
+      if(input.hasAttribute('data-gd-aw-name')){
+        aw.name=input.value;
+        aw._nameManual=true;
+      }else aw.brief=input.value;
+      updateBriefDetailSummaries();
+      updateBriefReadiness();
+      scheduleBriefDraftAutosave();
+    });
+  });
 }
 // Rebuilds the whole Artwork Details subtree — used after any structural change (never mid-keystroke).
 // #deliverCountDisplay lives in the Basic Information step (outside #artworkDetailsSection's own subtree),
@@ -11529,6 +11728,7 @@ function refreshArtworkSection(){
   updateDeliverCountDisplay();
   box.innerHTML = renderArtworkDetailsHTML();
   bindArtworkSection();
+  bindGDSimpleArtworkInputs();
   // #vbeRoot now lives nested inside this subtree (one per Artwork, only the active one ever mounted) —
   // every structural change that rebuilds this box (add/duplicate/copy/delete/reorder/switch/apply-all)
   // recreates #vbeRoot empty, so the Canvas must be (re)mounted for whichever Artwork just became active
@@ -11982,18 +12182,13 @@ function bindArtworkSection(){
    brief_timestamp/prefer_delivery_date so every existing Capacity/KPI/Dashboard view attributes the point
    to that real period for free) — system_created_at is separate and ALWAYS "now", never backdated, so
    there's always an honest record of when the entry was actually made in the system. */
-function canCreateBackdated(){ return STATE.auth.loggedIn && STATE.auth.role==='designer'; }
+let GD_BACKDATED_MODE = false;
+function canCreateBackdated(){ return STATE.auth.loggedIn && STATE.auth.role==='designer' && (isLead() || !!STATE.auth.user); }
 let BACKDATED_DRAFT = { kv:'' };
 const BACKDATED_STATUS_OPTIONS = [
-  {value:'todo', label:'To Do', review_status:'new'},
-  {value:'in_progress', label:'In Progress', review_status:'in_progress'},
-  {value:'revision', label:'Revision', review_status:'revision'},
-  {value:'pending', label:'Pending', review_status:'pending_review'},
-  // Krissha, 2026-09-24 ("ปุ่มพรูฟของ owner Project หาย"): a backdated job whose work is done but still waiting
-  // for the Project Owner to proof had no status to land in — "Completed" jumps straight to the terminal
-  // 'delivered', so the Owner never gets Approve / Request Revision. This lands it in Awaiting Approval.
-  {value:'awaiting_approval', label:'Awaiting Approval (รอ Owner พรูฟ)', review_status:'pending_client_review'},
-  {value:'completed', label:'Completed', review_status:'delivered'},
+  {value:'in_progress',label:'กำลังทำ',review_status:'in_progress'},
+  {value:'awaiting_approval',label:'ส่งแล้วรอตรวจ',review_status:'pending_client_review'},
+  {value:'completed',label:'เสร็จสมบูรณ์',review_status:'delivered'},
 ];
 const PRIORITY_TH_LABEL = {CRITICAL:'Critical', URGENT:'Urgent', PRIORITY:'Priority', STANDARD:'Standard', UNKNOWN:'Unknown (Deadline ไม่ทราบ)'};
 const DEADLINE_STATUS_TH = {Completed:'Completed', Unknown:'ไม่ทราบ', Overdue:'Overdue (เลยกำหนดเดิมแล้ว)', 'Due Soon':'Due Soon (ใกล้ครบกำหนดเดิม)', 'On Track':'On Track'};
@@ -12025,6 +12220,50 @@ function liveTargetDateForActiveBackdated(deadlineDate, deadlineUnknown){
   if(!deadlineUnknown && deadlineDate && deadlineDate > today) return deadlineDate;
   return today;
 }
+// Backdated completed tasks use the same elapsed-milliseconds metric as the live Designer timer.
+// The timestamp range must reflect actual working sessions (including any breaks or leave):
+// do not infer eight hours per day or silently subtract leave twice.
+function backdatedWorkDurationMs(start, end){
+  if(!start || !end) return null;
+  const a=new Date(start).getTime(), b=new Date(end).getTime();
+  return Number.isFinite(a)&&Number.isFinite(b)&&b>=a ? b-a : null;
+}
+function updateBackdatedWorkPreview(){
+  const start=document.getElementById('bt_workstart')?.value||'';
+  const end=document.getElementById('bt_workend')?.value||'';
+  const hint=document.getElementById('btWorkTimePreview');
+  if(!hint)return;
+  if(!start&&!end){hint.textContent=document.getElementById('bt_workstatus')?.value==='completed'?'งาน Completed: ต้องกรอกเวลาเริ่มและจบจริง':'สถานะยังไม่ Completed: ช่องเวลายังไม่บังคับกรอก';return;}
+  const ms=backdatedWorkDurationMs(start,end);
+  hint.textContent=ms===null?'กรุณาระบุเวลาเริ่ม–จบที่ถูกต้อง (เวลาจบต้องไม่ก่อนเวลาเริ่ม)':`เวลาทำงานจริง ${Math.floor(ms/3600000)} ชม. ${Math.round(ms%3600000/60000)} นาที — ใช้วิธีคำนวณเวลาเดียวกับ Timer งานปกติ`;
+}
+function openBackdatedPopup(kind){
+  const id=kind==='artwork'?'btPopupArtwork':'btPopupExtras';
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.classList.add('is-open');el.setAttribute('aria-hidden','false');
+  document.body.classList.add('bt-modal-open');
+}
+function closeBackdatedPopup(){
+  document.querySelectorAll('.bt-popup-overlay.is-open').forEach(el=>{el.classList.remove('is-open');el.setAttribute('aria-hidden','true');});
+  document.body.classList.remove('bt-modal-open');
+}
+// Historical Brief uses the SAME locked Campaign + Artwork naming convention as the live Brief.
+// Keep #bt_taskname as the saved task-name field so existing validation, persistence and reporting remain intact.
+function syncBackdatedTaskName(){
+  const hidden=document.getElementById('bt_taskname');
+  if(!hidden)return;
+  const project=document.getElementById('bt_campaign')?.value||'';
+  const type=document.getElementById('bt_type')?.value||'';
+  const other=(type==='อื่นๆ ระบุ')?(document.getElementById('bt_type_other')?.value||''):'';
+  const prefix=taskNamePrefixFromParts(project,type,other);
+  const extra=document.getElementById('bt_taskname_extra')?.value?.trim()||'';
+  hidden.value=[prefix,extra].filter(Boolean).join(TASKNAME_SEP);
+  const label=document.getElementById('btTnPrefix');
+  if(label){label.textContent=prefix||'เลือก Campaign Tag + Artwork';label.classList.toggle('empty',!prefix);}
+  const prev=document.getElementById('btTnFullPreview');
+  if(prev) prev.textContent=hidden.value?'ชื่องานที่จะใช้: '+hidden.value:'';
+}
 function renderBackdatedTaskForm(){
   if(!canCreateBackdated()) return renderWorkspace();
   const categories = Object.keys(MASTER_TABLE).filter(c=>c!==OTHER_CATEGORY);
@@ -12033,13 +12272,10 @@ function renderBackdatedTaskForm(){
   const designerOptions = eligibleDesignerLoginAccounts();
   return `
   <div class="bt-page">
-  <h1 class="pagetitle">Backdated Task</h1>
-  <p class="pagesub">บันทึกงานที่เกิดขึ้นแล้ว หรือย้ายงานจากระบบเดิมเข้าสู่ GD Worldtech</p>
+  <h1 class="pagetitle">Brief &amp; Intake Form</h1>
+  <div class="gd-entry-modes"><button type="button" class="gd-entry-mode" onclick="GD_BACKDATED_MODE=false;STATE.sideSection='brief';render()">งานใหม่</button><button type="button" class="gd-entry-mode active">บันทึกงานย้อนหลัง</button></div>
+  <p class="pagesub">บันทึกงานที่ทำจริงย้อนหลัง — ใช้ชั่วโมงมาตรฐานและข้อมูลผลงานตามระบบปกติ</p>
   <div class="bt-wrap">
-    <div class="info-box">
-      <strong>Backdated Task & Historical Work Migration</strong><br>
-      ระบบจะใช้วันที่เกิดงานจริงในการคำนวณ History, Priority และ Performance โดยวันที่สร้าง Record (System Created At) ไม่มีผลต่อ Priority เดิม
-    </div>
     <form id="backdatedForm" class="bt-form">
       <div class="bt-section">
         <div class="bt-section-title">Brief Owner</div>
@@ -12047,14 +12283,20 @@ function renderBackdatedTaskForm(){
           <label>Brief Owner Email *</label>
           <input type="email" id="bt_owner" required placeholder="name@${COMPANY_DOMAIN}" list="briefOwnerEmailListBt" autocomplete="off">
           <datalist id="briefOwnerEmailListBt">${(STATE.users||[]).filter(u=>(u.role==='po'||u.role==='designer'||u.role==='lead')&&u.status==='active').map(u=>`<option value="${u.email}" label="${u.name} — ${ROLE_LABEL[u.role]||u.role} · ${u.email}">`).join('')}</datalist>
-          <div class="hint">ใช้เพื่อเชื่อมกับ Project Owner และเก็บ History ของงาน</div>
+          <div class="hint">เชื่อมข้อมูลเจ้าของบรีฟกับประวัติงาน</div>
         </div>
         <div id="btOwnerAutoPreview" style="margin-top:10px">${renderOwnerAutoPreviewHTML('')}</div>
       </div>
 
-      <div class="bt-section">
-        <div class="bt-section-title">Basic Information</div>
-        <div class="field"><label>Task Name *</label><input required id="bt_taskname" placeholder="เช่น Banner โปรโมชั่น"></div>
+      <div class="bt-section gd-bd-basic" data-layout-section="1">
+        <div class="bt-section-title"><span class="step-num">01</span> Basic Information</div>
+        <div class="gd-bd-name-row">
+          <div class="field"><label>Project / Campaign Tag</label><input id="bt_campaign" list="btProjectList" placeholder="เลือกหรือพิมพ์ชื่อใหม่"><datalist id="btProjectList">${projectList().map(p=>`<option value="${escAttr(p)}">`).join('')}</datalist></div>
+          <div class="field"><label>ชื่องาน * <span class="hint" style="font-weight:400">อัตโนมัติ</span></label>
+            <div class="tn-combo"><span class="tn-prefix empty" id="btTnPrefix" title="ล็อกอัตโนมัติจาก Project / Campaign Tag + Artwork / ประเภทงานย่อย">เลือก Campaign Tag + Artwork</span><input id="bt_taskname_extra" placeholder="พิมพ์เพิ่มได้ (ไม่บังคับ)" autocomplete="off"></div>
+            <input type="hidden" id="bt_taskname"><div class="hint" id="btTnFullPreview" style="margin-top:4px"></div>
+          </div>
+        </div>
         <div class="bt-grid-4">
           <div class="field"><label>Task Category *</label>
             <select id="bt_category"><option value="">— เลือกหมวดหมู่งาน —</option>${categories.map(c=>`<option value="${c}">${c}</option>`).join('')}</select>
@@ -12087,43 +12329,21 @@ function renderBackdatedTaskForm(){
           </div>
         </div>
         <div class="bt-grid-2">
-          <div class="field" id="btCustomWrap" style="display:none">
-            <label>ชั่วโมงงาน (กำหนดโดย Lead Designer)</label><input type="number" step="0.5" id="bt_custom" value="2">
-          </div>
+          <div class="field" id="btCustomWrap" style="display:none"></div>
         </div>
-        <div class="bt-helper-row">ชั่วโมง Resize = CEIL(จำนวน Resize ÷ 4) — บวกเพิ่มจากชั่วโมงงานหลักเสมอ (คำนวณที่ Backend หลัง Submit — ไม่แสดงชั่วโมงในฟอร์มนี้)</div>
+
       </div>
 
-      <!-- DEV FIX — Backdated Preview = Normal Task Preview: Artwork Brief & Canvas now reuses the EXACT
-           SAME Artwork Editor as Normal Task (renderArtworkDetailsHTML()/#artworkDetailsSection →
-           bindArtworkSection()/refreshArtworkSection() — see bindBackdatedTaskForm() below), so Artwork
-           Name / Brief / Content / Images / Reference Links / Canvas / Brief Links all behave
-           identically for Backdated as for a Normal Task, instead of a separate/duplicated implementation
-           that could drift out of sync. -->
-      <div class="bt-section">
-        <div class="bt-section-title">Artwork Brief &amp; Canvas</div>
-        <div id="artworkDetailsSection"></div>
-      </div>
-
-      <div class="bt-section">
-        <div class="bt-section-title">Historical Work Dates</div>
-        <div class="bt-grid-2">
-          <div class="field"><label>Actual Brief Date *</label><input type="date" id="bt_briefdate" required max="${todayISO()}"></div>
-          <div class="field"><label>Original Deadline *</label><input type="date" id="bt_deadline"></div>
+      <div class="bt-section gd-bd-brief-details" data-layout-section="2">
+        <div class="bt-section-title"><span class="step-num">02</span> Artwork &amp; Brief Details</div>
+        <div class="bt-popup-links gd-bd-shortcuts">
+          <button type="button" class="bt-popup-shortcut" onclick="openBackdatedPopup('artwork')">Brief Links <span>↗</span></button>
+          <button type="button" class="bt-popup-shortcut" onclick="openBackdatedPopup('artwork')">Brief / Content Details <span>↗</span></button>
         </div>
-        <label class="hint" style="display:flex;align-items:center;gap:6px;margin:-8px 0 14px">
-          <input type="checkbox" id="bt_deadline_unknown" style="width:auto"> ไม่ทราบ Original Deadline (ข้อมูลจากระบบเก่าไม่ครบ)
-        </label>
-        <div class="field" id="btDeliveryWrap" style="display:none">
-          <label>Actual Delivery Date <span id="btDeliveryReq">*</span></label>
-          <input type="date" id="bt_deliverydate" max="${todayISO()}">
-        </div>
-        <div class="bt-meta">System Created At: ${fmtDateTime(nowIso())}</div>
-        <div class="hint">Read Only — ใช้เพื่อ Audit ว่านำข้อมูลเข้าระบบเมื่อไร ไม่มีผลต่อ Priority หรือ Deadline เดิม</div>
       </div>
-
-      <div class="bt-section">
-        <div class="bt-section-title">Current Work Information</div>
+      <div class="bt-section bt-history-card gd-bd-dates" data-layout-section="3">
+        <div class="bt-section-title"><span class="step-num">03</span> วันที่และผลการทำงาน <button type="button" class="bt-extra-link" onclick="openBackdatedPopup('extras')">ข้อมูลเพิ่มเติม ↗</button></div>
+        <div class="bt-grid-2 bt-status-row">
         <div class="field"><label>Current Work Status *</label>
           <select id="bt_workstatus">
             ${BACKDATED_STATUS_OPTIONS.map(o=>`<option value="${o.value}">${o.label}</option>`).join('')}
@@ -12137,12 +12357,41 @@ function renderBackdatedTaskForm(){
           </select>
           ${lead ? '<div class="hint">งานที่ยังไม่ Completed จะเข้า Queue ของ Designer ที่เลือกทันที</div>' : '<div class="hint">Designer บันทึกงานย้อนหลังของตัวเองเท่านั้น</div>'}
         </div>
+        </div>
+        <div class="bt-history-dates">
+          <div class="bt-history-three-dates">
+            <div class="field"><label>วันที่บรีฟ *</label><input type="date" id="bt_briefdate" required max="${todayISO()}"></div>
+            <div class="field"><label>วันที่ DL <span class="bt-optional">(ถ้าทราบ)</span></label><input type="date" id="bt_deadline"></div>
+            <div class="field" id="btDeliveryWrap"><label>วันที่ส่งงาน <span id="btDeliveryReq">(เมื่อส่งแล้ว)</span></label><input type="datetime-local" id="bt_deliverydate"></div>
+          </div>
+          <input type="hidden" id="bt_starteddate">
+          <input type="checkbox" id="bt_deadline_unknown" style="display:none" tabindex="-1" aria-hidden="true" checked>
+        </div>
+
+        
       </div>
 
-      <div class="bt-section" id="btWorkFolderSection" style="display:none">
-        <div class="bt-section-title">Completed Work File</div>
+      <!-- DEV FIX — Backdated Preview = Normal Task Preview: Artwork Brief & Canvas now reuses the EXACT
+           SAME Artwork Editor as Normal Task (renderArtworkDetailsHTML()/#artworkDetailsSection →
+           bindArtworkSection()/refreshArtworkSection() — see bindBackdatedTaskForm() below), so Artwork
+           Name / Brief / Content / Images / Reference Links / Canvas / Brief Links all behave
+           identically for Backdated as for a Normal Task, instead of a separate/duplicated implementation
+           that could drift out of sync. -->
+      <div id="btPopupArtwork" class="bt-popup-overlay" aria-hidden="true" onclick="if(event.target===this)closeBackdatedPopup()">
+        <div class="bt-popup-panel" role="dialog" aria-modal="true" aria-label="Artwork Brief & Canvas">
+          <div class="bt-popup-header"><strong>Artwork Brief &amp; Canvas</strong><button class="btn btn-ghost" type="button" onclick="closeBackdatedPopup()">✕ ปิด</button></div>
+          <div class="bt-popup-body"><div id="artworkDetailsSection"></div></div>
+          <div class="bt-popup-bottom"><button type="button" class="btn btn-primary" onclick="closeBackdatedPopup()">บันทึกข้อมูลในฟอร์ม</button></div>
+        </div>
+      </div>
+      <div id="btPopupExtras" class="bt-popup-overlay" aria-hidden="true" onclick="if(event.target===this)closeBackdatedPopup()">
+        <div class="bt-popup-panel" role="dialog" aria-modal="true" aria-label="ข้อมูลเพิ่มเติม">
+          <div class="bt-popup-header"><strong>ข้อมูลเพิ่มเติมสำหรับงานย้อนหลัง</strong><button class="btn btn-ghost" type="button" onclick="closeBackdatedPopup()">✕ ปิด</button></div><div class="bt-popup-body">
+
+      <div class="bt-section" id="btWorkFolderSection" style="display:block">
+        <div class="bt-section-title">ลิงก์ผลงาน (สำหรับงานที่ส่งแล้ว)</div>
         <div class="field" style="margin-bottom:0">
-          <label>Work Folder Link *</label>
+          <label>ลิงก์ผลงาน</label>
           <div style="display:flex;gap:8px">
             <input type="url" id="bt_workfolder" placeholder="Paste Google Drive folder link" style="flex:1">
             <button type="button" class="btn btn-ghost" id="btOpenWorkFolderBtn">Open Folder</button>
@@ -12152,7 +12401,15 @@ function renderBackdatedTaskForm(){
       </div>
 
       <div class="bt-section">
-        <div class="bt-section-title">Backdated Reason</div>
+        <div class="bt-section-title">ตรวจสอบงานเดิม / งานแก้ไข</div>
+        <div class="bt-grid-2">
+          <div class="field"><label>จำนวน AW ที่แก้ไข</label><input type="number" id="bt_revised_aw" min="0" step="1" value="0"></div>
+          <div class="field"><label>ค้นหางานที่มีอยู่แล้ว</label><input id="bt_existing_search" list="bt_existing_list" placeholder="ชื่องานหรือรหัสงานเดิม"><datalist id="bt_existing_list">${(STATE.tasks||[]).filter(t=>!t.deleted_at).slice(-500).map(t=>`<option value="${escAttr(t.task_id)}">${escAttr(taskDisplayName(t))}</option>`).join('')}</datalist><div class="hint">หากมีงานนี้แล้วให้แก้ไขงานเดิม เพื่อไม่ให้นับซ้ำ</div></div>
+        </div>
+      </div>
+
+      <div class="bt-section">
+        <div class="bt-section-title">เหตุผลที่บันทึกย้อนหลัง</div>
         <div class="field" style="margin-bottom:0"><label>Reason for Backdated Task *</label><textarea id="bt_reason" rows="3" placeholder="เช่น งานจากระบบเก่า / งานหลุดจากระบบ / ไม่ได้สร้าง Brief ตอนเริ่มงาน / งานเร่งด่วนที่ดำเนินการไปก่อน"></textarea></div>
       </div>
 
@@ -12180,11 +12437,23 @@ function renderBackdatedTaskForm(){
         </div>` : ''}
       </div>
 
+      </div><div class="bt-popup-bottom"><button type="button" class="btn btn-primary" onclick="closeBackdatedPopup()">บันทึกข้อมูลในฟอร์ม</button></div></div></div>
+
       <div class="bt-footer">
         <button type="button" class="btn btn-ghost" id="clearBackdatedBtn">ล้างฟอร์ม</button>
-        <button type="submit" class="btn btn-primary" id="submitBackdatedBtn">บันทึก Backdated Task</button>
+        <button type="submit" class="btn btn-primary" id="submitBackdatedBtn">บันทึกงานย้อนหลัง</button>
       </div>
     </form>
+    <aside class="gd-backdated-summary">
+      <div style="font-size:14px;font-weight:800;margin-bottom:13px">สรุปงานย้อนหลัง</div>
+      <div class="gd-summary-row"><span>ผู้รับผิดชอบ</span><strong id="bt_summary_assignee">—</strong></div>
+      <div class="gd-summary-row"><span>สถานะ</span><strong id="bt_summary_status">กำลังทำ</strong></div>
+      <div class="gd-summary-row"><span>วันที่บรีฟ</span><strong id="bt_summary_start">—</strong></div>
+      <div class="gd-summary-row"><span>วันที่ส่งงาน</span><strong id="bt_summary_delivery">—</strong></div>
+      <div class="gd-summary-row"><span>จำนวน AW + Resize</span><strong id="bt_summary_qty">1 + 0</strong></div>
+      <div class="gd-summary-row"><span>กำหนดส่งเดิม</span><strong id="bt_summary_deadline">ไม่ระบุ</strong></div>
+      <div class="gd-summary-note">ข้อมูลจะบันทึกเข้าวันที่ทำงานจริง โดยไม่ใช้วันที่สร้าง Record มาตัดสินความตรงเวลา</div>
+    </aside>
   </div>
   </div>`;
 }
@@ -12218,7 +12487,7 @@ function bindBackdatedTaskForm(){
   const updateCalcPriority = ()=>{
     const briefDate = document.getElementById('bt_briefdate')?.value || '';
     const deadlineDate = document.getElementById('bt_deadline')?.value || '';
-    const deadlineUnknown = !!document.getElementById('bt_deadline_unknown')?.checked;
+    const deadlineUnknown = !deadlineDate;
     const isCompleted = document.getElementById('bt_workstatus')?.value === 'completed';
     const calcEl = document.getElementById('btCalcPriority');
     const statusEl = document.getElementById('btDeadlineStatusHint');
@@ -12233,11 +12502,14 @@ function bindBackdatedTaskForm(){
     if(calcEl) calcEl.textContent = PRIORITY_TH_LABEL[calc] || calc;
     if(statusEl){ const status = currentDeadlineStatusFor(deadlineDate, deadlineUnknown, isCompleted); statusEl.textContent = `Deadline Status: ${DEADLINE_STATUS_TH[status]||status}`; }
   };
+  ['bt_campaign','bt_taskname_extra','bt_type_other'].forEach(id=>document.getElementById(id)?.addEventListener('input',syncBackdatedTaskName));
+  syncBackdatedTaskName();
   document.getElementById('bt_owner')?.addEventListener('input', e=>{
     const preview = document.getElementById('btOwnerAutoPreview');
     if(preview) preview.innerHTML = renderOwnerAutoPreviewHTML(e.target.value);
   });
   document.getElementById('bt_category')?.addEventListener('change', e=>{
+    syncBackdatedTaskName();
     const catVal = e.target.value;
     const cat = MASTER_TABLE[catVal];
     const typeEl = document.getElementById('bt_type');
@@ -12250,9 +12522,10 @@ function bindBackdatedTaskForm(){
     // Platform (DEV FIX — same field/data Normal Task uses): changing Category always resets the
     // previously-selected Platform, exactly like onCategoryChange() does for the live Brief form.
     BRIEF_DRAFT.platforms = new Set(); BRIEF_DRAFT.customPlatform = '';
-    if(!cat){ typeEl.disabled = true; typeEl.innerHTML = '<option value="">— เลือกประเภท Artwork —</option>'; kvWrap.style.display='none'; customWrap.style.display='none'; if(platField) platField.style.display='none'; return; }
+    if(!cat){ typeEl.disabled = true; typeEl.innerHTML = '<option value="">— เลือกประเภท Artwork —</option>'; kvWrap.style.display='none'; customWrap.style.display='none'; if(platField) platField.style.display='none'; syncBackdatedTaskName(); return; }
     typeEl.disabled = false;
     typeEl.innerHTML = '<option value="">— เลือกประเภท Artwork —</option>' + Object.keys(cat.types).map(t=>`<option value="${t}">${t}</option>`).join('');
+    syncBackdatedTaskName();
     kvWrap.style.display = (catVal==='E-Commerce') ? 'block' : 'none';
     customWrap.style.display = 'none';
     if(PLATFORMS_BY_CATEGORY[catVal]){
@@ -12263,13 +12536,15 @@ function bindBackdatedTaskForm(){
     } else if(platField){ platField.style.display='none'; }
   });
   document.getElementById('bt_type')?.addEventListener('change', e=>{
+    syncBackdatedTaskName();
     const catVal = document.getElementById('bt_category').value;
     const def = MASTER_TABLE[catVal]?.types?.[e.target.value];
     document.getElementById('btCustomWrap').style.display = (def && def.custom) ? 'block' : 'none';
   });
   document.getElementById('bt_kv')?.addEventListener('change', e=>{ BACKDATED_DRAFT.kv = e.target.value; });
-  document.getElementById('bt_briefdate')?.addEventListener('input', updateCalcPriority);
-  document.getElementById('bt_deadline')?.addEventListener('input', updateCalcPriority);
+  ['bt_workstart','bt_workend'].forEach(id=>document.getElementById(id)?.addEventListener('input',updateBackdatedWorkPreview));
+  document.getElementById('bt_briefdate')?.addEventListener('input', ()=>{ const d=document.getElementById('bt_starteddate');if(d)d.value=document.getElementById('bt_briefdate')?.value||'';updateCalcPriority(); });
+  document.getElementById('bt_deadline')?.addEventListener('input', ()=>{const u=document.getElementById('bt_deadline_unknown');if(u)u.checked=!document.getElementById('bt_deadline')?.value;updateCalcPriority();});
   document.getElementById('bt_deadline_unknown')?.addEventListener('change', e=>{
     const deadlineEl = document.getElementById('bt_deadline');
     if(deadlineEl){ deadlineEl.disabled = e.target.checked; if(e.target.checked) deadlineEl.value=''; }
@@ -12277,15 +12552,22 @@ function bindBackdatedTaskForm(){
   });
   document.getElementById('bt_workstatus')?.addEventListener('change', e=>{
     const completed = e.target.value === 'completed';
+    const delivered = completed || e.target.value === 'awaiting_approval';
     const deliveryWrap = document.getElementById('btDeliveryWrap');
-    if(deliveryWrap) deliveryWrap.style.display = completed ? 'block' : 'none';
+    if(deliveryWrap) deliveryWrap.style.display = 'block';
+    const timeFields=document.getElementById('btWorkTimeSection');
+    if(timeFields) timeFields.style.display='grid';
+    const timeHint=document.getElementById('btWorkTimePreview');
+    if(timeHint) timeHint.style.display='block';
+    updateBackdatedWorkPreview();
     const assigneeReq = document.getElementById('btAssigneeReq');
     if(assigneeReq) assigneeReq.style.display = completed ? 'none' : 'inline';
     // Completed Work File (Krissha, request): a Backdated Task logged as already-Completed is useless as a
     // "find the real work later" record without a link to where the finished file actually lives — only
     // required/shown once Status = Completed, hidden otherwise to keep the form free of irrelevant fields.
     const workFolderSection = document.getElementById('btWorkFolderSection');
-    if(workFolderSection) workFolderSection.style.display = completed ? 'block' : 'none';
+    if(workFolderSection) workFolderSection.style.display = delivered ? 'block' : 'none';
+    document.querySelectorAll('.bt-time-required').forEach(el=>{el.style.display=completed?'inline':'none';});
     updateCalcPriority();
   });
   document.getElementById('btOpenWorkFolderBtn')?.addEventListener('click', ()=>{
@@ -12298,6 +12580,8 @@ function bindBackdatedTaskForm(){
     const wrap = document.getElementById('btOverrideWrap');
     if(wrap) wrap.style.display = e.target.checked ? 'grid' : 'none';
   });
+  document.querySelectorAll('.bt-time-required').forEach(el=>{el.style.display='none';});
+  updateBackdatedWorkPreview();
   updateCalcPriority();
   document.getElementById('clearBackdatedBtn')?.addEventListener('click', ()=>{
     // UX: only interrupt with a confirmation if the Designer has actually typed/selected something —
@@ -12307,6 +12591,19 @@ function bindBackdatedTaskForm(){
     render();
     toast('ล้างฟอร์มแล้ว');
   });
+  const updateSummary=()=>{
+    const v=id=>document.getElementById(id)?.value||'';
+    const set=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value||'—';};
+    set('bt_summary_assignee',v('bt_assignee'));
+    set('bt_summary_status',BACKDATED_STATUS_OPTIONS.find(x=>x.value===v('bt_workstatus'))?.label||'กำลังทำ');
+    set('bt_summary_start',v('bt_briefdate'));
+    set('bt_summary_delivery',v('bt_deliverydate').replace('T',' '));
+    set('bt_summary_qty',`${v('f_deliverables')||'1'} + ${v('bt_resize')||'0'}`);
+    set('bt_summary_deadline',v('bt_deadline')||'ไม่ทราบ');
+  };
+  document.getElementById('backdatedForm').addEventListener('input',updateSummary);
+  document.getElementById('backdatedForm').addEventListener('change',updateSummary);
+  updateSummary();
   document.getElementById('backdatedForm').onsubmit = submitBackdatedTask;
 }
 function isValidHttpUrl(str){
@@ -12326,16 +12623,25 @@ async function submitBackdatedTask(e){
   if(!commitPendingQuickAddLinks()) return;
   document.querySelectorAll('.bt-invalid').forEach(el=>el.classList.remove('bt-invalid'));
   const ownerEmail = document.getElementById('bt_owner')?.value?.trim() || '';
+  syncBackdatedTaskName();
   const taskName = document.getElementById('bt_taskname')?.value?.trim() || '';
   const category = document.getElementById('bt_category')?.value || '';
   const typeName = document.getElementById('bt_type')?.value || '';
   const briefDate = document.getElementById('bt_briefdate')?.value || '';
-  const deadlineUnknown = !!document.getElementById('bt_deadline_unknown')?.checked;
+  const deadlineUnknown = !document.getElementById('bt_deadline')?.value;
   const deadlineDate = deadlineUnknown ? '' : (document.getElementById('bt_deadline')?.value || '');
   const statusVal = document.getElementById('bt_workstatus')?.value || 'todo';
   const statusMeta = BACKDATED_STATUS_OPTIONS.find(o=>o.value===statusVal) || BACKDATED_STATUS_OPTIONS[0];
   const isCompleted = statusMeta.review_status === 'delivered';
-  const deliveryDate = document.getElementById('bt_deliverydate')?.value || '';
+  const deliveryDateTime = document.getElementById('bt_deliverydate')?.value || '';
+  const deliveryDate = deliveryDateTime.slice(0,10);
+  const startedDate = briefDate; // simplified historical form: brief date is work attribution start
+  const revisedAw = Number(document.getElementById('bt_revised_aw')?.value || 0);
+  const existingSearch = (document.getElementById('bt_existing_search')?.value||'').trim();
+  const isDelivered = isCompleted || statusVal==='awaiting_approval';
+  const workStartLocal = ''; // manual work-hour input intentionally disabled
+  const workEndLocal = '';
+  const actualWorkMs = 0; // Standard points are calculated below; no manual timer hours for historical records
   const assigneeEl = document.getElementById('bt_assignee');
   const assignedDesigner = assigneeEl?.value || (STATE.auth.user?.name || STATE.auth.identity);
   const workFolderUrl = document.getElementById('bt_workfolder')?.value?.trim() || '';
@@ -12349,12 +12655,32 @@ async function submitBackdatedTask(e){
   if(!category || !typeName){ toast('กรุณาเลือกหมวดหมู่และประเภทงาน'); markBtFieldInvalid(!category?'bt_category':'bt_type'); return; }
   if(category==='E-Commerce' && !BACKDATED_DRAFT.kv){ toast('กรุณาระบุ KV Status'); markBtFieldInvalid('bt_kv'); return; }
   if(!briefDate){ toast('กรุณาระบุ Actual Brief Date'); markBtFieldInvalid('bt_briefdate'); return; }
-  if(!deadlineUnknown && !deadlineDate){ toast('กรุณาระบุ Original Deadline หรือเลือก "ไม่ทราบ Original Deadline"'); markBtFieldInvalid('bt_deadline'); return; }
-  if(isCompleted && !deliveryDate){ toast('กรุณาระบุ Actual Delivery Date เมื่อ Status = Completed'); markBtFieldInvalid('bt_deliverydate'); return; }
+
+  if(isDelivered && !deliveryDate){ toast('กรุณาระบุวันที่และเวลาส่งงานจริง'); markBtFieldInvalid('bt_deliverydate'); return; }
+  const today = todayISO();
+  if(briefDate>today || startedDate>today || (isDelivered && deliveryDate>today) || (deliveryDateTime && new Date(deliveryDateTime).getTime()>Date.now())){
+    toast('ไม่สามารถบันทึกวันที่เกิดขึ้นในอนาคตเป็นงานย้อนหลัง'); markBtFieldInvalid(briefDate>today?'bt_briefdate':'bt_deliverydate');return;
+  }
+  if(isDelivered && deliveryDate<briefDate){ toast('วันที่ส่งงานจริงต้องไม่ก่อนวันรับ Brief');markBtFieldInvalid('bt_deliverydate');return; }
+
+  if(isDelivered && deliveryDate<startedDate){toast('วันส่งงานจริงต้องไม่ก่อนวันเริ่มทำงาน');markBtFieldInvalid('bt_deliverydate');return;}
+  if(!Number.isInteger(revisedAw) || revisedAw<0){toast('จำนวน AW ที่แก้ไขไม่ถูกต้อง');return;}
+  if(existingSearch){const match=STATE.tasks.find(t=>t.task_id===existingSearch); if(match){toast('พบงานเดิมในระบบ กรุณาเปิดแก้ไขงานนั้นแทนการสร้างใหม่');return;}}
+  // Re-check ownership at submission, not only via a disabled form control.
+  const me=STATE.auth.user?.name||STATE.auth.identity;
+  const eligible=eligibleDesignerLoginAccounts().some(u=>u.name===assignedDesigner);
+  if(!eligible || (!isLead() && assignedDesigner!==me)){
+    toast('ไม่มีสิทธิ์กรอกงานย้อนหลังให้ Designer คนนี้');markBtFieldInvalid('bt_assignee');return;
+  }
+  if(STATE.tasks.some(t=>t.is_backdated && !t.deleted_at && t.task_name?.trim().toLowerCase()===taskName.toLowerCase() &&
+     t.assigned_user_name===assignedDesigner && t.historical_brief_date===briefDate &&
+     (t.actual_delivery_date||'')===(isCompleted?deliveryDate:''))){
+    toast('พบงานย้อนหลังชื่อเดียวกัน ของคนเดียวกัน และวันที่เดียวกัน กรุณาตรวจสอบก่อนบันทึกซ้ำ');return;
+  }
   // Completed Work File (Krissha, request): required only when Status = Completed — an Active backdated
   // task has no finished file to point to yet, so the field doesn't even show for it (see the change
   // handler above), and never blocks Submit in that case.
-  if(isCompleted && !workFolderUrl){ toast('กรุณาระบุ Work Folder Link เมื่อ Status = Completed'); markBtFieldInvalid('bt_workfolder'); return; }
+  if(isDelivered && !workFolderUrl){ toast('กรุณาระบุ Work Folder Link เมื่อ Status = Completed'); markBtFieldInvalid('bt_workfolder'); return; }
   if(statusMeta.review_status==='pending_client_review' && !workFolderUrl){ toast('กรุณาใส่ Work Folder Link (ลิงก์งานให้ Owner พรูฟ)'); markBtFieldInvalid('bt_workfolder'); return; }
   if(statusMeta.review_status==='pending_client_review' && !isValidHttpUrl(workFolderUrl)){ toast('Work Folder Link ไม่ถูกต้อง กรุณาวางลิงก์ URL ที่ถูกต้อง'); markBtFieldInvalid('bt_workfolder'); return; }
   if(isCompleted && workFolderUrl && !isValidHttpUrl(workFolderUrl)){ toast('Work Folder Link ไม่ถูกต้อง กรุณาวางลิงก์ URL ที่ถูกต้อง'); markBtFieldInvalid('bt_workfolder'); return; }
@@ -12368,8 +12694,8 @@ async function submitBackdatedTask(e){
   // real array length so it can never disagree with how many Artworks are actually about to be saved below.
   const deliverables = Number(document.getElementById('f_deliverables')?.value || briefArtworks().length || 1);
   const resizeQty = Number(document.getElementById('bt_resize')?.value || 0);
-  const customPoints = Number(document.getElementById('bt_custom')?.value || 0);
-  const base = (def && def.custom ? customPoints : pointsForTask({task_category:category, task_type:typeName, kv_status_check:BACKDATED_DRAFT.kv, deliverables})) + resizePoints(resizeQty);
+  const customPoints = 0;
+  const base = pointsForTask({task_category:category, task_type:typeName, kv_status_check:BACKDATED_DRAFT.kv, deliverables}) + resizePoints(resizeQty) + (revisedAw * (pointsForTask({task_category:category, task_type:typeName, kv_status_check:BACKDATED_DRAFT.kv, deliverables:1}) || 0) * 0.25);
   // §5 Historical Priority is calculated from Actual Brief Date -> Original Deadline ONLY, never from
   // Today or System Created At. §10 lets the Lead Designer override it, with a mandatory Reason and a full
   // Audit Log entry (Calculated / Override / Reason / Changed By / Changed At) — Designer never can.
@@ -12386,7 +12712,7 @@ async function submitBackdatedTask(e){
   // §7/§9: a Completed record is attributed to its real historical Actual Delivery Date (so it counts
   // toward that period's KPI, never today's); an Active one only starts affecting Current Capacity from
   // today (or a still-future Original Deadline) forward — never retroactively into the historical dates.
-  const liveDeliveryDate = isCompleted ? deliveryDate : liveTargetDateForActiveBackdated(deadlineDate, deadlineUnknown);
+  const liveDeliveryDate = isDelivered ? deliveryDate : liveTargetDateForActiveBackdated(deadlineDate, deadlineUnknown);
   const owner = findUserByEmail(ownerEmail);
   // DEV FIX — Backdated Preview = Normal Task Preview: save Artwork Name / Brief / Content / Images /
   // Reference Links / Canvas straight off the SAME BRIEF_DRAFT.artworks data model + Brief Links
@@ -12407,7 +12733,7 @@ async function submitBackdatedTask(e){
     created_by_name: STATE.auth.user?.name || STATE.auth.identity,
     created_by_role: STATE.auth.user?.role || STATE.auth.role,
     project_owner_email: ownerEmail, department: owner?.department || '', department_other: null,
-    project_name: '', task_name: taskName,
+    project_name: document.getElementById('bt_campaign')?.value?.trim()||'', task_name: taskName,
     priority: effectivePriority, needsApproval: false, platform: backdatedPlatforms,
     task_category: category, task_type: typeName, task_type_other: null,
     kv_status_check: (category==='E-Commerce') ? BACKDATED_DRAFT.kv : null, kv_asset_link: '',
@@ -12439,7 +12765,7 @@ async function submitBackdatedTask(e){
     review_comment:'', revision_count:0, edit_revision:1, edit_history:[], deadline_extension_request:null,
     prioritySource:'system_default', projectedCapacity:null, overCapacity:false,
     urgencyReason:null, urgencyNote:null, overrideBy:null, overrideAt:null,
-    is_backdated: true, backdated_reason: reason,
+    is_backdated: true, backdated_reason: reason, historical_revision_aw:revisedAw, historical_started_date:startedDate, historical_recorded_by:STATE.auth.identity, historical_recorded_at:now, historical_designer:finalAssignee,
     // Completed Work File (Krissha, request): kept on the Task itself — never just in the Historical
     // Record/Audit trail — so anyone finding this task later (Task Detail, Completed/Finished Work,
     // Historical Task Detail, and any future Search/Archive result) can open the real finished file
@@ -12451,12 +12777,19 @@ async function submitBackdatedTask(e){
     historical_brief_date: briefDate,
     historical_deadline_date: deadlineUnknown ? null : deadlineDate,
     historical_deadline_unknown: deadlineUnknown,
-    actual_delivery_date: isCompleted ? deliveryDate : null,
+    actual_delivery_date: isDelivered ? deliveryDate : null, actual_delivery_timestamp: isDelivered ? new Date(deliveryDateTime).toISOString() : null, historical_deadline_evaluation: deadlineUnknown ? 'UNAVAILABLE' : (isDelivered ? (new Date(deliveryDateTime).getTime()<=new Date(deadlineDate+'T23:59:59').getTime()?'ON_TIME':'LATE') : 'PENDING'),
+    // Match normal Timer's designer_work_ms calculation (end - start), not estimated Point hours.
+    started_at: startedDate+'T00:00:00.000Z',
+    completed_at: isCompleted ? new Date(deliveryDateTime).toISOString() : null,
+    designer_work_ms: isDelivered ? Math.round(base*3600000) : 0,
+    cycle_time_ms: isDelivered ? Math.round(base*3600000) : 0,
+    historical_actual_work_start: startedDate+'T00:00:00.000Z',
+    historical_actual_work_end: isDelivered ? new Date(deliveryDateTime).toISOString() : null,
     historical_priority: calculatedPriority,
     priority_override: priorityOverride,
     system_created_at: now, // NEVER backdated — the honest "actually entered on" timestamp, Audit-only
     review_history: [{timestamp: now, action:'BACKDATED_TASK_CREATED',
-      comment: `Actual Brief Date: ${fmtDate(briefDate)} · Original Deadline: ${deadlineUnknown?'ไม่ทราบ':fmtDate(deadlineDate)} · Actual Delivery Date: ${deliveryDate?fmtDate(deliveryDate):'-'} · Historical Priority: ${calculatedPriority}${priorityOverride?` (Override → ${priorityOverride.value})`:''} · สถานะ: ${statusMeta.label} · Assigned: ${finalAssignee} · เหตุผล: ${reason}`,
+      comment: `Actual Brief Date: ${fmtDate(briefDate)} · Original Deadline: ${deadlineUnknown?'ไม่ทราบ':fmtDate(deadlineDate)} · Actual Delivery Date: ${deliveryDate?fmtDate(deliveryDate):'-'} · Historical Priority: ${calculatedPriority}${priorityOverride?` (Override → ${priorityOverride.value})`:''} · สถานะ: ${statusMeta.label} · Assigned: ${finalAssignee} · เวลาทำงานจริง: ${isCompleted?(Math.round(actualWorkMs/60000)+' นาที'):'ยังไม่จบงาน'} · เหตุผล: ${reason}`,
       by: STATE.auth.user?.name || STATE.auth.identity || 'system'}],
   };
   if(priorityOverride){
@@ -12467,7 +12800,7 @@ async function submitBackdatedTask(e){
   if(task.review_status==='pending_client_review'){
     // The proof link goes where a normal delivered-for-review task keeps it (aw_link), so the Artwork Link
     // Hero shows it to the Owner, and the 2-business-day Auto Complete clock starts from now.
-    recordAwLink(task, workFolderUrl); task.aw_link = workFolderUrl; task.aw_delivery_timestamp = now;
+    recordAwLink(task, workFolderUrl); task.aw_link = workFolderUrl; task.aw_delivery_timestamp = new Date(deliveryDateTime).toISOString();
     startApprovalWaitingTimer(task);
     notifyUsers([task.project_owner_email], 'งานรอพรูฟ', `${task.task_name} (${task.task_id}) — กรุณา Approve หรือ Request Revision`, task.task_id, {excludeActor:true, eventType:'AWAITING_APPROVAL'});
   }
@@ -12916,7 +13249,7 @@ function renderVBInputsPanel(){
       <button type="button" class="vbe-collapse-btn" id="vbInputsCollapseBtn">Collapse ▴</button>
     </div>
     <div class="vbe-inputs-grid">
-      <div class="field vif-detail" style="grid-column:1/-1"><label>Brief / Content Details *</label><textarea id="f_brief" style="height:260px;min-height:220px" placeholder="Text Content / Concept / Mood &amp; Tone / ข้อมูลเพิ่มเติมของ Artwork นี้">${escAttr(aw.brief||'')}</textarea>${applyChk('brief')}</div>
+      <div class="field vif-detail" style="grid-column:1/-1"><label>Brief / Content Details *</label><textarea id="f_brief" style="height:260px;min-height:220px" placeholder="Text Content / Concept / Mood &amp; Tone / ข้อมูลเพิ่มเติมของ Artwork นี้">${escAttr(aw.brief||'')}</textarea></div>
     </div>
     <div class="refimg-row">
       ${renderReferencesAssetsHTML(aw)}
