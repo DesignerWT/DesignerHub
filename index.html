@@ -5721,6 +5721,19 @@ async function restoreTask(taskId){
 // exactly what it's writing, and a realtime snapshot landing mid-write could otherwise show this
 // tab a version of its own in-progress edit that's a half-step behind what it's about to confirm.
 let TASKS_UNSUBSCRIBE = null;
+// BUG FIX (Krissha — "ทำไมมันรีหน้า กรอกบรีฟมันหาย ตอนกรอกยังไม่เสร็จ"): background refreshes (realtime
+// task sync from other users, the 60s timers, switching back to the tab, connection banner) used to call a
+// full render() — and on the Brief page a full render rebuilt the form (and, for a new brief, reset it),
+// wiping everything typed so far. While a Brief / Backdated form is open these background renders are now
+// deferred; the data is still updated in STATE and shows on the next user-driven render (or after leaving
+// the form). renderBriefForm() is also made re-render safe below, as a second line of defence.
+let BG_RENDER_PENDING = false;
+function isComposingBriefForm(){ return !!(document.getElementById('briefForm') || document.getElementById('backdatedForm')); }
+function backgroundRender(){
+  if(isComposingBriefForm()){ BG_RENDER_PENDING = true; if(typeof updateBriefReadiness==='function'){ try{ updateBriefReadiness(); }catch(e){} } return; }
+  BG_RENDER_PENDING = false;
+  render();
+}
 function subscribeTasks(){
   if(TASKS_UNSUBSCRIBE) TASKS_UNSUBSCRIBE();
   TASKS_UNSUBSCRIBE = window.storage.subscribeTaskDocs(
@@ -5728,7 +5741,7 @@ function subscribeTasks(){
       if(TASKS_SAVE_INFLIGHT>0) return;
       STATE.tasks = docs.filter(t=>!t.deleted);
       snapshotTaskBaseline();
-      render();
+      backgroundRender();
     },
     (err) => { console.error('subscribeTasks error', err); }
   );
@@ -13140,12 +13153,37 @@ function closeBriefPopup(save){
   state.focus?.focus();
 }
 
+function captureBriefFormIntoPrefill(){
+  const v = id => document.getElementById(id)?.value;
+  const old = BRIEF_DRAFT.prefill || {};
+  BRIEF_DRAFT.prefill = {
+    ...old,
+    owner: v('f_owner') ?? old.owner ?? '',
+    department: v('f_dept') ?? old.department ?? '',
+    project: v('f_project') ?? old.project ?? '',
+    taskname: v('f_taskname') ?? old.taskname ?? '',
+    category: v('f_category') ?? old.category ?? '',
+    type: v('f_type') ?? old.type ?? '',
+    deliverables: Number(v('f_deliverables') || old.deliverables || 1),
+    resize: Number(v('f_resize') ?? old.resize ?? 0) || 0,
+    custom: v('f_custom') ?? old.custom,
+    taskname_extra: v('f_taskname_extra') ?? old.taskname_extra,
+  };
+}
 function renderBriefForm(){
   const editing = !!STATE.editingTaskId;
   // A resumed Draft (STATE.editingDraftId) has already been rehydrated into BRIEF_DRAFT by resumeDraft() —
   // resetBriefDraft() must be skipped on the render that follows it, exactly like editing a submitted task.
   const resumingDraft = !!STATE.editingDraftId;
-  if(!editing && !resumingDraft) resetBriefDraft();
+  // Re-render safety: if the Brief form is ALREADY on screen (same visit — any render() that happens while
+  // composing), capture what's typed in the DOM into BRIEF_DRAFT.prefill instead of resetting, so nothing
+  // is lost. A fresh visit (form not on screen) still starts clean exactly as before.
+  const liveBriefForm = document.getElementById('briefForm');
+  const isBriefRerender = !!(liveBriefForm && BRIEF_DRAFT.__formMounted);
+  if(isBriefRerender) captureBriefFormIntoPrefill();
+  else if(!editing && !resumingDraft) resetBriefDraft();
+  BRIEF_DRAFT.__formMounted = true;
+  BRIEF_DRAFT.__rerender = isBriefRerender;
   const pf = BRIEF_DRAFT.prefill || null;
   const categories = Object.keys(MASTER_TABLE);
   const prefillEmail = pf ? pf.owner : (STATE.auth.role==='po' ? STATE.auth.identity : '');
@@ -13223,7 +13261,7 @@ function renderBriefForm(){
           <div class="field"><label>ชื่องาน * <span class="hint" style="font-weight:400">อัตโนมัติ</span></label>
             <div class="tn-combo">
               <span class="tn-prefix" id="tnPrefix" title="ล็อกอัตโนมัติจาก Project / Campaign Tag + Artwork / ประเภทงานย่อย"></span>
-              <input id="f_taskname_extra" value="${escAttr(splitTaskNameExtra(pf))}" placeholder="พิมพ์เพิ่มได้ (ไม่บังคับ)" autocomplete="off">
+              <input id="f_taskname_extra" value="${escAttr((pf && pf.taskname_extra!=null) ? pf.taskname_extra : splitTaskNameExtra(pf))}" placeholder="พิมพ์เพิ่มได้ (ไม่บังคับ)" autocomplete="off">
             </div>
             <input type="hidden" id="f_taskname" value="${escAttr(pf?pf.taskname:'')}">
             <div class="hint" id="tnFullPreview" style="margin-top:4px"></div>
@@ -13254,7 +13292,7 @@ function renderBriefForm(){
              box per Artwork for 2+. See renderArtworkQuickNamesHTML/refreshArtworkQuickNamesBox above. -->
         <div id="awQuickNamesWrap">${renderArtworkQuickNamesHTML()}</div>
         <div id="customWrap" class="field" style="display:none">
-          <label>ชั่วโมงงาน (กำหนดโดย Lead Designer)</label><input type="number" step="0.5" id="f_custom" value="2">
+          <label>ชั่วโมงงาน (กำหนดโดย Lead Designer)</label><input type="number" step="0.5" id="f_custom" value="${escAttr(String((pf && pf.custom!=null && pf.custom!=='') ? pf.custom : 2))}">
         </div>
         <div class="brief-assignment-row">
           <div class="field" id="platformField" style="display:none;margin-bottom:0"><label>แพลตฟอร์ม (Platform)</label>
@@ -14191,10 +14229,6 @@ function renderBackdatedTaskForm(){
         </div>
       </div>
 
-      <div class="bt-section">
-        <div class="bt-section-title">เหตุผลที่บันทึกย้อนหลัง</div>
-        <div class="field" style="margin-bottom:0"><label>Reason for Backdated Task *</label><textarea id="bt_reason" rows="3" placeholder="เช่น งานจากระบบเก่า / งานหลุดจากระบบ / ไม่ได้สร้าง Brief ตอนเริ่มงาน / งานเร่งด่วนที่ดำเนินการไปก่อน"></textarea></div>
-      </div>
 
       <div class="bt-section" style="border-bottom:none">
         <div class="bt-section-title">Historical Priority</div>
@@ -14222,6 +14256,11 @@ function renderBackdatedTaskForm(){
 
       </div><div class="bt-popup-bottom"><button type="button" class="btn btn-primary" onclick="closeBackdatedPopup()">บันทึกข้อมูลในฟอร์ม</button></div></div></div>
 
+      <!-- Krissha — "ไม่มีช่องกรอกเหตุผล": Reason was hidden inside the ข้อมูลเพิ่มเติม popup; it's required, so it now sits in the main form. -->
+      <div class="bt-section" data-layout-section="4">
+        <div class="bt-section-title"><span class="step-num">04</span> เหตุผลที่บันทึกย้อนหลัง</div>
+        <div class="field" style="margin-bottom:0"><label>Reason for Backdated Task *</label><textarea id="bt_reason" rows="3" placeholder="เช่น งานจากระบบเก่า / งานหลุดจากระบบ / ไม่ได้สร้าง Brief ตอนเริ่มงาน / งานเร่งด่วนที่ดำเนินการไปก่อน"></textarea></div>
+      </div>
       <div class="bt-footer">
         <button type="button" class="btn btn-ghost" id="clearBackdatedBtn">ล้างฟอร์ม</button>
         <button type="submit" class="btn btn-primary" id="submitBackdatedBtn">บันทึกงานย้อนหลัง</button>
@@ -14398,6 +14437,10 @@ function isValidHttpUrl(str){
 function markBtFieldInvalid(id){
   const el = document.getElementById(id);
   if(!el) return;
+  // A required field that lives inside a closed popup (e.g. ข้อมูลเพิ่มเติม) — open it so the user can see it.
+  const pop = el.closest('.bt-popup-overlay');
+  if(pop && !pop.classList.contains('is-open')){ pop.classList.add('is-open'); pop.setAttribute('aria-hidden','false'); document.body.classList.add('bt-modal-open'); }
+  try{ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus({preventScroll:true}); }catch(e){}
   el.classList.add('bt-invalid');
   el.addEventListener('input', ()=>el.classList.remove('bt-invalid'), {once:true});
 }
@@ -22416,7 +22459,7 @@ function bindEvents(){
     // came back fine. Using the same flag for onCategoryChange()'s skipPlatformReset argument also
     // stops it from wiping BRIEF_DRAFT.platforms immediately after correctly rendering it selected —
     // the same root cause was quietly dropping the saved Platform on Resume Draft too.
-    const isRestoringExisting = !!(STATE.editingTaskId || STATE.editingDraftId);
+    const isRestoringExisting = !!(STATE.editingTaskId || STATE.editingDraftId || BRIEF_DRAFT.__rerender);
     onCategoryChange(isRestoringExisting);
     if(isRestoringExisting && BRIEF_DRAFT.prefill){
       const pf0 = BRIEF_DRAFT.prefill;
@@ -30742,14 +30785,14 @@ function ftExportAllIndividually(mode){
     let didChange = false;
     if(processApprovalAutoCompletes()) didChange = true;
     if(processDeadlineReminders()) didChange = true;
-    if(didChange || (!document.querySelector('.modal-bg') && !document.activeElement?.matches('input,textarea,select,[contenteditable]'))) render();
+    if(didChange || (!document.querySelector('.modal-bg') && !document.activeElement?.matches('input,textarea,select,[contenteditable]'))) backgroundRender();
   }, 60000);
   // Krissha — "รีเช็คว่างานจะเป็นปัจจุบัน เรียลทามกับผู้ใช้คนอื่นๆ" / "ข้อมูลเรียลทาม ไวสุด 1 นาที ทำได้มั้ย":
   // a SEPARATE interval from the local-only checks above, since this one is a real Firestore read. Sped up
   // to every 1 minute (was slowed to 5 minutes only to fix the rate-limit bug below — see
   // TASKS_REFRESH_MIN_GAP_MS's own comment for why 1 minute is safe) — refreshTasksFromServer()'s own gap
   // still protects the tab-focus listener below from firing right on top of this.
-  setInterval(async ()=>{ const calendarChanged=await refreshCompanyCalendar(); const tasksChanged=await refreshTasksFromServer(); if(calendarChanged || tasksChanged) render(); }, 60000);
+  setInterval(async ()=>{ const calendarChanged=await refreshCompanyCalendar(); const tasksChanged=await refreshTasksFromServer(); if(calendarChanged || tasksChanged) backgroundRender(); }, 60000);
   // PHASE 2 CUTOVER (§7, Acceptance Test G) — once STATE.gdriveConfig.useTaskDocArchitecture is on,
   // this replaces the 60s poll above (which is now a guaranteed no-op — see its own updated
   // comment) as the actual sync mechanism for tasks: every task change from anyone, anywhere,
@@ -30762,7 +30805,7 @@ function ftExportAllIndividually(mode){
   setInterval(()=>{
     if(!!window.__storageOffline !== __lastKnownStorageOffline){
       __lastKnownStorageOffline = !!window.__storageOffline;
-      render();
+      backgroundRender();
     }
   }, 5000);
   // §15 — "ถ้ามี Unsaved Changes แล้ว User จะปิดหน้า/Reload: ใช้ beforeunload warning". TASKS_SAVE_INFLIGHT
@@ -30775,7 +30818,7 @@ function ftExportAllIndividually(mode){
   // person actually switches back to it, instead of waiting out the rest of the 5-minute interval — throttled
   // by the same TASKS_REFRESH_MIN_GAP_MS, so switching tabs back and forth repeatedly can't pile up requests.
   document.addEventListener('visibilitychange', async ()=>{
-    if(document.visibilityState==='visible' && await refreshTasksFromServer()) render();
+    if(document.visibilityState==='visible' && await refreshTasksFromServer()) backgroundRender();
   });
   // Krissha — "ทำงานคอมหลายเครื่อง...แบ็คอัพไฟล์ได้มั้ย ทุกๆ 30 นาที เก็บไว้แค่ 1 วัน": a delayed first run
   // (2 minutes after boot, not immediately — this tab's own initial load already has plenty to do) then
