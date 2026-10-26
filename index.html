@@ -2856,6 +2856,11 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 .kpe-catsum-top b{color:var(--kpe-ink);font-variant-numeric:tabular-nums}
 .kpe-bar{display:block;height:8px;border-radius:9px;background:#EEF2FA;overflow:hidden}
 .kpe-bar i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#377DFF,#6965FF);transition:width .2s ease}
+.kpe-savebar{position:sticky;bottom:12px;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;border-radius:16px;background:rgba(255,255,255,.96);border:1px solid #E3E8F2;box-shadow:0 10px 30px -12px rgba(15,23,42,.35);backdrop-filter:blur(6px)}
+.kpe-savebar-state{font-size:12.5px;color:#64748B;font-weight:600}
+.kpe-savebar-state.dirty{color:#B45309}
+.kpe-savebar-btns{display:flex;gap:8px;flex-wrap:wrap}
+.kpe-savebar .kpe-btn{height:40px;padding:0 16px}
 .kpe-actions{padding:18px 22px 22px;display:flex;flex-direction:column;gap:10px}
 .kpe-btn{display:flex;align-items:center;justify-content:center;gap:8px;height:44px;border-radius:12px;border:none;font-weight:700;font-size:13.5px;cursor:pointer;transition:filter .15s,transform .15s,background .15s}
 .kpe-btn.primary{background:linear-gradient(135deg,#377DFF,#6965FF);color:#fff;box-shadow:0 8px 18px -8px rgba(55,125,255,.7)}
@@ -5730,6 +5735,9 @@ let TASKS_UNSUBSCRIBE = null;
 let BG_RENDER_PENDING = false;
 function isComposingBriefForm(){ return !!(document.getElementById('briefForm') || document.getElementById('backdatedForm')); }
 function backgroundRender(){
+  // KPI fix: a background refresh (60s poll / tab-focus refresh) used to rebuild the whole page and wipe
+  // scores the Lead had entered but not saved yet. Defer it while the KPI form has unsaved edits.
+  if(STATE.kpiUI && STATE.kpiUI.dirty && document.querySelector('.kpe')){ BG_RENDER_PENDING = true; return; }
   if(isComposingBriefForm()){ BG_RENDER_PENDING = true; if(typeof updateBriefReadiness==='function'){ try{ updateBriefReadiness(); }catch(e){} } return; }
   BG_RENDER_PENDING = false;
   render();
@@ -8820,6 +8828,13 @@ function renderKpiForm(person, ym){
           <div class="kpe-fb" style="margin-bottom:0"><label for="kpiGoal">เป้าหมาย / สิ่งที่ต้องพัฒนาเดือนถัดไป</label>
             <textarea id="kpiGoal" rows="2" placeholder="เช่น ลดรอบแก้งานให้เหลือไม่เกิน 2 รอบ">${escAttr(ev?.nextGoal||'')}</textarea></div>
         </section>
+        <div class="kpe-savebar" role="region" aria-label="บันทึกการประเมิน">
+          <span class="kpe-savebar-state" id="kpeDirtyState">${ev ? `บันทึกล่าสุด ${escAttr(String(ev.updatedAt||'').slice(0,16).replace('T',' '))}` : 'ยังไม่ได้บันทึก'}</span>
+          <div class="kpe-savebar-btns">
+            ${published ? '' : `<button type="button" class="kpe-btn ghost" data-kpisave="draft">${kpeIcon('save',16)}<span>บันทึกร่าง</span></button>`}
+            <button type="button" class="kpe-btn primary" data-kpisave="publish">${kpeIcon('save',16)}<span>${published ? 'บันทึก & อัปเดต' : 'เผยแพร่'}</span></button>
+          </div>
+        </div>
       </div>
 
       <aside class="kpe-side">
@@ -8925,15 +8940,46 @@ function kpeInstallNavGuard(){
     const t = e.target.closest('[data-side],[data-navtool],[data-kpitab],[data-kpiback],[data-navcat],.tabbtn,.sidenav-btn');
     if(!t || t.closest('.kpe-cat-body')) return;
     if(!confirm('มีการแก้ไขการประเมินที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')){ e.preventDefault(); e.stopImmediatePropagation(); }
-    else STATE.kpiUI.dirty = false;
+    else { STATE.kpiUI.dirty = false; kpeBackupClear(); }
   }, true);
   window.addEventListener('beforeunload', e=>{ if(STATE.kpiUI.dirty && document.querySelector('.kpe')){ e.preventDefault(); e.returnValue = ''; } });
+}
+// KPI fix: every edit is also backed up in this browser (localStorage) so nothing typed is lost if the page
+// re-renders, the tab is reloaded/closed or the PIN lock times out. Cleared once saved to the server.
+function kpeBackupKey(){ const u = STATE.kpiUI||{}; return `wt_kpi_formbackup|${STATE.auth.identity||''}|${u.person||''}|${u.ym||''}`; }
+function kpeBackupWrite(){ try{ localStorage.setItem(kpeBackupKey(), JSON.stringify({at:new Date().toISOString(), data:kpiCollectForm()})); }catch(e){} }
+function kpeBackupClear(){ try{ localStorage.removeItem(kpeBackupKey()); }catch(e){} }
+function kpeBackupRestore(){
+  let b = null; try{ b = JSON.parse(localStorage.getItem(kpeBackupKey())||'null'); }catch(e){}
+  if(!b || !b.data) return false;
+  const ev = kpiFind(STATE.kpiUI.person, STATE.kpiUI.ym);
+  if(ev && ev.updatedAt && ev.updatedAt > b.at){ kpeBackupClear(); return false; } // server copy is newer
+  const d = b.data;
+  document.querySelectorAll('[data-kpiscore]').forEach(s=>{ const v = d.scores?.[s.dataset.kpiscore]; s.value = v!=null ? String(v) : ''; });
+  document.querySelectorAll('[data-kpifb]').forEach(t=>{ if(d.feedback && d.feedback[t.dataset.kpifb]!=null) t.value = d.feedback[t.dataset.kpifb]; });
+  [['kpiWork','workSummary'],['kpiComment','leadComment'],['kpiGoal','nextGoal']].forEach(([id,k])=>{ const el = document.getElementById(id); if(el && d[k]!=null) el.value = d[k]; });
+  return true;
+}
+function kpeMarkDirty(){
+  STATE.kpiUI.dirty = true; kpeBackupWrite();
+  const el = document.getElementById('kpeDirtyState'); if(el){ el.textContent = '● มีการแก้ไขที่ยังไม่ได้บันทึก (สำรองไว้ในเครื่องแล้ว)'; el.classList.add('dirty'); }
 }
 function bindKpiForm(){
   const root = document.querySelector('.kpe'); if(!root) return;
   kpeInstallNavGuard();
-  root.addEventListener('input', e=>{ if(e.target.matches('textarea,select')) STATE.kpiUI.dirty = true; });
-  root.addEventListener('change', e=>{ if(e.target.matches('select')) STATE.kpiUI.dirty = true; });
+  if(kpeBackupRestore()){
+    kpiRecalcLive(); kpeMarkDirty();
+    kpeShowMsg('ok', 'กู้คืนข้อมูลที่กรอกไว้แต่ยังไม่ได้บันทึกแล้ว — กด “บันทึกร่าง” เพื่อเก็บลงระบบ');
+  }
+  root.addEventListener('input', e=>{ if(e.target.matches('textarea,select,input')) kpeMarkDirty(); });
+  root.addEventListener('change', e=>{ if(e.target.matches('select,input')) kpeMarkDirty(); });
+  if(!window.__kpeSaveKey){ window.__kpeSaveKey = true;
+    document.addEventListener('keydown', e=>{
+      if((e.ctrlKey||e.metaKey) && (e.key==='s'||e.key==='S') && document.querySelector('.kpe')){
+        e.preventDefault(); (document.querySelector('.kpe-savebar [data-kpisave="draft"]')||document.querySelector('.kpe-savebar [data-kpisave="publish"]'))?.click();
+      }
+    });
+  }
   root.querySelectorAll('[data-kpitogglecat]').forEach(b=>b.addEventListener('click', ()=>{
     kpeSetCatOpen(b.dataset.kpitogglecat, !b.closest('.kpe-cat').classList.contains('open'));
   }));
@@ -8977,7 +9023,7 @@ async function kpiSaveForm(mode){
     return next;
   });
   if(!ok) return false;
-  STATE.kpiUI.dirty = false;
+  STATE.kpiUI.dirty = false; kpeBackupClear();
   if(mode==='publish'){
     notify(person, wasPublished ? '📊 ผลประเมิน KPI ถูกอัปเดต' : '📊 ผลประเมิน KPI ประจำเดือนมาแล้ว',
       `${LEAD} ${wasPublished?'อัปเดต':'ประเมิน'} KPI เดือน ${kpiYmLabel(ym)} ของคุณ — คะแนนรวม ${calc.total.toFixed(1)}/100 (${kpiGrade(calc.total).label}) · ดูได้ที่ Profile & KPI แล้วกด “รับทราบ”`);
@@ -8991,14 +9037,14 @@ async function kpiUnpublish(){
   const {person, ym} = STATE.kpiUI;
   if(!confirm(`ถอน KPI เดือน ${kpiYmLabel(ym)} ของ ${person} กลับเป็นร่าง? (Designer จะมองไม่เห็นจนกว่าจะเผยแพร่ใหม่)`)) return;
   const ok = await kpiUpsert(`${person}__${ym}`, cur=>cur ? {...cur, status:'draft', acknowledgedAt:null, updatedAt:new Date().toISOString()} : null);
-  if(ok){ STATE.kpiUI.dirty = false; toast('ถอนกลับเป็นร่างแล้ว'); render(); }
+  if(ok){ STATE.kpiUI.dirty = false; kpeBackupClear(); toast('ถอนกลับเป็นร่างแล้ว'); render(); }
 }
 async function kpiDeleteDraft(){
   if(!isLead()) return;
   const {person, ym} = STATE.kpiUI;
   if(!confirm('ลบร่างการประเมินนี้?')) return;
   const ok = await kpiUpsert(`${person}__${ym}`, cur=>(cur && cur.status==='draft') ? null : cur);
-  if(ok){ STATE.kpiUI.dirty = false; toast('ลบร่างแล้ว'); STATE.kpiUI.mode='team'; render(); }
+  if(ok){ STATE.kpiUI.dirty = false; kpeBackupClear(); toast('ลบร่างแล้ว'); STATE.kpiUI.mode='team'; render(); }
 }
 async function kpiAcknowledge(id){
   const me = STATE.auth.identity;
@@ -9286,7 +9332,7 @@ function bindKpi(){
   document.getElementById('kpiCopyPrev')?.addEventListener('click', ()=>{
     const prev = kpiFind(STATE.kpiUI.person, kpiAddMonth(STATE.kpiUI.ym, -1)); if(!prev) return;
     document.querySelectorAll('[data-kpiscore]').forEach(s=>{ const v = prev.scores?.[s.dataset.kpiscore]; if(v!=null) s.value = String(v); });
-    STATE.kpiUI.dirty = true; kpiRecalcLive(); toast('คัดลอกคะแนนเดือนก่อนแล้ว — ปรับตามผลงานจริงของเดือนนี้ได้เลย');
+    kpeMarkDirty(); kpiRecalcLive(); toast('คัดลอกคะแนนเดือนก่อนแล้ว — ปรับตามผลงานจริงของเดือนนี้ได้เลย');
   });
   document.getElementById('kpiPullWork')?.addEventListener('click', ()=>{
     const ref = kpiSystemRef(STATE.kpiUI.person, STATE.kpiUI.ym); const ta = document.getElementById('kpiWork'); if(!ref || !ta) return;
