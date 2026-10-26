@@ -8641,7 +8641,8 @@ function renderKpiTeam(){
       <strong style="min-width:130px;text-align:center">${kpiYmLabel(ym)}</strong>
       <button type="button" class="btn btn-sm btn-ghost" data-kpimonthnav="1">›</button>
     </div>
-    ${kpiPinHashFor(LEAD) ? `<button type="button" class="btn btn-sm btn-ghost" data-kpilock="1" title="ล็อกหน้า Team KPI" style="order:9;margin-left:auto">🔒 ล็อก</button>` : ''}
+    <button type="button" class="btn btn-sm btn-primary" data-kpipdf="1" title="ดาวน์โหลดรายงาน KPI เป็น PDF สำหรับ HR / ผู้จัดการ" style="order:8;margin-left:auto">📄 ดาวน์โหลด PDF</button>
+    ${kpiPinHashFor(LEAD) ? `<button type="button" class="btn btn-sm btn-ghost" data-kpilock="1" title="ล็อกหน้า Team KPI" style="order:9">🔒 ล็อก</button>` : ''}
     <div class="hint" style="margin:0">ประเมินเดือนละ 1 ครั้ง เปิดทุกวันที่ ${KPI_EVAL_DAY} (ตรงเสาร์–อาทิตย์ → ศุกร์ก่อนหน้า) · Designer จะเห็นผลเฉพาะของตัวเองหลังกด “เผยแพร่”</div>
   </div>
   <div class="card" style="overflow-x:auto;padding:6px 10px">
@@ -9181,6 +9182,7 @@ function renderKpiYear(person){
       <strong>ปี ${y+543}</strong>
       <button type="button" class="btn btn-sm btn-ghost" data-kpiyearnav="1">›</button>
     </div>
+    <button type="button" class="btn btn-sm btn-primary" data-kpipdf="1" title="ดาวน์โหลดรายงาน KPI เป็น PDF">📄 ดาวน์โหลด PDF</button>
     ${kpiPinHashFor(person) ? `<button type="button" class="btn btn-sm btn-ghost" data-kpilock="1" title="ล็อกหน้า KPI">🔒 ล็อก</button>` : ''}
   </div>
   ${pendingAck.length ? `<div class="kpi-banner">📬 มีผลประเมินใหม่ที่ยังไม่ได้รับทราบ: ${pendingAck.map(e=>`<button type="button" class="btn btn-sm btn-primary" data-kpidetail="${escAttr(e.id)}">${kpiYmLabel(e.period)}</button>`).join(' ')}</div>` : ''}
@@ -9273,12 +9275,316 @@ function renderKpiDetail(ev){
   </div>`;
 }
 
+/* ---------- KPI → PDF export (รายเดือน / รายไตรมาส / รายปี · 1 ไฟล์ต่อคน · สำหรับส่ง HR และผู้จัดการ) ----------
+   Only published evaluations go into a report (drafts never leave the Lead's screen). Lead/Admin can export
+   every Designer; a Designer can export only their own published results. The PDF is drawn with html2pdf.js
+   (loaded on first use from jsDelivr, like jszip above) so Thai text renders exactly as on screen. If that
+   library can't load (offline / blocked), it falls back to the browser's Print → "Save as PDF". */
+const KPI_PDF_LIB_URL = 'https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js';
+let __kpiPdfLibP = null;
+const __kpiPdf = {kind:'month', year:null, month:null, quarter:null, people:null, busy:false};
+function kpiPdfLoadLib(){
+  if(window.html2pdf) return Promise.resolve(window.html2pdf);
+  if(!__kpiPdfLibP) __kpiPdfLibP = new Promise((res, rej)=>{
+    const s = document.createElement('script'); s.src = KPI_PDF_LIB_URL; s.async = true;
+    s.onload = ()=>window.html2pdf ? res(window.html2pdf) : rej(new Error('html2pdf not available'));
+    s.onerror = ()=>{ __kpiPdfLibP = null; s.remove(); rej(new Error('html2pdf load failed')); };
+    document.head.appendChild(s);
+  });
+  return __kpiPdfLibP;
+}
+function kpiPdfPeople(){
+  if(kpiCanViewAll()) return kpiDesigners();
+  return (STATE.auth.loggedIn && STATE.auth.role==='designer' && STATE.auth.identity) ? [STATE.auth.identity] : [];
+}
+function kpiPdfMonths(kind, year, val){
+  const ms = kind==='month' ? [val] : kind==='quarter' ? [1,2,3].map(i=>(val-1)*3+i) : [1,2,3,4,5,6,7,8,9,10,11,12];
+  return ms.map(m=>`${year}-${String(m).padStart(2,'0')}`);
+}
+function kpiPdfPeriodLabel(kind, year, val){
+  if(kind==='month') return `ประจำเดือน ${kpiYmLabel(`${year}-${String(val).padStart(2,'0')}`)}`;
+  if(kind==='quarter') return `ไตรมาส ${val} (${KPI_TH_SHORT[(val-1)*3]}–${KPI_TH_SHORT[(val-1)*3+2]}) ปี ${year+543}`;
+  return `ประจำปี ${year+543} (ม.ค.–ธ.ค.)`;
+}
+function kpiPdfFileTag(kind, year, val){
+  return kind==='month' ? `${year}-${String(val).padStart(2,'0')}` : kind==='quarter' ? `${year}-Q${val}` : `${year}`;
+}
+function kpiPdfEvals(person, months){
+  return months.map(ym=>kpiFind(person, ym)).filter(e=>e && e.status!=='draft' && kpiCanView(e));
+}
+function kpiPdfDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso); if(isNaN(d)) return '—';
+  return `${d.getDate()} ${KPI_TH_SHORT[d.getMonth()]} ${d.getFullYear()+543}`;
+}
+function kpiPdfText(t){ return `<div class="kpr-text">${escAttr(t)}</div>`; }
+function kpiPdfGradeTag(total){ const g = kpiGrade(total); return `<span class="kpr-grade" style="background:${g.bg};color:${g.tx}">${g.key} · ${escAttr(g.label)}</span>`; }
+const KPI_PDF_CSS = `
+.kpr{width:718px;box-sizing:border-box;font-family:var(--font-app),"Sarabun",Tahoma,sans-serif;color:#0F172A;font-size:11.5px;line-height:1.5;background:#fff}
+.kpr *{box-sizing:border-box}
+.kpr-head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #377DFF;padding-bottom:10px;margin-bottom:14px}
+.kpr-brand{font-size:10px;letter-spacing:.14em;font-weight:700;color:#377DFF;text-transform:uppercase}
+.kpr-title{font-size:20px;font-weight:700;margin-top:2px}
+.kpr-period{text-align:right}
+.kpr-period b{display:block;font-size:13px}
+.kpr-period span{font-size:10px;color:#64748B}
+.kpr-info{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 16px;background:#F6F8FC;border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.kpr-info div{font-size:10px;color:#64748B}
+.kpr-info b{display:block;font-size:12px;color:#0F172A}
+.kpr-sum{display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:8px;margin-bottom:14px}
+.kpr-box{border:1px solid #E3E8F2;border-radius:10px;padding:9px 11px}
+.kpr-box small{display:block;font-size:9.5px;color:#64748B}
+.kpr-box b{font-size:16px}
+.kpr-box .big{font-size:28px;line-height:1.1}
+.kpr-bar{height:5px;border-radius:5px;background:#EEF2FA;margin-top:5px;overflow:hidden}
+.kpr-bar i{display:block;height:100%;background:#377DFF;border-radius:5px}
+.kpr-grade{display:inline-block;font-weight:700;font-size:10px;padding:2px 8px;border-radius:99px;margin-top:4px}
+.kpr h3{font-size:13px;margin:16px 0 6px;padding-left:8px;border-left:3px solid #377DFF}
+.kpr table{width:100%;border-collapse:collapse;font-size:10.5px}
+.kpr th{background:#F1F4FA;font-weight:700;text-align:left;padding:5px 7px;border-bottom:1px solid #D9E0EC}
+.kpr td{padding:5px 7px;border-bottom:1px solid #EEF2F7;vertical-align:top}
+.kpr .num{text-align:right;white-space:nowrap}
+.kpr tr.cat td{background:#F8FAFE;font-weight:700}
+.kpr tr.fb td{color:#475569;font-size:10px;background:#FFFDF5}
+.kpr tr.tot td{font-weight:700;border-top:2px solid #CBD5E1}
+.kpr-text{white-space:pre-wrap;background:#F8FAFC;border-radius:8px;padding:8px 10px;font-size:11px}
+.kpr-note{font-size:9.5px;color:#64748B;margin-top:4px}
+.kpr-legend{width:auto!important;min-width:360px;margin-top:4px}
+.kpr-legend td{padding:4px 10px}
+.kpr-newpage{page-break-before:always;break-before:page}
+.kpr-newpage{padding-top:6px}
+.kpr-fcat{background:#EEF4FF;color:#1E3A8A;font-weight:700;font-size:11.5px;padding:6px 10px;border-radius:6px;margin:10px 0 4px}
+.kpr-fitem{padding:7px 10px 8px;border-bottom:1px solid #EEF2F7}
+.kpr-fhead{display:flex;align-items:baseline;gap:14px}
+.kpr-fhead b:first-child{flex:1;font-size:11.5px}
+.kpr-fhead span{font-size:10px;color:#64748B;white-space:nowrap}
+.kpr-fsc b{font-size:13px;color:#1D4ED8}
+.kpr-fdesc{font-size:10px;color:#64748B;margin:1px 0 4px}
+.kpr-fgd{font-size:10px;color:#334155;padding:1px 0 1px 12px}
+.kpr-sign{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:22px}
+.kpr-sign div{text-align:center;font-size:10px;color:#475569}
+.kpr-sign .line{border-bottom:1px solid #94A3B8;height:42px;margin-bottom:5px}
+.kpr-sign b{display:block;color:#0F172A;font-size:11px}
+.kpr-foot{margin-top:14px;font-size:9px;color:#94A3B8;text-align:center}
+.kpr-avoid{page-break-inside:avoid;break-inside:avoid}
+`;
+function kpiPdfReportHtml(person, kind, year, val){
+  const months = kpiPdfMonths(kind, year, val);
+  const evs = kpiPdfEvals(person, months);
+  if(!evs.length) return null;
+  const u = (STATE.users||[]).find(x=>x.name===person) || {};
+  const position = u.position || u.title || u.jobTitle || 'Designer';
+  const calcs = evs.map(e=>kpiCalc(e));
+  const avg = calcs.reduce((s,c)=>s+c.total,0)/calcs.length;
+  const T = kpiTpl(person, evs[evs.length-1]);
+  const catAvg = id=>calcs.reduce((s,c)=>s+c.cats[id].pts,0)/calcs.length;
+  const kindTh = kind==='month' ? 'รายเดือน' : kind==='quarter' ? 'รายไตรมาส' : 'รายปี';
+  const evaluators = [...new Set(evs.map(e=>e.evaluator||LEAD))].join(', ');
+  const ackCount = evs.filter(e=>e.status==='acknowledged').length;
+  const missing = months.filter(ym=>!evs.some(e=>e.period===ym));
+  const now = new Date();
+  const single = kind==='month' ? evs[0] : null;
+  const avgScope = kind==='quarter' ? `ไตรมาส ${val}/${year+543}` : `ปี ${year+543}`;
+  const scLabel = single ? `คะแนนเดือน ${kpiYmLabel(single.period)}` : `เฉลี่ย${avgScope}`;
+  const scNote = single
+    ? `ช่อง “คะแนน” = คะแนนดิบ (1–10) ที่ได้ในเดือน ${kpiYmLabel(single.period)}`
+    : `ช่อง “เฉลี่ย” = ค่าเฉลี่ยคะแนนดิบ (1–10) ของ${avgScope} คิดจาก ${evs.length} เดือนที่มีผลประเมินที่เผยแพร่แล้ว (${evs.slice().sort((a,b)=>a.period.localeCompare(b.period)).map(e=>KPI_TH_SHORT[+e.period.slice(5,7)-1]).join(', ')}) · เดือนที่ยังไม่ประเมินไม่นำมาคิด`;
+
+  const summary = `<div class="kpr-sum kpr-avoid">
+    <div class="kpr-box"><small>${single ? 'คะแนนรวม (Overall)' : `คะแนนเฉลี่ย · ${evs.length} เดือน`}</small>
+      <b class="big">${avg.toFixed(1)}</b><small style="display:inline"> / 100</small><br>${kpiPdfGradeTag(avg)}</div>
+    ${T.map(cat=>{ const a = catAvg(cat.id), pct = cat.weight ? a/cat.weight*100 : 0; return `<div class="kpr-box"><small>${escAttr(cat.th)} · ${escAttr(cat.en)}</small>
+      <b>${a.toFixed(1)}</b><small style="display:inline"> / ${cat.weight}</small><div class="kpr-bar"><i style="width:${Math.min(100,pct).toFixed(0)}%"></i></div></div>`; }).join('')}
+  </div>`;
+
+  let body = '';
+  if(single){
+    const ev = single, c = calcs[0], TT = kpiTpl(person, ev);
+    body += `<h3>รายละเอียดคะแนนตามเกณฑ์</h3>
+    <table><thead><tr><th style="width:26px">#</th><th>เกณฑ์การประเมิน</th><th class="num">น้ำหนัก</th><th class="num">คะแนน (1–10)</th><th class="num">คะแนนถ่วงน้ำหนัก</th></tr></thead><tbody>
+    ${TT.map(cat=>`<tr class="cat kpr-avoid"><td colspan="4">${escAttr(cat.th)} (${escAttr(cat.en)})</td><td class="num">${c.cats[cat.id].pts.toFixed(1)} / ${cat.weight}</td></tr>
+      ${cat.criteria.map((k,i)=>{ const s = parseFloat(ev.scores?.[k.id]); const ok = s>=1 && s<=10; return `<tr class="kpr-avoid"><td>${i+1}</td><td><b>${escAttr(k.name)}</b>${k.desc?`<div class="kpr-note" style="margin:0">${escAttr(k.desc)}</div>`:''}</td><td class="num">${k.weight}%</td><td class="num">${ok ? s : '—'}</td><td class="num">${ok ? (s/10*k.weight).toFixed(2) : '—'}</td></tr>`; }).join('')}
+      ${ev.feedback?.[cat.id] ? `<tr class="fb kpr-avoid"><td></td><td colspan="4">💡 ข้อเสนอแนะ: ${escAttr(ev.feedback[cat.id])}</td></tr>` : ''}`).join('')}
+    <tr class="tot"><td></td><td colspan="3">คะแนนรวม (Overall)</td><td class="num">${c.total.toFixed(2)} / 100</td></tr>
+    </tbody></table>
+    ${ev.workSummary ? `<div class="kpr-avoid"><h3>งาน / โปรเจกต์ประจำเดือน</h3>${kpiPdfText(ev.workSummary)}</div>` : ''}
+    ${ev.leadComment ? `<div class="kpr-avoid"><h3>ความเห็นโดยรวมจากผู้ประเมิน</h3>${kpiPdfText(ev.leadComment)}</div>` : ''}
+    ${ev.nextGoal ? `<div class="kpr-avoid"><h3>เป้าหมาย / สิ่งที่ต้องพัฒนาเดือนถัดไป</h3>${kpiPdfText(ev.nextGoal)}</div>` : ''}
+    ${ev.designerComment ? `<div class="kpr-avoid"><h3>ความเห็นของผู้รับการประเมิน</h3>${kpiPdfText(ev.designerComment)}</div>` : ''}`;
+  } else {
+    const sorted = evs.slice().sort((a,b)=>a.period.localeCompare(b.period));
+    const sc = sorted.map(e=>({e, c:kpiCalc(e)}));
+    const best = sc.reduce((a,b)=>b.c.total>a.c.total?b:a), worst = sc.reduce((a,b)=>b.c.total<a.c.total?b:a);
+    const trend = sc.length>=2 ? sc[sc.length-1].c.total - sc[0].c.total : null;
+    body += `<h3>ผลประเมินรายเดือน</h3>
+    <table class="kpr-avoid"><thead><tr><th>เดือน</th>${T.map(c=>`<th class="num">${escAttr(c.en)}<br><span style="font-weight:400">/${c.weight}</span></th>`).join('')}<th class="num">Overall</th><th>Grade</th></tr></thead><tbody>
+    ${months.map(ym=>{ const x = sc.find(r=>r.e.period===ym);
+      if(!x) return `<tr><td>${kpiYmLabel(ym)}</td><td colspan="${T.length+2}" style="color:#94A3B8">ไม่มีผลประเมินที่เผยแพร่</td></tr>`;
+      return `<tr><td><b>${kpiYmLabel(ym)}</b></td>${T.map(cat=>`<td class="num">${x.c.cats[cat.id].pts.toFixed(1)}</td>`).join('')}<td class="num"><b>${x.c.total.toFixed(1)}</b></td><td>${kpiGrade(x.c.total).key}</td></tr>`; }).join('')}
+    <tr class="tot"><td>เฉลี่ย</td>${T.map(cat=>`<td class="num">${catAvg(cat.id).toFixed(1)}</td>`).join('')}<td class="num">${avg.toFixed(1)}</td><td>${kpiGrade(avg).key}</td></tr>
+    </tbody></table>
+    <div class="kpr-note">สูงสุด ${best.c.total.toFixed(1)} (${kpiYmLabel(best.e.period)}) · ต่ำสุด ${worst.c.total.toFixed(1)} (${kpiYmLabel(worst.e.period)})${trend!=null ? ` · แนวโน้มต้นช่วง→ปลายช่วง ${trend>=0?'▲':'▼'} ${Math.abs(trend).toFixed(1)} คะแนน` : ''}${missing.length ? ` · ยังไม่มีผลประเมิน ${missing.length} เดือน` : ''}</div>
+    <h3>คะแนนเฉลี่ยรายเกณฑ์ (1–10) — ${escAttr(avgScope)}</h3>
+    <div class="kpr-note" style="margin:-2px 0 6px">${escAttr(scNote)} · ต่ำสุด/สูงสุด = คะแนนต่ำสุดและสูงสุดของข้อนั้นในช่วงเดียวกัน</div>
+    <table><thead><tr><th>เกณฑ์การประเมิน</th><th class="num">น้ำหนัก</th><th class="num">เฉลี่ย</th><th class="num">ต่ำสุด</th><th class="num">สูงสุด</th></tr></thead><tbody>
+    ${T.map(cat=>`<tr class="cat kpr-avoid"><td colspan="5">${escAttr(cat.th)} (${escAttr(cat.en)}) — เฉลี่ย ${catAvg(cat.id).toFixed(1)} / ${cat.weight}</td></tr>
+      ${cat.criteria.map(k=>{ const v = sorted.map(e=>parseFloat(e.scores?.[k.id])).filter(s=>s>=1 && s<=10);
+        return `<tr class="kpr-avoid"><td>${escAttr(k.name)}</td><td class="num">${k.weight}%</td><td class="num"><b>${v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : '—'}</b></td><td class="num">${v.length ? Math.min(...v) : '—'}</td><td class="num">${v.length ? Math.max(...v) : '—'}</td></tr>`; }).join('')}`).join('')}
+    </tbody></table>
+`;
+  }
+
+  return `<div class="kpr"><style>${KPI_PDF_CSS}</style>
+    <div class="kpr-head">
+      <div><div class="kpr-brand">Worldtech · Graphic Design</div><div class="kpr-title">รายงานผลการประเมิน KPI</div></div>
+      <div class="kpr-period"><span>รายงาน${kindTh}</span><b>${escAttr(kpiPdfPeriodLabel(kind, year, val))}</b></div>
+    </div>
+    <div class="kpr-info">
+      <div>ผู้รับการประเมิน<b>${escAttr(person)}</b></div>
+      <div>ตำแหน่ง<b>${escAttr(position)}</b></div>
+      <div>ผู้ประเมิน<b>${escAttr(evaluators)}</b></div>
+      <div>รอบที่มีผลประเมิน<b>${evs.length} / ${months.length} เดือน</b></div>
+      <div>ระดับผลการประเมิน<b>${escAttr(kpiGrade(avg).key)} · ${escAttr(kpiGrade(avg).label)}</b></div>
+      <div>วันที่ออกรายงาน<b>${kpiPdfDate(now.toISOString())}</b></div>
+    </div>
+    ${summary}
+    ${body}
+    <div class="kpr-avoid">
+      <h3>เกณฑ์ระดับผลการประเมิน</h3>
+      <table class="kpr-legend"><thead><tr><th>เกรด</th><th>ช่วงคะแนน</th><th>ความหมาย</th></tr></thead><tbody>
+      ${KPI_GRADES.map((g,i)=>{ const hi = i===0 ? 100 : (KPI_GRADES[i-1].min - 0.1).toFixed(1); return `<tr><td><span class="kpr-grade" style="margin:0;background:${g.bg};color:${g.tx}">${g.key}</span></td><td>${g.min} – ${hi}</td><td>${escAttr(g.label)}</td></tr>`; }).join('')}
+      </tbody></table>
+      <div class="kpr-note">คะแนนแต่ละเกณฑ์ 1–10 · คะแนนถ่วงน้ำหนัก = คะแนน ÷ 10 × น้ำหนัก · คะแนนรวมเต็ม 100 · รายงานนี้รวมเฉพาะผลประเมินที่เผยแพร่แล้ว</div>
+    </div>
+    <div class="kpr-sign kpr-avoid">
+      <div><div class="line"></div><b>${escAttr(person)}</b>ผู้รับการประเมิน<br>วันที่ ____/____/______</div>
+      <div><div class="line"></div><b>${escAttr(evaluators)}</b>ผู้ประเมิน (Lead Designer)<br>วันที่ ____/____/______</div>
+      <div><div class="line"></div><b>&nbsp;</b>ผู้จัดการ (Manager)<br>วันที่ ____/____/______</div>
+      <div><div class="line"></div><b>&nbsp;</b>ฝ่ายทรัพยากรบุคคล (HR)<br>วันที่ ____/____/______</div>
+    </div>
+    <div class="kpr-newpage">
+      <h3 style="margin-top:0">ภาคผนวก: แบบฟอร์มประเมินและเกณฑ์การให้คะแนนแต่ละข้อ</h3>
+      <div class="kpr-note" style="margin-bottom:6px">ให้คะแนนแต่ละข้อ 1–10 ตามเกณฑ์ด้านล่าง · คะแนนถ่วงน้ำหนัก = คะแนน ÷ 10 × น้ำหนัก<br>${escAttr(scNote)}</div>
+      ${T.map(cat=>`<div class="kpr-fcat kpr-avoid">${escAttr(cat.th)} (${escAttr(cat.en)}) — น้ำหนักรวม ${cat.weight}%</div>
+        ${cat.criteria.map((k,i)=>{ const v = evs.map(e=>parseFloat(e.scores?.[k.id])).filter(x=>x>=1 && x<=10);
+          const sc = v.length ? (single ? String(v[0]) : (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1)) : '—';
+          return `<div class="kpr-fitem kpr-avoid">
+            <div class="kpr-fhead"><b>${i+1}. ${escAttr(k.name)}</b><span>น้ำหนัก ${k.weight}%</span><span class="kpr-fsc">${escAttr(scLabel)} <b>${sc}</b> / 10</span></div>
+            ${k.desc ? `<div class="kpr-fdesc">${escAttr(k.desc)}</div>` : ''}
+            ${(k.guide||[]).map(g=>`<div class="kpr-fgd">${escAttr(g)}</div>`).join('')}
+          </div>`; }).join('')}`).join('')}
+    </div>
+    <div class="kpr-foot">เอกสารสร้างจากระบบ Worldtech Workflow · ${escAttr(now.toLocaleString('th-TH'))} · เอกสารภายใน — ใช้สำหรับ HR และผู้จัดการเท่านั้น</div>
+  </div>`;
+}
+async function kpiPdfSave(html, filename){
+  const lib = await kpiPdfLoadLib();
+  if(document.fonts && document.fonts.ready) await document.fonts.ready;
+  const holder = document.createElement('div'); holder.innerHTML = html;
+  const el = holder.firstElementChild;
+  await lib().set({
+    margin:[10,10,14,10], filename,
+    image:{type:'jpeg', quality:0.95},
+    html2canvas:{scale:2, useCORS:true, backgroundColor:'#ffffff', windowWidth:718, scrollX:0, scrollY:0, x:0, y:0},
+    jsPDF:{unit:'mm', format:'a4', orientation:'portrait'},
+    pagebreak:{mode:['css','legacy'], avoid:['.kpr-avoid','tr']}
+  }).from(el).toPdf().get('pdf').then(pdf=>{
+    const n = pdf.internal.getNumberOfPages();
+    for(let i=1;i<=n;i++){ pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(148,163,184); pdf.text(`${filename.replace(/\.pdf$/,'')}  ·  Page ${i} / ${n}`, 105, 290, {align:'center'}); }
+  }).save();
+}
+function kpiPdfPrintFallback(htmls){
+  const fr = document.createElement('iframe');
+  fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(fr);
+  const fontCss = [...document.querySelectorAll('style')].map(s=>s.textContent).join('\n').match(/@font-face\s*{[^}]*}/g)?.join('\n') || '';
+  const d = fr.contentDocument;
+  d.open(); d.write(`<!doctype html><html><head><meta charset="utf-8"><title>KPI Report</title><style>${fontCss}:root{--font-app:"Futura 100 Thai"}@page{size:A4;margin:10mm}body{margin:0}.kpr-page{page-break-after:always}.kpr-page:last-child{page-break-after:auto}</style></head><body>${htmls.map(h=>`<div class="kpr-page">${h}</div>`).join('')}</body></html>`); d.close();
+  setTimeout(()=>{ fr.contentWindow.focus(); fr.contentWindow.print(); setTimeout(()=>fr.remove(), 60000); }, 600);
+}
+function kpiPdfYears(){
+  const ys = new Set((STATE.kpiEvals||[]).map(e=>+String(e.period).slice(0,4)).filter(Boolean));
+  ys.add(new Date().getFullYear());
+  return [...ys].sort((a,b)=>b-a);
+}
+function kpiPdfOpen(){
+  const people = kpiPdfPeople(); if(!people.length) return;
+  const ui = STATE.kpiUI, baseYm = (ui.mode==='year' ? null : ui.ym) || kpiDefaultYm();
+  const st = __kpiPdf;
+  st.year = ui.mode==='year' ? ui.year : +baseYm.slice(0,4);
+  st.month = ui.mode==='year' ? +kpiDefaultYm().slice(5,7) : +baseYm.slice(5,7);
+  st.quarter = Math.ceil(st.month/3);
+  st.kind = ui.mode==='year' ? 'year' : 'month';
+  st.people = (ui.mode==='year' && ui.person && people.includes(ui.person)) ? [ui.person] : people.slice();
+  document.getElementById('kpiPdfBg')?.remove();
+  const bg = document.createElement('div'); bg.className = 'modal-bg'; bg.id = 'kpiPdfBg';
+  bg.innerHTML = `<div class="modal" style="max-width:460px" id="kpiPdfModal"></div>`;
+  document.body.appendChild(bg);
+  bg.addEventListener('click', e=>{ if(e.target===bg && !st.busy) bg.remove(); });
+  kpiPdfRenderModal();
+}
+function kpiPdfRenderModal(){
+  const box = document.getElementById('kpiPdfModal'); if(!box) return;
+  const st = __kpiPdf, people = kpiPdfPeople();
+  const val = st.kind==='month' ? st.month : st.quarter;
+  const months = kpiPdfMonths(st.kind, st.year, val);
+  const seg = (k, l)=>`<button type="button" class="btn btn-sm ${st.kind===k?'btn-primary':'btn-ghost'}" data-kpdfkind="${k}" style="flex:1">${l}</button>`;
+  box.innerHTML = `
+    <button class="modal-close" data-kpdfclose="1" ${st.busy?'disabled':''}>✕</button>
+    <h3 style="margin-bottom:4px">📄 ดาวน์โหลดรายงาน KPI (PDF)</h3>
+    <p class="hint" style="margin-bottom:14px">สำหรับส่ง HR และผู้จัดการ — แยก 1 ไฟล์ต่อ 1 คน · รวมเฉพาะผลที่เผยแพร่แล้ว (ไม่รวมร่าง) · มีช่องลงนามท้ายรายงาน</p>
+    <div class="field"><label>ประเภทรายงาน</label><div style="display:flex;gap:6px">${seg('month','รายเดือน')}${seg('quarter','รายไตรมาส')}${seg('year','รายปี')}</div></div>
+    <div style="display:flex;gap:10px">
+      <div class="field" style="flex:1"><label>ปี</label><select id="kpdfYear">${kpiPdfYears().map(y=>`<option value="${y}" ${y===st.year?'selected':''}>${y+543} (${y})</option>`).join('')}</select></div>
+      ${st.kind==='month' ? `<div class="field" style="flex:1"><label>เดือน</label><select id="kpdfMonth">${KPI_TH_FULL.map((m,i)=>`<option value="${i+1}" ${i+1===st.month?'selected':''}>${m}</option>`).join('')}</select></div>` : ''}
+      ${st.kind==='quarter' ? `<div class="field" style="flex:1"><label>ไตรมาส</label><select id="kpdfQuarter">${[1,2,3,4].map(q=>`<option value="${q}" ${q===st.quarter?'selected':''}>Q${q} (${KPI_TH_SHORT[(q-1)*3]}–${KPI_TH_SHORT[(q-1)*3+2]})</option>`).join('')}</select></div>` : ''}
+    </div>
+    <div class="field"><label>พนักงาน</label>
+      ${people.map(p=>{ const n = kpiPdfEvals(p, months).length; return `<label style="display:flex;align-items:center;gap:8px;font-weight:500;padding:6px 0;cursor:pointer">
+        <input type="checkbox" data-kpdfperson="${escAttr(p)}" ${st.people.includes(p)?'checked':''} ${n?'':'disabled'} style="width:auto">
+        <b>${escAttr(p)}</b><span class="hint" style="margin:0 0 0 auto">${n ? `มีผลประเมิน ${n}/${months.length} เดือน` : 'ไม่มีผลที่เผยแพร่ในช่วงนี้'}</span></label>`; }).join('')}
+    </div>
+    <div class="hint" id="kpdfMsg" style="min-height:18px;margin:4px 0 10px"></div>
+    <button type="button" class="btn btn-primary" style="width:100%" id="kpdfGo" ${st.busy?'disabled':''}>${st.busy ? 'กำลังสร้าง PDF…' : 'ดาวน์โหลด PDF'}</button>`;
+  box.querySelector('[data-kpdfclose]')?.addEventListener('click', ()=>{ if(!__kpiPdf.busy) document.getElementById('kpiPdfBg')?.remove(); });
+  box.querySelectorAll('[data-kpdfkind]').forEach(b=>b.addEventListener('click', ()=>{ st.kind = b.dataset.kpdfkind; kpiPdfRenderModal(); }));
+  box.querySelector('#kpdfYear')?.addEventListener('change', e=>{ st.year = +e.target.value; kpiPdfRenderModal(); });
+  box.querySelector('#kpdfMonth')?.addEventListener('change', e=>{ st.month = +e.target.value; kpiPdfRenderModal(); });
+  box.querySelector('#kpdfQuarter')?.addEventListener('change', e=>{ st.quarter = +e.target.value; kpiPdfRenderModal(); });
+  box.querySelectorAll('[data-kpdfperson]').forEach(c=>c.addEventListener('change', ()=>{
+    const p = c.dataset.kpdfperson; st.people = c.checked ? [...new Set([...st.people, p])] : st.people.filter(x=>x!==p);
+  }));
+  box.querySelector('#kpdfGo')?.addEventListener('click', kpiPdfRun);
+}
+async function kpiPdfRun(){
+  const st = __kpiPdf; if(st.busy) return;
+  const val = st.kind==='month' ? st.month : st.quarter;
+  const months = kpiPdfMonths(st.kind, st.year, val);
+  const targets = kpiPdfPeople().filter(p=>st.people.includes(p) && kpiPdfEvals(p, months).length);
+  const msg = t=>{ const el = document.getElementById('kpdfMsg'); if(el) el.textContent = t; };
+  if(!targets.length){ msg('เลือกพนักงานที่มีผลประเมินที่เผยแพร่แล้วอย่างน้อย 1 คน'); return; }
+  st.busy = true; kpiPdfRenderModal();
+  const jobs = targets.map(p=>({p, html:kpiPdfReportHtml(p, st.kind, st.year, val), file:`KPI_${p}_${kpiPdfFileTag(st.kind, st.year, val)}.pdf`}));
+  let done = 0;
+  try{
+    for(const j of jobs){ msg(`กำลังสร้าง ${j.file} (${done+1}/${jobs.length})…`); await kpiPdfSave(j.html, j.file); done++; }
+    st.busy = false; document.getElementById('kpiPdfBg')?.remove();
+    toast(`ดาวน์โหลดรายงาน KPI แล้ว ${done} ไฟล์`);
+  }catch(err){
+    console.warn('KPI PDF export', err);
+    st.busy = false; document.getElementById('kpiPdfBg')?.remove();
+    toast('สร้าง PDF โดยตรงไม่สำเร็จ — เปิดหน้าพิมพ์แทน: เลือก “Save as PDF / บันทึกเป็น PDF”');
+    kpiPdfPrintFallback(jobs.slice(done).map(j=>j.html));
+  }
+}
+
 /* ---------- events ---------- */
 function bindKpi(){
   kpiMaybeRemindLead();
   bindKpiLock();
   bindKpiProjects();
   document.querySelector('[data-kpilock]')?.addEventListener('click', ()=>{ kpiLockAll(); STATE.kpiUI.detailId = null; render(); });
+  document.querySelectorAll('[data-kpipdf]').forEach(b=>b.addEventListener('click', kpiPdfOpen));
   document.querySelectorAll('[data-kpitab]').forEach(b=>b.addEventListener('click', async ()=>{
     if(STATE.kpiUI.tab===b.dataset.kpitab) return;
     STATE.kpiUI.tab = b.dataset.kpitab;
