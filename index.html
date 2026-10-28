@@ -3463,6 +3463,16 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 .ppl-ov button:hover{background:#B45309;color:#fff}
 .ppl-ovbar{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;color:#B45309;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:4px 4px 4px 10px}
 .ppl-from{font-size:10.5px;font-weight:700;color:#6D28D9;background:#F3EEFF;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.cx-tile{position:relative}
+.cx-lvb{position:absolute;top:-6px;right:-6px;display:inline-flex;align-items:center;gap:1px;font-style:normal;font-size:9px;line-height:1;background:#fff;border:1.5px solid var(--rc,#0D9488);border-radius:999px;padding:1px 3px;box-shadow:0 1px 3px rgba(0,0,0,.15);z-index:2;white-space:nowrap}
+.cx-lvb em{font-style:normal;font-weight:800;color:var(--rc,#0D9488);font-size:8.5px}
+.cx-lvb.team{--rc:#0D9488}
+.cx-tile.is-leave{background:color-mix(in srgb,var(--rc) 14%,#fff)!important;border:1.5px dashed var(--rc)!important;color:var(--rc)!important}
+.cx-lvfull{font-size:9.5px;font-weight:800;white-space:nowrap;letter-spacing:-.2px}
+.cx-tile:has(.cx-lvb),.cx-tile.is-leave{opacity:1!important}
+.cx-lvb{font-size:10px!important;padding:1px 4px!important;top:-8px!important;right:-8px!important}
+.cx-lvb em{font-size:9.5px!important}
+.cx-matrix td{overflow:visible}
 </style>
 <style>
 .gd-entry-modes{display:flex;gap:6px;margin:14px 0 16px;padding:5px;background:#e9edf5;border-radius:12px;width:max-content;max-width:100%}
@@ -21754,7 +21764,7 @@ const CX_DOW = ['อา','จ','อ','พ','พฤ','ศ','ส'];
 function cxFmtH(n){ n = Number(n)||0; return (Math.round(n*10)/10).toString().replace(/\.0$/,''); }
 function cxPctTier(pct){ return pct>100 ? 'over' : pct>=100 ? 'full' : pct>=75 ? 'near' : 'avail'; }
 function cxLegend(){
-  return `<div class="cx-legend">${['avail','near','full','over','off'].map(k=>`<span><i class="t-${k}"></i>${CX_TIER[k].label}</span>`).join('')}</div>`;
+  return `<div class="cx-legend">${['avail','near','full','over','off'].map(k=>`<span><i class="t-${k}"></i>${CX_TIER[k].label}</span>`).join('')}<span>🤒🌴📋 ลา (ป่วย/พักร้อน/กิจ)</span></div>`;
 }
 function cxBar(pct, tier){
   return `<div class="cx-bar"><i class="t-${tier}" style="width:${Math.max(0,Math.min(100,pct))}%"></i></div>`;
@@ -21910,9 +21920,15 @@ function renderTeamCapacityTimeline(days, designerList, today, grid, month){
           ${days.map(ds=>{
             const x = grid[p][ds];
             const sel = tc.drawerDesigner===p && tc.drawerDate===ds;
-            const txt = x.load>0 ? cxFmtH(x.load) : (x.off ? '' : '');
-            return `<td class="${ds===today?'is-today':''} ${ds<today?'is-past':''} ${ds.slice(8)==='01'&&ds!==days[0]?'is-mstart':''}" data-tcmatrixcell="${p}|${ds}" title="${p} · ${fmtDate(ds)} · ${cxFmtH(x.load)} / ${cxFmtH(x.cap)} ชม. (${CX_TIER[x.tier].label})">
-              <div class="cx-tile t-${x.tier} ${x.load>0?'has':''} ${x.offWork?'is-offwork':''} ${sel?'is-sel':''}">${txt}</div>
+            // Krissha: "แสดงสเตตัสคนที่ลาในวันนั้นๆ" — leave badge on the day tile (full day = whole tile).
+            const lv = (STATE.leaves||[]).find(l=>l.person===p && l.date===ds);
+            const lr = lv ? leaveReasonOf(lv) : null;
+            const lvFull = lv && lv.type==='full';
+            const lvTxt = lv ? (lvFull ? 'ลา' : lv.type==='hours' ? 'ลา '+fmtLeaveH(lv.hours)+'ชม.' : 'ลา ½') : '';
+            const txt = lvFull && !(x.load>0) ? `<span class="cx-lvfull">${lr?lr.icon+' ':''}ลา</span>` : (x.load>0 ? cxFmtH(x.load) : '');
+            const lvTip = lv ? ` · ${lr?lr.label:'ลา'} ${leaveTypeLabel(lv)}${lv.reasonNote?' ('+lv.reasonNote+')':''}` : '';
+            return `<td class="${ds===today?'is-today':''} ${ds<today?'is-past':''} ${ds.slice(8)==='01'&&ds!==days[0]?'is-mstart':''}" data-tcmatrixcell="${p}|${ds}" title="${p} · ${fmtDate(ds)} · ${cxFmtH(x.load)} / ${cxFmtH(x.cap)} ชม. (${CX_TIER[x.tier].label})${escAttr(lvTip)}">
+              <div class="cx-tile t-${x.tier} ${x.load>0?'has':''} ${x.offWork?'is-offwork':''} ${sel?'is-sel':''} ${lvFull?'is-leave':''}" ${lv?`style="--rc:${lr?lr.color:'#64748B'}"`:''}>${txt}${lv && !(lvFull && !(x.load>0)) ? `<i class="cx-lvb">${lr?lr.icon:'🌴'}${lvFull?'':`<em>${lv.type==='hours'?fmtLeaveH(lv.hours):'½'}</em>`}</i>` : ''}</div>
             </td>`;
           }).join('')}
         </tr>`;
@@ -21922,8 +21938,9 @@ function renderTeamCapacityTimeline(days, designerList, today, grid, month){
           ${days.map(ds=>{
             let l=0, c=0, worst='off';
             people.forEach(p=>{ const x = grid[p][ds]; l+=x.load; c+=x.cap; if(order[x.tier]>order[worst]) worst=x.tier; });
-            return `<td class="${ds===today?'is-today':''} ${ds<today?'is-past':''} ${ds.slice(8)==='01'&&ds!==days[0]?'is-mstart':''}" data-tcday="${ds}" title="ทั้งทีม · ${fmtDate(ds)} · ${cxFmtH(l)} / ${cxFmtH(c)} ชม.">
-              <div class="cx-tile tc-teamtile t-${worst} ${l>0?'has':''} ${selDay===ds && !tc.drawerDesigner?'is-sel':''}">${l>0?`<b>${cxFmtH(l)}</b><span>/${cxFmtH(c)}</span>`:''}</div>
+            const onLv = (STATE.leaves||[]).filter(x=>x.date===ds && people.includes(x.person));
+            return `<td class="${ds===today?'is-today':''} ${ds<today?'is-past':''} ${ds.slice(8)==='01'&&ds!==days[0]?'is-mstart':''}" data-tcday="${ds}" title="ทั้งทีม · ${fmtDate(ds)} · ${cxFmtH(l)} / ${cxFmtH(c)} ชม.${onLv.length?' · ลา: '+escAttr(onLv.map(x=>x.person+' ('+((leaveReasonOf(x)||{}).label||'ลา')+' '+leaveTypeLabel(x)+')').join(', ')):''}">
+              <div class="cx-tile tc-teamtile t-${worst} ${l>0?'has':''} ${selDay===ds && !tc.drawerDesigner?'is-sel':''}">${l>0?`<b>${cxFmtH(l)}</b><span>/${cxFmtH(c)}</span>`:''}${onLv.length?`<i class="cx-lvb team">🌴<em>${onLv.length}</em></i>`:''}</div>
             </td>`;
           }).join('')}
         </tr>
