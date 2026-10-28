@@ -143,6 +143,101 @@ body{
 .ft-upload.ft-upload-strong{background:#1B76FF;border:1px solid #1B76FF;color:#fff;font-size:12.5px;font-weight:800;min-height:46px;box-shadow:0 6px 16px -8px rgba(27,118,255,.7)}
 .ft-upload.ft-upload-strong:hover{filter:brightness(1.07);background:#1B76FF;color:#fff}
 .ft-pa-src{display:flex;flex-direction:column;gap:3px;font-size:11px;font-weight:700;color:#334155}
+.qf-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.qf-n{opacity:.6;margin-left:2px}
+.pd2-boxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;align-items:start}
+.pd2-box{background:#fff;border:1px solid #EAECF0;border-radius:14px;overflow:visible;border-top:4px solid var(--cc)}
+.pd2-boxh{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid #F2F4F7}
+.pd2-boxh i{width:9px;height:9px;border-radius:50%;background:var(--cc)}
+.pd2-boxh b{font-size:14px;color:#101828;flex:1}
+.pd2-boxl{display:flex;flex-direction:column;max-height:420px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#CBD5E1 transparent;border-radius:0 0 14px 14px}
+.pd2-boxl::-webkit-scrollbar{width:6px}.pd2-boxl::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:6px}.pd2-boxl::-webkit-scrollbar-track{background:transparent}
+.pd2-boxl .pd2-bi:last-child .pd2-menu{top:auto;bottom:28px}
+.pd2-bi{display:flex;align-items:center;gap:8px;padding:7px 10px 7px 14px;border-top:1px solid #F7F8FA;cursor:pointer}
+.pd2-bi:first-child{border-top:none}
+.pd2-bi:hover{background:#F9FAFB}
+.pd2-bm{flex:1;min-width:0;display:flex;align-items:center;gap:8px}
+.pd2-bm .pd2-name{font-size:12.5px;font-weight:600;-webkit-line-clamp:1;flex:1;min-width:0}
+.pd2-bm .pd2-sku{max-width:45%}
+.pd2-dicon{width:28px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;background:#EEF4FF;border:1px solid #D1E0FF;text-decoration:none;font-size:13px;flex:none}
+.pd2-dicon:hover{background:#1B76FF;border-color:#1B76FF}
+.pd2-dicon.none{background:#F9FAFB;border-color:#EAECF0;color:#C0C6D0;font-size:11px}
+.pd2-bi .pd2-kebab{width:22px;height:22px;font-size:13px}
+.pd2-more{display:block;width:100%;border:none;border-top:1px solid #F2F4F7;background:#FAFBFC;padding:8px;font:inherit;font-size:12px;font-weight:700;color:#1B5FD1;cursor:pointer;border-radius:0 0 14px 14px}
+.pd2-tablewrap{background:#fff;border:1px solid #EAECF0;border-radius:14px;overflow:visible}
+.pd2-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.pd2-table th{position:sticky;top:0;background:#F9FAFB;font-size:11px;color:#667085;font-weight:700;padding:9px 10px;text-align:center;border-bottom:1px solid #EAECF0;z-index:1}
+.pd2-table th:first-child{border-radius:14px 0 0 0}.pd2-table th:last-child{border-radius:0 14px 0 0}
+.pd2-table td{padding:7px 10px;border-top:1px solid #F2F4F7;text-align:center;vertical-align:middle}
+.pd2-table .tl{text-align:left}
+.pd2-table tbody tr{cursor:pointer}
+.pd2-table tbody tr:hover td{background:#F9FAFB}
+.pd2-table .pd2-name{-webkit-line-clamp:1}
+.pd2-tdtile{width:44px}
+.pd2-viewbar{display:flex;align-items:center;gap:12px;margin:4px 0 14px}
+.pm-bar{display:flex;align-items:center;gap:12px;margin:0 0 10px}
+.pm-saved{margin-left:auto;font-size:12px;color:#16A34A;font-weight:600}
+.pm-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.pm-table th{text-align:left;font-size:11.5px;font-weight:600;color:#6B7280;padding:9px 8px;background:#F9FAFB;border-bottom:1px solid #E5E7EB;position:sticky;top:0;z-index:1}
+.pm-table td{padding:5px 6px;border-bottom:1px solid #F1F2F4;vertical-align:middle}
+.pm-tr.open td{background:#F5F9FF}
+.pm-in{width:100%!important;box-sizing:border-box;border:1px solid transparent!important;background:transparent!important;border-radius:7px!important;padding:6px 8px!important;font-size:13px!important;margin:0!important;min-height:0!important}
+.pm-in:hover{border-color:#E5E7EB!important;background:#fff!important}
+.pm-in:focus{border-color:#1B76FF!important;background:#fff!important;outline:none;box-shadow:0 0 0 3px rgba(27,118,255,.12)}
+.pm-in.err{border-color:#EF4444!important;background:#FEF2F2!important}
+.pm-url{color:#1B76FF}
+.pm-exp{border:1px solid #E5E7EB;background:#fff;border-radius:7px;padding:4px 8px;font-size:12px;cursor:pointer;color:#374151;white-space:nowrap}
+.pm-exp span{font-weight:700;color:#1B76FF}
+.pm-tr.open .pm-exp{border-color:#1B76FF;color:#1B76FF}
+.pm-x{border:none;background:none;cursor:pointer;color:#9CA3AF;font-size:13px;padding:4px 6px;border-radius:6px}
+.pm-x:hover{background:#FEE2E2;color:#DC2626}
+.pm-sub td{background:#F5F9FF;border-bottom:1px solid #DBEAFE}
+.pm-folders{padding:4px 0 8px;display:flex;flex-direction:column;gap:4px}
+.pm-fhead{font-size:12px;color:#374151;margin-bottom:2px}
+.pm-frow{display:grid;grid-template-columns:22px minmax(140px,1fr) minmax(200px,2fr) 120px 24px 28px;gap:6px;align-items:center;background:#fff;border:1px solid #E5EDF8;border-radius:9px;padding:3px 6px}
+.pm-ficon{text-align:center}
+.pm-go{color:#1B76FF;text-decoration:none;font-weight:700;text-align:center}
+.pm-go.none{color:#D1D5DB}
+.pm-addf{align-self:flex-start;border:1px dashed #93C5FD;background:#fff;color:#1B76FF;border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer;margin-top:2px}
+.pm-addf:hover{background:#EFF6FF}
+.pd2-viewbar .cx-muted{margin-right:auto}
+.pd2-seg{display:inline-flex;background:#F2F4F7;border-radius:10px;padding:3px;gap:2px}
+.pd2-seg button{border:none;background:none;font:inherit;font-size:12px;font-weight:700;color:#475467;padding:5px 12px;border-radius:8px;cursor:pointer}
+.pd2-seg button.on{background:#fff;color:#101828;box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.pd2-group{margin-bottom:18px}
+.pd2-ghead{display:flex;align-items:center;gap:10px;width:100%;border:none;background:none;padding:8px 2px;margin-bottom:8px;border-bottom:1px solid #EAECF0;cursor:pointer;font:inherit;text-align:left}
+.pd2-ghead i{width:10px;height:10px;border-radius:3px;background:var(--cc)}
+.pd2-ghead b{font-size:15px;color:#101828}
+.pd2-caret{color:#98A2B3;font-size:11px;width:12px}
+.pd2-count{font-size:11px;font-weight:700;color:#475467;background:#F2F4F7;border-radius:999px;padding:1px 9px}
+.pd2-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.pd2-card{position:relative;background:#fff;border:1px solid #EAECF0;border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:box-shadow .15s,border-color .15s,transform .15s}
+.pd2-card:hover{border-color:color-mix(in srgb,var(--cc) 40%,#EAECF0);box-shadow:0 8px 22px -14px rgba(16,24,40,.35);transform:translateY(-1px)}
+.pd2-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.pd2-tile{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;letter-spacing:.02em;color:var(--cc);background:color-mix(in srgb,var(--cc) 12%,#fff);border:1px solid color-mix(in srgb,var(--cc) 25%,#fff);flex:none;overflow:hidden}
+.pd2-tile.big{width:44px;height:44px;font-size:13px;border-radius:12px}
+.pd2-tile img{width:100%;height:100%;object-fit:cover}
+.pd2-name{font-size:13.5px;font-weight:700;color:#101828;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.pd2-en{font-size:11.5px;color:#667085;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pd2-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:10px}
+.pd2-sku{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#475467;background:#F2F4F7;border-radius:6px;padding:2px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.pd2-drive{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#1B5FD1;background:#EEF4FF;border:1px solid #D1E0FF;border-radius:8px;padding:4px 10px;text-decoration:none;white-space:nowrap}
+.pd2-drive:hover{background:#1B76FF;color:#fff;border-color:#1B76FF}
+.pd2-drive span{font-size:11px}
+.pd2-drive.none{color:#98A2B3;background:#F9FAFB;border-color:#EAECF0;font-weight:600}
+.pd2-mwrap{position:relative}
+.pd2-kebab{width:26px;height:26px;border:1px solid transparent;background:none;border-radius:8px;color:#98A2B3;cursor:pointer;font-size:15px;line-height:1}
+.pd2-card:hover .pd2-kebab,.pd2-row:hover .pd2-kebab{border-color:#EAECF0;background:#fff;color:#344054}
+.pd2-menu{right:0;top:28px}
+.pd2-list{background:#fff;border:1px solid #EAECF0;border-radius:14px;overflow:visible}
+.pd2-row{display:grid;grid-template-columns:36px minmax(0,1fr) 160px 170px 92px 30px;gap:12px;align-items:center;padding:9px 14px;border-top:1px solid #F2F4F7;cursor:pointer}
+.pd2-row:first-child{border-top:none}
+.pd2-row:hover{background:#FAFBFC}
+.pd2-row .pd2-sku{max-width:none;justify-self:start}
+.pd2-main{min-width:0}.pd2-main .pd2-name{-webkit-line-clamp:1}
+.pd2-cat{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#475467;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pd2-cat i{width:8px;height:8px;border-radius:50%;background:var(--cc);flex:none}
+@media(max-width:820px){.pd2-row{grid-template-columns:36px minmax(0,1fr) auto 30px}.pd2-row .pd2-sku,.pd2-row .pd2-cat{display:none}}
 .sf-page{height:calc(100vh - 160px);min-height:520px;display:flex;flex-direction:column}
 .sf-placeholder{width:100%;flex:1;min-height:0}
 
@@ -3142,6 +3237,217 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 @media(max-width:860px){.mp-fld.s3,.mp-fld.s4{grid-column:span 6}.mp-fld.s6,.mp-fld.s8{grid-column:span 12}}
 @media(max-width:520px){.mp-fld{grid-column:1/-1!important}.mp-det-bar{display:none}}
 /* ============ /PERFORMANCE REPORT ============ */
+.tdc-adddate{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#6B7280}
+.tdc-adddate input{width:auto!important;padding:5px 8px!important;font-size:12.5px!important}
+.tdc-addact input{border-color:#1B76FF!important}
+.tdc-pastnote{font-size:11px;font-weight:700;color:#1B76FF;background:#EAF2FF;border-radius:999px;padding:3px 8px}
+.sks-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.sks-settings{display:flex;align-items:center;gap:6px;background:#F8FAFC;border:1px solid #E5E7EB;border-radius:12px;padding:5px 6px 5px 12px}
+.sks-lbl{font-size:11.5px;color:#6B7280;font-weight:600}
+.sks-sbtn{border:1px solid #E5E7EB;background:#fff;border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;color:#111827}
+.sks-sbtn:hover{border-color:#1B76FF;color:#1B76FF}
+.sks-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.sks-search{flex:1;display:flex;align-items:center;gap:8px;border:1px solid #E5E7EB;border-radius:10px;background:#fff;padding:0 12px;color:#9CA3AF}
+.sks-search input{border:none!important;outline:none;box-shadow:none!important;padding:10px 0!important;flex:1;font-size:13.5px;background:transparent}
+.sks-filters{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.sks-fright{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sks-mini{display:flex;align-items:center;gap:6px;font-size:12px;color:#6B7280}
+.sks-mini select{width:auto!important;padding:5px 8px!important;font-size:12px!important;border-radius:8px}
+.sks-sep{width:1px;height:18px;background:#E5E7EB}
+.sks-tog{display:flex;align-items:center;gap:5px;font-size:12px;color:#374151;cursor:pointer}
+.sks-tog input{width:auto!important;margin:0}
+.sks-help{font-size:12px;color:#475569;background:#EEF4FF;border:1px solid #D6E4FF;border-radius:10px;padding:8px 12px;margin-bottom:8px}
+.sks-help b{color:#1B76FF}
+.sks-grid thead tr.sks-grp th{top:0;height:30px;padding:0 10px;font-size:11px;text-transform:none;letter-spacing:0;background:#fff;border-bottom:none}
+.sks-grid thead tr.sks-cols th{top:30px}
+.sks-grid thead th.sks-gh{background:var(--sb);color:var(--sk);border-top:3px solid var(--sk);border-left:1px solid #fff;text-align:center;font-size:12px;font-weight:800}
+.sks-grid thead th.sks-ch{border-left:2px solid var(--sk)}
+.sks-grid td.sks-use{text-align:center;border-left:2px solid var(--sk)}
+.sks-grid td.sks-use input{width:16px!important;height:16px;margin:0;accent-color:#1B76FF;cursor:pointer}
+.sks-grid td.sks-off{color:#B7BFC9;background:#FAFAFA}
+.sks-savebar{background:#F1F5F9;color:#64748B;border-radius:12px}
+.sks-wrap{border:1px solid #E6E9EF;border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.04),0 8px 24px -16px rgba(16,24,40,.12)}
+.sks-grid{font-size:12.5px}
+.sks-grid thead tr.sks-grp th{height:34px;padding:6px 8px 0;vertical-align:bottom;background:#fff}
+.sks-grid thead tr.sks-cols th{top:34px;height:34px;font-size:11px;text-transform:none;letter-spacing:.01em;color:#64748B;font-weight:600;background:#FBFCFE;border-bottom:1px solid #E6E9EF}
+.sks-grid thead th.sks-gh,.sks-grid thead th.sks-gh0{background:#fff!important;border:none!important;text-align:left;padding:6px 6px 0!important}
+.sks-ghl{display:flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:9px 9px 0 0;background:var(--sb,#F8FAFC);color:var(--sk,#334155);font-size:12px;font-weight:800;letter-spacing:.02em;border-top:3px solid var(--sk,#CBD5E1)}
+.sks-ghl i{width:7px;height:7px;border-radius:50%;background:var(--sk,#94A3B8)}
+.sks-ghl em{font-style:normal;font-weight:600;font-size:10.5px;color:#64748B;margin-left:auto;background:#fff;border-radius:999px;padding:1px 8px}
+.sks-gh0 .sks-ghl{--sk:#1B76FF;--sb:#F5F9FF}
+.sks-grid thead th.sks-ch{border-left:none;background:color-mix(in srgb,var(--sk) 7%,#fff)}
+.sks-grid thead th.sks-ch2{background:color-mix(in srgb,var(--sk) 7%,#fff)}
+.sks-grid tbody td{height:42px;border-bottom:1px solid #F1F3F7}
+.sks-grid tbody tr:nth-child(even) td{background:#FCFDFE}
+.sks-grid tbody tr:hover td{background:#F5F9FF!important}
+.sks-grid td.sks-use{border-left:1px solid #EEF1F5;background:color-mix(in srgb,var(--sk) 4%,#fff)}
+.sks-grid td.sks-use input{appearance:none;-webkit-appearance:none;width:18px!important;height:18px;border:1.5px solid #CBD5E1;border-radius:5px;background:#fff;display:inline-grid;place-content:center;transition:.12s}
+.sks-grid td.sks-use input:checked{background:var(--sk);border-color:var(--sk)}
+.sks-grid td.sks-use input:checked::after{content:'';width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.sks-grid td.sks-use input:hover{border-color:var(--sk)}
+.sks-grid td.sks-fn{color:#1F2937;font-weight:500}
+.sks-grid td.sks-off{color:#C3C9D2!important;background:#FAFBFC!important;font-weight:400}
+.sks-need{color:#E11D48;font-size:11.5px;font-weight:600;background:#FFF1F3;border:1px dashed #FDA4AF;border-radius:6px;padding:2px 7px}
+.sks-plus{color:#CBD5E1;font-weight:700;font-size:14px;padding-left:4px}
+.sks-grid td.sks-as:hover .sks-plus{color:#1B76FF}
+.sks-chip{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;background:#F1F5F9;color:#334155;border-radius:6px;padding:3px 8px;font-size:11.5px;font-weight:500}
+.sks-wchip{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700}
+.sks-wchip.w-6m{background:#FEF3C7;color:#B45309}.sks-wchip.w-1y{background:#E0EDFF;color:#1B5FD1}.sks-wchip.w-3y{background:#DCFCE7;color:#15803D}.sks-wchip.w-no{background:#F1F5F9;color:#64748B}
+.sks-grid td.sks-skucell strong{font-weight:700;color:#0F172A}
+.sks-st{border-radius:999px!important;font-weight:700;font-size:11px!important;padding:4px 8px!important;border:1px solid transparent!important}
+.sks-st.st-active{background:#DCFCE7;color:#15803D}.sks-st.st-hold{background:#FEF3C7;color:#B45309}.sks-st.st-archived{background:#F1F5F9;color:#64748B}
+.sks-grid .skugrid-iconbtn{border-color:transparent;background:transparent;opacity:.55}
+.sks-grid tr:hover .skugrid-iconbtn{opacity:1;border-color:#E6E9EF;background:#fff}
+.skugrid.sks-grid{table-layout:fixed;min-width:100%}
+.sks-grid td,.sks-grid th{overflow:hidden;text-overflow:ellipsis;max-width:none!important}
+.sks-grid td.sks-skucell{white-space:nowrap}
+.sks-grid th.skugrid-sticky,.sks-grid td.skugrid-sticky{position:sticky}
+.sks-grid td.skugrid-sticky,.sks-grid th.skugrid-sticky{box-shadow:none}
+.sks-grid tbody tr td:nth-child(4){box-shadow:6px 0 8px -6px rgba(15,23,42,.18)}
+#skuBulkBar:not(:has(select)){background:#F8FAFC;color:#94A3B8;border:1px dashed #E2E8F0;padding:7px 14px}
+#skuBulkBar:not(:has(select)) span{color:#94A3B8!important}
+.sks-savebar.is-dirty{background:#1B76FF;color:#fff;box-shadow:0 6px 20px -6px rgba(27,118,255,.6)}
+.ppl-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.ppl-links{display:flex;gap:6px;flex-wrap:wrap}
+.ppl-links a.sks-sbtn{text-decoration:none;display:inline-flex;align-items:center}
+.ppl-tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #E6E9EF;margin-bottom:10px}
+.ppl-tab{display:flex;align-items:center;gap:7px;border:none;background:none;font:inherit;font-size:13px;font-weight:700;color:#64748B;padding:9px 14px;border-bottom:3px solid transparent;margin-bottom:-1px;cursor:pointer;border-radius:8px 8px 0 0}
+.ppl-tab i{width:8px;height:8px;border-radius:50%;background:var(--sk)}
+.ppl-tab em{font-style:normal;font-size:11px;background:#F1F5F9;color:#64748B;border-radius:999px;padding:1px 8px}
+.ppl-tab:hover{background:#F8FAFC}
+.ppl-tab.on{color:var(--sk);border-bottom-color:var(--sk);background:var(--sb)}
+.ppl-tab.on em{background:#fff;color:var(--sk)}
+.ppl-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #E6E9EF;border-radius:12px;padding:8px 10px;margin-bottom:10px}
+.ppl-search{flex:0 1 260px;padding:0 10px}
+.ppl-search input{padding:7px 0!important;font-size:13px}
+.ppl-prog{flex:1;min-width:80px;height:6px;border-radius:999px;background:#EEF1F5;overflow:hidden}
+.ppl-prog span{display:block;height:100%;background:#1B76FF;border-radius:999px}
+.ppl-progt{font-size:12px;color:#64748B;white-space:nowrap}.ppl-progt b{color:#1B76FF}
+.ppl-mini{border:1px solid #E6E9EF;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:600;cursor:pointer;color:#334155;white-space:nowrap}
+.ppl-mini:hover{border-color:#1B76FF;color:#1B76FF}
+.ppl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px}
+.ppl-card{position:relative;display:flex;align-items:center;gap:9px;background:#fff;border:1px solid #E6E9EF;border-radius:10px;padding:7px 10px;cursor:pointer;transition:.12s;min-width:0}
+.ppl-card:hover{border-color:#B8D3FF;box-shadow:0 2px 8px -4px rgba(27,118,255,.35)}
+.ppl-card input{position:absolute;opacity:0;pointer-events:none;width:1px!important;height:1px}
+.ppl-box{flex:0 0 18px;height:18px;border:1.5px solid #CBD5E1;border-radius:5px;background:#fff;display:grid;place-content:center}
+.ppl-card input:checked ~ .ppl-box{background:#1B76FF;border-color:#1B76FF}
+.ppl-card input:checked ~ .ppl-box::after{content:'';width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.ppl-card:has(input:checked){background:#F5F9FF;border-color:#9EC2FF}
+.ppl-txt{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.ppl-txt b{font-size:12.5px;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ppl-txt small{font-size:10.5px;color:#94A3B8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ppl-nofn{color:#F43F5E}
+.ppl-hold{margin-left:auto;font-size:10px;font-weight:700;background:#FEF3C7;color:#B45309;border-radius:999px;padding:2px 7px}
+.ppl-card.is-hold{opacity:.8}
+.ppl-groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;align-items:start}
+.ppl-grp{background:#fff;border:1px solid #E6E9EF;border-radius:12px;overflow:hidden;border-top:3px solid #CBD5E1}
+.ppl-grp{border-top-color:var(--wt)!important}
+.ppl-gdot{width:9px;height:9px;border-radius:50%;background:var(--wt);flex:0 0 9px}
+.ppl-gh b{color:var(--wt)!important}
+.ppl-gh b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:0 1 auto}
+.ppl-gh{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8FAFC;border-bottom:1px solid #EEF1F5}
+.ppl-gh b{font-size:13.5px;color:#0F172A;letter-spacing:.02em}
+.ppl-gtoggle{border:none;background:none;cursor:pointer;color:#64748B;font-size:12px;padding:0 2px}
+.ppl-gc{font-size:12px;color:#64748B;white-space:nowrap}.ppl-gc span{color:#1B76FF;font-weight:700}
+.ppl-gbar{flex:1;height:4px;background:#E6E9EF;border-radius:999px;overflow:hidden;min-width:30px}
+.ppl-gbar span{display:block;height:100%;background:#1B76FF}
+.ppl-gbtn{border:1px solid #D6E4FF;background:#EEF4FF;color:#1B76FF;border-radius:7px;padding:3px 8px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+.ppl-gbtn.ghost{background:#fff;border-color:#E6E9EF;color:#64748B}
+.ppl-list{display:flex;flex-direction:column;max-height:300px;overflow-y:auto;scrollbar-width:thin}
+.ppl-item{position:relative;display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #F3F5F8;cursor:pointer;font-size:13px;color:#94A3B8}
+.ppl-item:last-child{border-bottom:none}
+.ppl-item:hover{background:#F8FAFC}
+.ppl-item input{position:absolute;opacity:0;pointer-events:none;width:1px!important;height:1px}
+.ppl-item input:checked ~ .ppl-box{background:#1B76FF;border-color:#1B76FF}
+.ppl-item input:checked ~ .ppl-box::after{content:'';width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.ppl-item:has(input:checked){color:#0F172A;background:#F7FAFF}
+.ppl-item:has(input:checked) .ppl-sku{font-weight:700}
+.ppl-sku{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.ppl-warn{font-size:10.5px;font-weight:700;color:#E11D48;background:#FFF1F3;border-radius:999px;padding:1px 7px;white-space:nowrap}
+.ppl-groups{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important}
+.ppl-gh{flex-wrap:wrap;row-gap:6px;padding:10px 12px!important}
+.ppl-gtoggle{order:0}
+.ppl-gtitle{display:flex;align-items:center;gap:7px;flex:1 1 calc(100% - 30px);min-width:0}
+.ppl-gtitle b{white-space:normal!important;overflow:visible!important;font-size:14px;line-height:1.3}
+.ppl-gmeta{display:flex;align-items:center;gap:8px;flex:1 1 100%}
+.ppl-list{max-height:max(420px,calc(100vh - 330px))!important}
+.fr-panel{background:#fff;border:1px solid #E6E9EF;border-radius:12px;margin-bottom:10px;overflow:hidden}
+.fr-head{display:flex;align-items:center;gap:10px;width:100%;border:none;background:#FBFCFE;padding:10px 14px;font:inherit;cursor:pointer;text-align:left}
+.fr-panel.open .fr-head{border-bottom:1px solid #EEF1F5}
+.fr-ico{font-size:15px}.fr-ttl{font-size:13.5px;color:#334155}.fr-ttl b{color:#0F172A}
+.fr-sum{font-size:12px;color:#64748B;background:#EEF4FF;border-radius:999px;padding:2px 10px}.fr-sum b{color:#1B76FF}
+.fr-car{margin-left:auto;font-size:12px;font-weight:700;color:#1B76FF}
+.fr-body{padding:10px 14px 12px}
+.fr-hint{font-size:12px;color:#64748B;margin-bottom:8px}.fr-hint b{color:#334155}
+.fr-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,380px),1fr));gap:6px}
+.fr-row{display:grid;grid-template-columns:minmax(0,1fr) 96px;grid-template-areas:"w w" "s t";align-items:center;gap:6px 8px;border:1px solid #EEF1F5;border-radius:10px;padding:8px 10px;box-sizing:border-box}
+.fr-row .fr-w{grid-area:w;white-space:normal;line-height:1.3}
+.fr-row .fr-arrow{display:none}
+.fr-row .fr-sel{grid-area:s}
+.fr-row .fr-tag{grid-area:t}
+.fr-rows{grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))!important}
+.fr-tag{text-align:center;justify-self:stretch}
+.fr-arch{font-style:normal;font-size:9.5px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:1px 6px;margin-left:4px}
+.fr-panel,.ppl-bar{max-width:100%;box-sizing:border-box}
+.fr-row.borrow{background:#FAFBFC}
+.fr-w{font-size:12.5px;font-weight:700;color:#0F172A}
+.fr-row.borrow .fr-w{color:#64748B}
+.fr-arrow{color:#94A3B8;text-align:center}
+.fr-sel{width:100%!important;padding:5px 8px!important;font-size:12.5px!important;border-radius:8px;margin:0!important}
+.fr-row.borrow .fr-sel{border-color:#C7B8F5!important;background:#F7F3FF;color:#6D28D9;font-weight:600}
+.fr-tag{font-size:10.5px;font-weight:700;white-space:nowrap;border-radius:999px;padding:2px 8px;background:#F1F5F9;color:#94A3B8}
+.fr-tag.up{background:#DCFCE7;color:#15803D}
+.fr-gbadge{font-size:10.5px;font-weight:700;color:#6D28D9;background:#F3EEFF;border-radius:999px;padding:2px 8px;white-space:nowrap;margin-left:4px}
+.fr-borrow{font-size:11.5px;font-weight:700;color:#6D28D9;background:#F3EEFF;border-radius:999px;padding:3px 9px}
+.ppl-empty{background:#FAFBFC;border-style:dashed}.ppl-empty .ppl-gh{background:transparent;border-bottom:none}.ppl-empty .ppl-gtitle b{color:#94A3B8!important}
+.ppl-tabcmp{margin-left:auto}
+.ppl-tab em.bad{background:#FFE4E6!important;color:#E11D48!important}
+.wc-intro{background:#F7F3FF;border:1px solid #E9DFFF;border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:12.5px;color:#4C1D95}
+.wc-intro span{color:#6B7280;font-size:12px}
+.wc-legend{margin-left:auto;font-size:11.5px;color:#64748B;display:flex;align-items:center;gap:6px}
+.wc-legend i{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid #E6E9EF}.wc-legend i.u{background:#fff}.wc-legend i.n{background:repeating-linear-gradient(45deg,#F1F5F9 0 3px,#fff 3px 6px)}
+.wc-wrap{background:#fff;border:1px solid #E6E9EF;border-radius:12px;overflow:auto;max-height:calc(100vh - 300px)}
+.wc-table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+.wc-table th{position:sticky;top:0;z-index:2;background:#FBFCFE;text-align:left;font-size:11.5px;color:#64748B;font-weight:700;padding:9px 10px;border-bottom:1px solid #E6E9EF;white-space:nowrap}
+.wc-ph{display:inline-flex;align-items:center;gap:6px;color:var(--sk)}.wc-ph i{width:8px;height:8px;border-radius:50%;background:var(--sk)}
+.wc-table td{padding:6px 10px;border-bottom:1px solid #F1F3F7;white-space:nowrap}
+.wc-table td.wc-sku,.wc-table th.wc-sku{position:sticky;left:0;background:#fff;z-index:1}
+.wc-table th.wc-sku{z-index:3;background:#FBFCFE}
+.wc-table tr.bad td{background:#FFF7F8}.wc-table tr.bad td.wc-sku{background:#FFF1F3;box-shadow:inset 3px 0 0 #E11D48}
+.wc-table td.unused{background-image:repeating-linear-gradient(45deg,rgba(241,245,249,.9) 0 4px,transparent 4px 8px)}
+.wc-table td.unused .wc-sel{opacity:.55}
+.wc-chip{display:inline-block;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;color:var(--wt);background:color-mix(in srgb,var(--wt) 12%,#fff)}
+.wc-cell{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.wc-sel{width:auto!important;min-width:130px;border-radius:999px!important;padding:4px 10px!important;font-size:11.5px!important;font-weight:700;color:var(--wt);background:#fff;border:1px solid color-mix(in srgb,var(--wt) 35%,#fff)!important;margin:0!important}
+.wc-sel.ov{background:color-mix(in srgb,var(--wt) 12%,#fff)}
+.wc-route{font-size:10px;font-weight:700;color:#6D28D9}
+.wc-st{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px}.wc-st.bad{background:#FFE4E6;color:#E11D48}.wc-st.miss{background:#FEF3C7;color:#B45309}.wc-st.ok{background:#DCFCE7;color:#15803D}
+.fr-sec{margin-bottom:10px}.fr-sec:last-child{margin-bottom:0}
+.fr-sech{font-size:12px;font-weight:800;color:#0F172A;margin-bottom:6px}.fr-sech span{font-weight:500;color:#64748B;margin-left:6px}
+.fr-stds{display:flex;flex-wrap:wrap;gap:6px}
+.fr-std{display:inline-flex;align-items:center;gap:6px;background:#F0FDF4;border:1px solid #BBF7D0;color:#166534;border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700}
+.fr-std i{font-style:normal;width:16px;height:16px;border-radius:50%;background:#16A34A;color:#fff;display:grid;place-content:center;font-size:10px}
+.fr-std em{font-style:normal;font-size:10.5px;background:#fff;color:#16A34A;border-radius:999px;padding:0 6px}
+.fr-row2{display:flex;align-items:center;gap:12px;border:1px solid #EEF1F5;border-radius:12px;padding:10px 12px;min-height:56px;box-sizing:border-box}
+.fr-row2.on{border-color:#DDD6FE;background:#FAF7FF}
+.fr-row2.off{background:#FAFBFC}
+.fr-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fr-info b{font-size:13px;color:#0F172A;line-height:1.3}
+.fr-row2.off .fr-info b{color:#64748B}
+.fr-info small{display:flex;align-items:center;gap:6px;font-size:11.5px;flex-wrap:wrap}
+.fr-on{color:#6D28D9;font-weight:700}.fr-off{color:#64748B;font-weight:600}
+.fr-mini{width:auto!important;padding:2px 6px!important;font-size:11.5px!important;border-radius:6px;margin:0!important}
+.fr-sw{position:relative;flex:0 0 40px;height:22px;cursor:pointer}
+.fr-sw input{position:absolute;opacity:0;width:1px!important;height:1px}
+.fr-sw span{position:absolute;inset:0;border-radius:999px;background:#CBD5E1;transition:.15s}
+.fr-sw span::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:.15s}
+.fr-sw input:checked + span{background:#7C3AED}
+.fr-sw input:checked + span::after{left:21px}
+.ppl-ov{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:1px 4px 1px 8px;white-space:nowrap}
+.ppl-ov button{border:none;background:#fff;color:#B45309;border-radius:50%;width:15px;height:15px;font-size:9px;line-height:15px;padding:0;cursor:pointer}
+.ppl-ov button:hover{background:#B45309;color:#fff}
+.ppl-ovbar{flex:1 1 100%;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;color:#B45309;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:4px 4px 4px 10px}
+.ppl-from{font-size:10.5px;font-weight:700;color:#6D28D9;background:#F3EEFF;border-radius:999px;padding:1px 8px;white-space:nowrap}
 </style>
 <style>
 .gd-entry-modes{display:flex;gap:6px;margin:14px 0 16px;padding:5px;background:#e9edf5;border-radius:12px;width:max-content;max-width:100%}
@@ -5468,6 +5774,20 @@ function setSkuPlatformProduct(platformId, productId, selected){
    ones from picking it. ---- */
 function skuFindFrameProfile(id){ return STATE.frameProfiles.find(f=>f.id===id) || null; }
 function activeFrameProfiles(){ return STATE.frameProfiles.filter(f=>f.status!=='ARCHIVED'); }
+// Every Warranty that matters on this Platform: all Active ones + any (even Archived) still used by a live SKU,
+// so the Frame Rules panel / Platform Run list always match the groups shown (Krissha: "ทำไมเมนูไม่เท่ากัน").
+// Same Warranty list on every Platform's Frame Rules form (Krissha: "ฟอร์มนี้คือมาตรฐาน ปรับใช้กับทุกแพลตฟอร์ม").
+function frameProfilesAllPlatforms(){
+  const out = [], seen = new Set();
+  activeSkuPlatforms().forEach(pl=>frameProfilesForPlatform(pl).forEach(f=>{ if(!seen.has(f.id)){ seen.add(f.id); out.push(f); } }));
+  return out.length ? out : activeFrameProfiles();
+}
+function frameProfilesForPlatform(platform){
+  const out = activeFrameProfiles().slice(), seen = new Set(out.map(f=>f.id));
+  STATE.skuMaster.forEach(p=>{ if(p.status==='ARCHIVED') return; const id = skuPlatformFrameProfileId(p, platform);
+    if(id && !seen.has(id)){ const f = skuFindFrameProfile(id); if(f){ seen.add(id); out.push(f); } } });
+  return out;
+}
 function createFrameProfile(key, label){
   const p = {id:uidShort('fp'), key:key.trim(), label:(label||key).trim(), frameUrl:'', status:'ACTIVE', updatedAt:new Date().toISOString(), updatedBy:STATE.auth.identity||null};
   STATE.frameProfiles.push(p);
@@ -5534,7 +5854,42 @@ function ftResolveFrameForProduct(product, mgr, platform){
   if(!fpId) return {source:'warranty', profile:null, needsWarranty:true};
   const fp = skuFindFrameProfile(fpId);
   if(!fp) return {source:'warranty', profile:null, deletedProfile:true};
-  return {source:'warranty', profile:{id:fp.id, label:fp.label, frameUrl:(mgr.warrantyFrames||{})[fp.id]||''}};
+  // Per-Platform Frame Rule: this Warranty may borrow another Warranty's frame on THIS platform only
+  // (e.g. Lazada: "1Y + Motor 3Y" → use the 1Y frame). Default = its own frame.
+  const tgt = ftFrameRouteTarget(platform, fp.id);
+  const use = tgt!==fp.id ? (skuFindFrameProfile(tgt) || fp) : fp;
+  return {source:'warranty', profile:{id:use.id, label:use.label, frameUrl:(mgr.warrantyFrames||{})[use.id]||'', via: use!==fp ? fp.label : ''}};
+}
+// Krissha: "แต่ละแพลตฟอร์ม เวลา Apply เฟรม จะใช้เงื่อนไขไม่เหมือนกัน" — platform.frameRoute = {warrantyId: frameOfWarrantyId}.
+// Missing/self entry = the Warranty uses its own frame. Persisted with the Platform Master (wt_sku_platforms).
+function ftIsSpecialWarranty(f){ return /(\+|comp|motor|มอเตอร์|คอม)/i.test(String(f&&f.label||'')); }
+// "Warranty 1 Year + Motor 3 Years" → the standard "Warranty 1 Year" (matched by the first duration).
+function ftWarrantyBase(f, stds){
+  const head = String(f.label||'').split('+')[0].trim().toLowerCase();
+  const exact = stds.find(x=>String(x.label).trim().toLowerCase()===head); if(exact) return exact;
+  const m = head.match(/(\d+)\s*(y|year|ปี|m|month|เดือน)/i);
+  if(m){ const unit = /^(m|month|เดือน)/i.test(m[2]) ? 'm' : 'y';
+    const hit = stds.find(x=>{ const mm = String(x.label).match(/(\d+)\s*(y|year|ปี|m|month|เดือน)/i); return mm && mm[1]===m[1] && ((/^(m|month|เดือน)/i.test(mm[2])?'m':'y')===unit); });
+    if(hit) return hit; }
+  return stds[0] || null;
+}
+function ftFrameRouteTarget(platform, fpId){
+  const t = platform && platform.frameRoute && platform.frameRoute[fpId];
+  if(!t || t===fpId) return fpId;
+  const f = skuFindFrameProfile(t);
+  return f && f.status!=='ARCHIVED' ? t : fpId;
+}
+function ftSetFrameRoute(platform, fpId, targetId){
+  if(!platform) return;
+  platform.frameRoute = Object.assign({}, platform.frameRoute||{});
+  if(!targetId || targetId===fpId) delete platform.frameRoute[fpId];
+  else { // never chain: anything that pointed at fpId now points at the final target too
+    platform.frameRoute[fpId] = targetId;
+    Object.keys(platform.frameRoute).forEach(k=>{ if(platform.frameRoute[k]===fpId) platform.frameRoute[k] = targetId; });
+    delete platform.frameRoute[targetId];
+  }
+  saveSkuPlatforms();
+  pushSkuAudit('platform', platform.id, 'frameRoute.'+fpId, null, targetId||fpId);
 }
 
 /* ---- Readiness (§39/§5-6/§18) + Image Matching Engine ----
@@ -5545,11 +5900,19 @@ function ftResolveFrameForProduct(product, mgr, platform){
 // Case-insensitive lookup of the filename SKU Manager has recorded for this Platform — "Lazada"/"TikTok"/
 // "Shopee" (or whatever the dynamic Platform Master holds) matched against the product's platformImages
 // keys by Platform NAME, never a hardcoded id.
+// The key actually holding this Platform's filename ("Shopee" vs "SHOPEE"…) — case/space-insensitive,
+// so the grid shows and edits the SAME key Import CSV wrote (Krissha: "ชื่อรูปที่ดึงจาก CSV มันไม่โชว์").
+function skuPlatformImageKey(product, platform){
+  const want = String(platform&&platform.name||'').trim().toLowerCase();
+  const keys = Object.keys((product&&product.platformImages)||{});
+  return keys.find(k=>k.trim().toLowerCase()===want && String(product.platformImages[k]||'').trim())
+      || keys.find(k=>k.trim().toLowerCase()===want) || (platform&&platform.name) || '';
+}
 function skuPlatformImageFilename(product, platform){
   if(!product || !product.platformImages || !platform) return '';
   const keys = Object.keys(product.platformImages);
-  const k = keys.find(kk=>kk.toLowerCase()===String(platform.name||'').trim().toLowerCase());
-  return k ? String(product.platformImages[k]||'').trim() : '';
+  const k = skuPlatformImageKey(product, platform);
+  return k && keys.includes(k) ? String(product.platformImages[k]||'').trim() : '';
 }
 // Combines product lifecycle status + setup completeness + exact filename match + frame-profile setup
 // into the one §21/§27 status enum a Designer actually sees, with a plain-language reason (§46: every
@@ -12421,6 +12784,7 @@ function renderMyTodoPage(){
   const h1 = n=>(Math.round(n*100)/100).toFixed(1)+'h';
   const pct = (a,b)=>b>0 ? Math.max(0, Math.min(100, Math.round(a/b*100))) : (a>0?100:0);
   const d0 = new Date(date+'T00:00:00');
+  const addD = (ui.addDate && ui.addDateFor===date) ? ui.addDate : date; // add-form date follows the viewed day unless picked
   const dateLabel = `${date===today?'วันนี้ - ':''}${TODO_DOW_TH[d0.getDay()]} ${fmtDate(date)}`;
 
   // filter → search → sort
@@ -12596,6 +12960,8 @@ function renderMyTodoPage(){
     <select id="todoAddPriority">${TODO_PRIORITIES.map(p=>`<option ${p===(ui.addPriority||'Normal')?'selected':''}>${p}</option>`).join('')}</select>
     <select id="todoAddPlanned"><option value="planned" ${ui.addPlanned!=='unplanned'?'selected':''}>Planned</option><option value="unplanned" ${ui.addPlanned==='unplanned'?'selected':''}>Unplanned</option></select>
     <span class="tdc-addest"><input id="todoAddEst" type="number" min="0" step="0.25" list="todoHourPresets" placeholder="Est." value="${escAttr(ui.addEst||'')}">h</span>
+    <label class="tdc-adddate" title="ลงย้อนหลังได้ — เลือกวันที่ทำงานจริง"><span>วันที่</span><input id="todoAddDate" type="date" value="${escAttr(addD)}"></label>
+    ${addD < today ? `<span class="tdc-addest tdc-addact" title="ชั่วโมงที่ทำจริง (ลงย้อนหลัง = นับว่าเสร็จวันนั้น)"><input id="todoAddAct" type="number" min="0" step="0.25" list="todoHourPresets" placeholder="Actual" value="${escAttr(ui.addAct||'')}">h</span><span class="tdc-pastnote">ลงย้อนหลัง</span>` : ''}
     <button type="button" class="btn btn-sm btn-primary" id="todoAddBtn">เพิ่ม</button>
     <button type="button" class="btn btn-sm btn-ghost" id="todoAddClose">ปิด</button>
   </div>` : `<button type="button" class="tdc-addbox" id="todoAddBox">
@@ -12712,14 +13078,18 @@ async function addTodoInternalTask(){
   const est = Math.max(0, Number(document.getElementById('todoAddEst')?.value||0)) || 0;
   const plannedFlag = document.getElementById('todoAddPlanned')?.value || 'planned';
   const priority = document.getElementById('todoAddPriority')?.value || 'Normal';
-  const date = ui.date || todayISO();
+  const date = document.getElementById('todoAddDate')?.value || ui.date || todayISO();
+  // Krissha: "เพิ่มลง To-do list ย้อนหลัง" — a past date with Actual hours is logged as Done on that day.
+  const past = date < todayISO();
+  const act = past ? Math.max(0, Number(document.getElementById('todoAddAct')?.value||0)) || 0 : 0;
   const now = nowIso();
   STATE.internalTasks.push({id:uid(), name, category, person, date, allDay:false, timeMode:'duration', startTime:'', endTime:'',
-    durationHours: est, note:'', todo:true, source:'internal', todoPriority: priority, todoStatus:'To Do', actualHours:0,
+    durationHours: est, note:'', todo:true, source:'internal', todoPriority: priority, todoStatus: past && act>0 ? 'Done' : 'To Do', actualHours: act, retroLogged: past || undefined,
     plannedFlag, blockedReason:'', originalPlannedDate: date, createdAt: now, createdBy: STATE.auth.identity,
     updatedAt: now, updatedBy: STATE.auth.identity});
   // keep Type/Planned for the next quick add (a run of meetings), clear the rest
-  STATE.todoUI = {...ui, addName:'', addEst:'', addType:category, addPlanned:plannedFlag, addPriority:'Normal', focusAdd:true};
+  STATE.todoUI = {...ui, addName:'', addEst:'', addAct:'', addDate:date, addDateFor:date, date, addType:category, addPlanned:plannedFlag, addPriority:'Normal', focusAdd:true};
+  if(date !== (ui.date||todayISO())) toast(`✓ เพิ่มลงวันที่ ${fmtDate(date)} แล้ว`);
   await saveInternalTasks();
   render();
 }
@@ -12808,6 +13178,13 @@ function bindMyTodoPage(){
   });
   document.querySelector('.tdp-eod')?.addEventListener('toggle', e=>{ STATE.todoUI.eodOpen = e.target.open; });
   document.getElementById('todoAddBtn')?.addEventListener('click', addTodoInternalTask);
+  document.getElementById('todoAddDate')?.addEventListener('change', e=>{
+    STATE.todoUI = {...STATE.todoUI, addDate:e.target.value||'', addDateFor:(STATE.todoUI.date||todayISO()), addName:document.getElementById('todoAddName')?.value||'',
+      addEst:document.getElementById('todoAddEst')?.value||'', addType:document.getElementById('todoAddType')?.value,
+      addPriority:document.getElementById('todoAddPriority')?.value, addPlanned:document.getElementById('todoAddPlanned')?.value, focusAdd:false};
+    render();
+  });
+  document.getElementById('todoAddAct')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addTodoInternalTask(); } });
   ['todoAddName','todoAddEst'].forEach(id=>document.getElementById(id)?.addEventListener('keydown', e=>{
     if(e.key==='Enter'){ e.preventDefault(); addTodoInternalTask(); }
     if(e.key==='Escape'){ STATE.todoUI.addOpen = false; render(); }
@@ -20751,7 +21128,58 @@ function filteredSortedProducts(){
   return list;
 }
 
+function pmFlash(t){ const el=document.getElementById('pmSaved'); if(!el) return; el.textContent=t||'✓ บันทึกแล้ว'; clearTimeout(pmFlash._t); pmFlash._t=setTimeout(()=>{ if(el) el.textContent=''; },1600); }
+function bindProductManage(){
+  if(!canManageProducts()) return;
+  const now = ()=>new Date().toISOString();
+  const prod = id => STATE.products.find(x=>x.id===id);
+  document.querySelectorAll('[data-pmrow] [data-pmf]').forEach(el=>el.onchange=()=>{
+    const p = prod(el.closest('[data-pmrow]').dataset.pmrow); if(!p) return;
+    const f = el.dataset.pmf; let v = (el.value||'').trim();
+    el.classList.remove('err');
+    if(f==='sku'){
+      if(!v){ el.classList.add('err'); el.value=p.sku; return; }
+      if(STATE.products.some(x=>x!==p && String(x.sku||'').toLowerCase()===v.toLowerCase())){ el.classList.add('err'); pmFlash('⚠ SKU ซ้ำ'); return; }
+    }
+    if(f==='nameTh' && !v){ el.classList.add('err'); el.value=p.nameTh; return; }
+    if(f==='driveLink' && v && !isValidDriveLink(v)){ el.classList.add('err'); pmFlash('⚠ ลิงก์ต้องเป็น Google Drive'); return; }
+    p[f]=v; p.updatedAt=now(); saveProducts(); pmFlash();
+    if(f==='category') render();
+  });
+  document.querySelectorAll('[data-pmasset] [data-pmaf]').forEach(el=>el.onchange=()=>{
+    const p = prod(el.closest('[data-pmrow]') ? el.closest('[data-pmrow]').dataset.pmrow : el.closest('.pm-sub').previousElementSibling.dataset.pmrow); if(!p) return;
+    const a = (p.assets||[]).find(x=>x.id===el.closest('[data-pmasset]').dataset.pmasset); if(!a) return;
+    const f = el.dataset.pmaf; const v = (el.value||'').trim(); el.classList.remove('err');
+    if(f==='driveUrl' && v && !/^https?:\/\//i.test(v)){ el.classList.add('err'); pmFlash('⚠ ลิงก์ไม่ถูกต้อง'); return; }
+    a[f]=v; if(f==='customName') a.assetType = a.assetType||'Other';
+    p.updatedAt=now(); saveProducts(); pmFlash();
+    if(f==='driveUrl') render();
+  });
+  document.querySelectorAll('[data-pmexp]').forEach(el=>el.onclick=()=>{ const o=STATE.pui.pmOpen||(STATE.pui.pmOpen={}); o[el.dataset.pmexp]=!o[el.dataset.pmexp]; render(); });
+  document.querySelectorAll('[data-pmaddf]').forEach(el=>el.onclick=()=>{
+    const p = prod(el.dataset.pmaddf); if(!p) return; p.assets = p.assets||[];
+    if(p.assets.length>=MAX_ASSET_SHORTCUTS) return;
+    p.assets.push({id:uidShort('as'), assetType:'Other', customName:'โฟลเดอร์ใหม่', color:'ALL', driveUrl:'', order:p.assets.reduce((m,x)=>Math.max(m,x.order||0),0)+1});
+    p.updatedAt=now(); saveProducts(); render();
+    setTimeout(()=>{ const ins=document.querySelectorAll(`[data-pmrow="${p.id}"] + .pm-sub [data-pmaf="customName"]`); const last=ins[ins.length-1]; if(last){ last.focus(); last.select(); } },0);
+  });
+  document.querySelectorAll('[data-pmadel]').forEach(el=>el.onclick=()=>{
+    const sub = el.closest('.pm-sub'); const p = prod(sub.previousElementSibling.dataset.pmrow); if(!p) return;
+    const a = p.assets.find(x=>x.id===el.dataset.pmadel); if(!a) return;
+    if(!confirm('ลบโฟลเดอร์ย่อย "'+(a.customName||a.assetType)+'" ?')) return;
+    p.assets = p.assets.filter(x=>x!==a); p.updatedAt=now(); saveProducts(); render();
+  });
+  const add = document.getElementById('pmAddSku');
+  if(add) add.onclick=()=>{
+    let n=1, sku; do{ sku='NEW-SKU-'+(n++); }while(STATE.products.some(x=>x.sku===sku));
+    const cat = STATE.pui.category!=='ALL' ? STATE.pui.category : (STATE.productCategories[0]||'Other');
+    const p = {id:uid(), nameTh:'สินค้าใหม่', nameEn:'', sku, category:cat, driveLink:'', thumbnail:null, colors:[], assets:[], createdAt:now(), updatedAt:now()};
+    STATE.products.push(p); saveProducts(); STATE.pui.search=''; STATE.pui.sort='newest'; render();
+    setTimeout(()=>{ const i=document.querySelector(`[data-pmrow="${p.id}"] [data-pmf="sku"]`); if(i){ i.scrollIntoView({block:'center'}); i.focus(); i.select(); } },0);
+  };
+}
 function renderProductsDirectory(){
+  if(!STATE.pui.view){ try{ STATE.pui.view = localStorage.getItem('wt_pdir_view') || 'box'; }catch(e){ STATE.pui.view = 'box'; } }
   const canManage = canManageProducts();
   const counts = categoryCounts();
   const total = STATE.products.length;
@@ -20796,7 +21224,7 @@ function renderProductsDirectory(){
 
   <div class="pdir-quickfilters">
     <div class="qf-pill ${STATE.pui.category==='ALL'?'active':''}" data-qfcat="ALL">All ${total}</div>
-    ${topCats.map(c=>`<div class="qf-pill ${STATE.pui.category===c?'active':''}" data-qfcat="${c}">${c} ${counts[c]}</div>`).join('')}
+    ${topCats.map(c=>`<div class="qf-pill ${STATE.pui.category===c?'active':''}" data-qfcat="${c}"><i class="qf-dot" style="background:${productCategoryColor(c)}"></i>${c} <span class="qf-n">${counts[c]}</span></div>`).join('')}
     ${moreCats.length ? `<select id="qfMore" class="qf-pill" style="width:auto;padding:6px 10px">
         <option value="">More ▾</option>
         ${moreCats.map(c=>`<option value="${c}" ${activeIsInMore && STATE.pui.category===c?'selected':''}>${c} (${counts[c]})</option>`).join('')}
@@ -20805,31 +21233,89 @@ function renderProductsDirectory(){
 
   ${pageItems.length===0 ? `<div class="card placeholder" style="padding-top:22px">ไม่พบสินค้าที่ตรงกับเงื่อนไข</div>` : `
   ${(()=>{
-    const renderCards = items => items.map(p=>{
-      const hasLink = !!p.driveLink;
-      return `<div class="dircard hover-lift pcard clickable" data-productcard="${p.id}">
-      ${canManage ? `<button type="button" class="kebab" data-pkebab="${p.id}">⋯</button>
-      ${STATE.pui.menuOpenFor===p.id ? `<div class="pcard-menu">
+    // Redesign (Krissha: "ทำให้ดูง่ายๆ"): compact cards — small colour tile, name + model, a clear Drive button.
+    // Grid / List toggle; in "All", categories are collapsible groups.
+    const view = ['box','table','grid'].concat(canManage?['manage']:[]).includes(STATE.pui.view) ? STATE.pui.view : 'box';
+    const ini = p => { const m = String(p.sku||p.nameEn||p.nameTh||'').replace(/[^A-Za-z0-9]/g,''); return (m.slice(0,2)||'•').toUpperCase(); };
+    const tile = (p, big) => p.thumbnail ? `<div class="pd2-tile ${big?'big':''}"><img src="${p.thumbnail}" alt=""></div>`
+      : `<div class="pd2-tile ${big?'big':''}" style="--cc:${productCategoryColor(p.category)}">${ini(p)}</div>`;
+    const menu = p => canManage ? `<button type="button" class="pd2-kebab" data-pkebab="${p.id}" title="ตัวเลือก">⋯</button>
+      ${STATE.pui.menuOpenFor===p.id ? `<div class="pcard-menu pd2-menu">
         <button type="button" data-peditbtn="${p.id}">Edit Product</button>
         <button type="button" class="danger" data-pdeletebtn="${p.id}">Delete Product</button>
-      </div>` : ''}` : ''}
-      ${p.thumbnail ? `<div class="thumb"><img src="${p.thumbnail}" style="width:100%;height:100%;object-fit:cover"></div>` : monogramTileHTML(p.nameTh||p.nameEn||p.sku, productCategoryColor(p.category))}
-      <div class="body">
-        <div class="name">${p.nameTh}</div>
-        <div class="name-en">${p.nameEn}</div>
-        <div class="sub mono" style="margin-top:4px">${p.sku}</div>
-        <span class="chip">${p.category}</span>
-        ${hasLink
-          ? `<a href="${p.driveLink}" target="_blank" rel="noopener" class="btn btn-primary drive-primary" data-stopcard>📁 Open Drive ↗</a>`
-          : `<button type="button" class="drive-none" disabled>No Drive Link</button>`}
-      </div>
-    </div>`;
-    }).join('');
-    if(STATE.pui.category!=='ALL') return `<div class="pdirgrid">${renderCards(pageItems)}</div>`;
-    // All: one page, grouped under a heading per Category (order = Manage Categories order).
+      </div>` : ''}` : '';
+    const drive = p => p.driveLink ? `<a href="${p.driveLink}" target="_blank" rel="noopener" class="pd2-drive" data-stopcard title="เปิดโฟลเดอร์ Drive">📁 Drive <span>↗</span></a>`
+      : `<span class="pd2-drive none">ไม่มีลิงก์</span>`;
+    const second = p => p.nameEn && p.nameEn!==p.nameTh ? `<div class="pd2-en">${p.nameEn}</div>` : '';
+    const renderCards = items => `<div class="pd2-grid">${items.map(p=>`<div class="pd2-card" data-productcard="${p.id}" style="--cc:${productCategoryColor(p.category)}">
+          <div class="pd2-top">${tile(p, true)}<div class="pd2-mwrap">${menu(p)}</div></div>
+          <div class="pd2-name" title="${p.nameTh}">${p.nameTh}</div>${second(p)}
+          <div class="pd2-foot"><span class="pd2-sku">${p.sku}</span>${drive(p)}</div>
+        </div>`).join('')}</div>`;
+    const toggle = `<div class="pd2-viewbar"><span class="cx-muted">${list.length} สินค้า</span>
+      <div class="pd2-seg"><button type="button" class="${view==='box'?'on':''}" data-pview="box">▤ กล่องหมวด</button><button type="button" class="${view==='table'?'on':''}" data-pview="table">☰ ตาราง</button><button type="button" class="${view==='grid'?'on':''}" data-pview="grid">▦ การ์ด</button>${canManage?`<button type="button" class="${view==='manage'?'on':''}" data-pview="manage">⚙ จัดการ</button>`:''}</div>
+      ${STATE.pui.category==='ALL' && view==='grid' ? `<button type="button" class="pr-linkbtn" data-pfoldall="${Object.values(STATE.pui.collapsed||{}).some(Boolean)?'open':'close'}">${Object.values(STATE.pui.collapsed||{}).some(Boolean)?'ขยายทั้งหมด':'ย่อทั้งหมด'}</button>` : ''}</div>`;
+ const order0 = STATE.productCategories.concat([...new Set(pageItems.map(p=>p.category))].filter(c=>!STATE.productCategories.includes(c)));
+    // ⚙ จัดการ (Krissha: "ขอเมนูเมเนจ เป็นตาราง … เพิ่มโฟลเดอร์เอง โฟลเดอร์ย่อย หรือสร้าง SKUs เพิ่ม"):
+    // inline-editable table. Fields save on change (no re-render, focus kept); folders expand per row.
+    if(view==='manage'){
+      const open = STATE.pui.pmOpen || (STATE.pui.pmOpen = {});
+      const catOpts = c => STATE.productCategories.concat(STATE.productCategories.includes(c)?[]:[c]).map(x=>`<option value="${escAttr(x)}" ${x===c?'selected':''}>${escAttr(x)}</option>`).join('');
+      const fRow = (p,a) => `<div class="pm-frow" data-pmasset="${a.id}">
+          <span class="pm-ficon">📂</span>
+          <input class="pm-in" data-pmaf="customName" value="${escAttr(a.customName||a.assetType||'')}" placeholder="ชื่อโฟลเดอร์ย่อย">
+          <input class="pm-in pm-url" data-pmaf="driveUrl" value="${escAttr(a.driveUrl||'')}" placeholder="https://drive.google.com/...">
+          <select class="pm-in pm-sel" data-pmaf="color"><option value="ALL">ทุกสี</option>${(p.colors||[]).map(c=>`<option value="${escAttr(c)}" ${a.color===c?'selected':''}>${escAttr(c)}</option>`).join('')}</select>
+          ${a.driveUrl?`<a class="pm-go" href="${escAttr(a.driveUrl)}" target="_blank" rel="noopener" title="เปิด">↗</a>`:'<span class="pm-go none">↗</span>'}
+          <button type="button" class="pm-x" data-pmadel="${a.id}" title="ลบโฟลเดอร์ย่อย">✕</button></div>`;
+      const row = p => { const as = (p.assets||[]).slice().sort((x,y)=>(x.order||0)-(y.order||0)); const isO = !!open[p.id];
+        return `<tr class="pm-tr ${isO?'open':''}" data-pmrow="${p.id}">
+          <td><button type="button" class="pm-exp" data-pmexp="${p.id}" title="โฟลเดอร์ย่อย">${isO?'▾':'▸'} <span>${as.length}</span></button></td>
+          <td><input class="pm-in" data-pmf="sku" value="${escAttr(p.sku)}" placeholder="SKU *"></td>
+          <td><input class="pm-in" data-pmf="nameTh" value="${escAttr(p.nameTh)}" placeholder="ชื่อ TH *"></td>
+          <td><input class="pm-in" data-pmf="nameEn" value="${escAttr(p.nameEn)}" placeholder="Name EN"></td>
+          <td><select class="pm-in pm-sel" data-pmf="category">${catOpts(p.category)}</select></td>
+          <td><input class="pm-in pm-url" data-pmf="driveLink" value="${escAttr(p.driveLink)}" placeholder="ลิงก์โฟลเดอร์หลัก"></td>
+          <td><button type="button" class="pm-x" data-pdeletebtn="${p.id}" title="ลบสินค้า">🗑</button></td></tr>
+          ${isO?`<tr class="pm-sub"><td></td><td colspan="6"><div class="pm-folders">
+            <div class="pm-fhead">โฟลเดอร์ย่อยของ <b>${escAttr(p.sku)}</b> <span class="cx-muted">${as.length}/${MAX_ASSET_SHORTCUTS}</span></div>
+            ${as.map(a=>fRow(p,a)).join('') || '<div class="cx-muted" style="padding:4px 2px">ยังไม่มีโฟลเดอร์ย่อย</div>'}
+            ${as.length<MAX_ASSET_SHORTCUTS?`<button type="button" class="pm-addf" data-pmaddf="${p.id}">+ เพิ่มโฟลเดอร์ย่อย</button>`:''}
+          </div></td></tr>`:''}`; };
+      return toggle + `<div class="pm-bar"><button type="button" class="btn btn-primary btn-sm" id="pmAddSku">+ เพิ่ม SKU</button>
+        <span class="cx-muted">แก้ในช่องได้เลย บันทึกอัตโนมัติ · กด ▸ เพื่อจัดการโฟลเดอร์ย่อย</span><span class="pm-saved" id="pmSaved"></span></div>
+        <div class="pd2-tablewrap"><table class="pm-table">
+        <thead><tr><th style="width:56px">โฟลเดอร์</th><th>SKU</th><th>ชื่อ TH</th><th>Name EN</th><th style="width:150px">หมวด</th><th>Drive หลัก</th><th style="width:40px"></th></tr></thead>
+        <tbody>${pageItems.map(row).join('')}</tbody></table></div>`;
+    }
+    // ☰ ตาราง — one flat, scannable table (category column + colour dot)
+    if(view==='table') return toggle + `<div class="pd2-tablewrap"><table class="pd2-table">
+      <thead><tr><th></th><th class="tl">ชื่อสินค้า</th><th class="tl">รุ่น / SKU</th><th class="tl">หมวด</th><th>Drive</th><th></th></tr></thead>
+      <tbody>${pageItems.map(p=>`<tr data-productcard="${p.id}"><td class="pd2-tdtile">${tile(p)}</td>
+        <td class="tl"><div class="pd2-name">${p.nameTh}</div>${second(p)}</td>
+        <td class="tl"><span class="pd2-sku">${p.sku}</span></td>
+        <td class="tl"><span class="pd2-cat" style="--cc:${productCategoryColor(p.category)}"><i></i>${p.category}</span></td>
+        <td>${drive(p)}</td><td><div class="pd2-mwrap">${menu(p)}</div></td></tr>`).join('')}</tbody></table></div>`;
+    // ▤ กล่องหมวด — one box per category with a compact list inside
+    if(view==='box'){
+      const LIM = 8;
+      return toggle + `<div class="pd2-boxes">${order0.map(c=>{ const items = pageItems.filter(p=>p.category===c); if(!items.length) return '';
+        const shown = items; // Krissha: scroll inside the box instead of "ดูทั้งหมด"
+        return `<div class="pd2-box" style="--cc:${productCategoryColor(c)}">
+          <div class="pd2-boxh"><i></i><b>${c}</b><span class="pd2-count">${items.length}</span></div>
+          <div class="pd2-boxl">${shown.map(p=>`<div class="pd2-bi" data-productcard="${p.id}">
+            <div class="pd2-bm"><div class="pd2-name">${p.nameTh}</div><span class="pd2-sku">${p.sku}</span></div>
+            ${p.driveLink ? `<a href="${p.driveLink}" target="_blank" rel="noopener" class="pd2-dicon" data-stopcard title="เปิด Drive">📁</a>` : `<span class="pd2-dicon none" title="ไม่มีลิงก์ Drive">—</span>`}
+            <div class="pd2-mwrap">${menu(p)}</div></div>`).join('')}</div>
+        </div>`; }).join('')}</div>`;
+    }
+    if(STATE.pui.category!=='ALL') return toggle + renderCards(pageItems);
     const order = STATE.productCategories.concat([...new Set(pageItems.map(p=>p.category))].filter(c=>!STATE.productCategories.includes(c)));
-    return order.map(c=>{ const items = pageItems.filter(p=>p.category===c); if(!items.length) return '';
-      return `<div class="pcat-group"><div class="pcat-head"><span style="width:12px;height:12px;border-radius:4px;background:${productCategoryColor(c)};display:inline-block"></span>${c} <span class="chip">${items.length}</span></div><div class="pdirgrid">${renderCards(items)}</div></div>`; }).join('');
+    return toggle + order.map(c=>{ const items = pageItems.filter(p=>p.category===c); if(!items.length) return '';
+      const shut = !!(STATE.pui.collapsed||{})[c];
+      return `<div class="pd2-group" style="--cc:${productCategoryColor(c)}">
+        <button type="button" class="pd2-ghead" data-pgroup="${escAttr(c)}"><span class="pd2-caret">${shut?'▸':'▾'}</span><i></i><b>${c}</b><span class="pd2-count">${items.length}</span></button>
+        ${shut ? '' : renderCards(items)}</div>`; }).join('');
   })()}
   <div class="hint" style="text-align:center;margin-top:14px">Showing ${(STATE.pui.page-1)*pageSize+1}–${Math.min(STATE.pui.page*pageSize,list.length)} of ${list.length} products</div>
   ${totalPages>1 ? `<div class="pagination">
@@ -26862,6 +27348,11 @@ function bindEvents(){
   document.getElementById('pSort')?.addEventListener('change', e=>{ STATE.pui.sort=e.target.value; render(); });
   document.getElementById('qfMore')?.addEventListener('change', e=>{ if(e.target.value){ STATE.pui.category=e.target.value; STATE.pui.page=1; render(); } });
   document.querySelectorAll('[data-qfcat]').forEach(el=>el.onclick=()=>{ STATE.pui.category=el.dataset.qfcat; STATE.pui.page=1; render(); });
+  document.querySelectorAll('[data-pview]').forEach(el=>el.onclick=()=>{ STATE.pui.view = el.dataset.pview; try{ localStorage.setItem('wt_pdir_view', STATE.pui.view); }catch(e){} render(); });
+  bindProductManage();
+  document.querySelectorAll('[data-pboxall]').forEach(el=>el.onclick=e=>{ e.stopPropagation(); const c = el.dataset.pboxall; STATE.pui.boxAll = {...(STATE.pui.boxAll||{}), [c]: !(STATE.pui.boxAll||{})[c]}; render(); });
+  document.querySelectorAll('[data-pgroup]').forEach(el=>el.onclick=()=>{ const c = el.dataset.pgroup; STATE.pui.collapsed = {...(STATE.pui.collapsed||{}), [c]: !(STATE.pui.collapsed||{})[c]}; render(); });
+  document.querySelectorAll('[data-pfoldall]').forEach(el=>el.onclick=()=>{ const close = el.dataset.pfoldall==='close'; STATE.pui.collapsed = {}; if(close) STATE.productCategories.forEach(c=>STATE.pui.collapsed[c]=true); render(); });
   document.querySelectorAll('[data-pgo]').forEach(el=>el.onclick=()=>{
     const v = el.dataset.pgo;
     if(v==='prev') STATE.pui.page = Math.max(1, STATE.pui.page-1);
@@ -31081,8 +31572,9 @@ function renderSkuGridCell(p, path, currentValue, opts){
   if(editable && STATE.skuUI.editCell===`${p.id}::${path}`){
     return `<td class="skugrid-td${stickyCls}" style="${widthStyle}"><input id="skuCellEditInput" class="skugrid-cell-input" value="${escAttr(val||'')}" data-skucellcommit="${p.id}::${path}"></td>`;
   }
-  const shown = val ? escAttr(val) : `<span class="skugrid-empty">—</span>`;
-  const cls = `skugrid-td skugrid-cell${dirty?' skugrid-cell-dirty':''}${editable?' skugrid-editable':''}${stickyCls}`;
+  const shown = val ? (opts.chip ? `<span class="sks-chip">${escAttr(val)}</span>` : escAttr(val))
+    : (opts.emptyHTML || `<span class="skugrid-empty">—</span>`);
+  const cls = `skugrid-td skugrid-cell${opts.cls?' '+opts.cls:''}${dirty?' skugrid-cell-dirty':''}${editable?' skugrid-editable':''}${stickyCls}`;
   const openAttr = editable ? ` data-skucellopen="${p.id}::${path}"` : '';
   return `<td class="${cls}" style="${widthStyle}"${openAttr} title="${escAttr(val||'')}">${shown}</td>`;
 }
@@ -31099,7 +31591,7 @@ function renderSkuWarrantyCell(p, editable, left){
   const overrideId = draftVal===undefined && fPlat && p.platformWarranty ? p.platformWarranty[fPlat.id] : '';
   const overrideFp = overrideId && overrideId!==activeProfileId ? skuFindFrameProfile(overrideId) : null;
   const dirty = editable && skuCellDirty(p, 'warranty');
-  const widthStyle = `position:sticky;left:${left}px;width:100px;min-width:100px`;
+  const widthStyle = `position:sticky;left:${left}px;width:110px;min-width:110px`;
   if(editable && STATE.skuUI.editCell===`${p.id}::warranty`){
     return `<td class="skugrid-td skugrid-sticky" style="${widthStyle}">
       <select id="skuWarrantyEditSelect" class="skugrid-cell-input" data-skuwarrantycommit="${p.id}::warranty">
@@ -31108,34 +31600,42 @@ function renderSkuWarrantyCell(p, editable, left){
       </select>
     </td>`;
   }
-  const shown = overrideFp ? `◆ ${escAttr(overrideFp.label)}` : profile ? escAttr(profile.label) : `<span class="skugrid-empty">—</span>`;
+  const wTone = l => /no/i.test(l)?'w-no':/6\s*m/i.test(l)?'w-6m':/3\s*y/i.test(l)?'w-3y':'w-1y';
+  const wShort = l => String(l||'').replace(/^warranty\s*/i,'').replace(/\bMonths?\b/gi,'M').replace(/\bYears?\b/gi,'Y').replace(/\bCompressor\b/gi,'Comp').replace(/\s+(?=[MY]\b)/g,'').replace(/\s*\+\s*/g,'+') || l;
+  const shown = overrideFp ? `<span class="sks-wchip ${wTone(overrideFp.label)}">◆ ${escAttr(wShort(overrideFp.label))}</span>` : profile ? `<span class="sks-wchip ${wTone(profile.label)}">${escAttr(wShort(profile.label))}</span>` : `<span class="sks-need">+ เลือก</span>`;
   const tip = overrideFp ? `${fPlat.name}: ${overrideFp.label} (ค่าหลัก: ${profile?profile.label:'—'})` : (profile?profile.label:'');
   const cls = `skugrid-td skugrid-cell${dirty?' skugrid-cell-dirty':''}${editable?' skugrid-editable':''} skugrid-sticky`;
   const openAttr = editable ? ` data-skucellopen="${p.id}::warranty"` : '';
   return `<td class="${cls}" style="${widthStyle}"${openAttr} title="${escAttr(tip)}">${shown}</td>`;
 }
+const SKS_TONES = [['#F97316','#FFF4EC'],['#1B76FF','#EEF4FF'],['#111827','#F3F4F6'],['#16A34A','#F0FDF4'],['#9333EA','#F7F0FF'],['#DB2777','#FDF0F7']];
 function renderSkuGridRow(p, ctx){
   const canEditProtected = canEditSkuProtectedFields(p);
   const needsSetup = p.status!=='ARCHIVED' && skuNeedsSetup(p, ctx.platform);
   const selected = STATE.skuUI.selectedIds.includes(p.id);
   const cells = [];
-  cells.push(`<td class="skugrid-td skugrid-sticky" style="left:0;width:26px;min-width:26px"><input type="checkbox" data-skurowcheck="${p.id}" ${selected?'checked':''}></td>`);
-  cells.push(`<td class="skugrid-td skugrid-sticky" style="position:sticky;left:26px;width:130px;min-width:130px"><strong>${escAttr(p.primarySku)}</strong>${needsSetup?` <span class="skugrid-dot" title="Needs Setup"></span>`:''}</td>`);
-  cells.push(renderSkuGridCell(p, 'aliasesText', (p.aliases||[]).join(', '), {sticky:true, left:156, width:160}));
-  cells.push(renderSkuWarrantyCell(p, canEditProtected, 316));
-  if(ctx.compareMode){
-    ctx.platforms.forEach(pl=>{
-      cells.push(renderSkuGridCell(p, `platformImages.${pl.name}`, (p.platformImages&&p.platformImages[pl.name])||'', {width:170, editable:ctx.canManage}));
-    });
-  } else {
-    const pathKey = ctx.platform ? `platformImages.${ctx.platform.name}` : 'platformImages.__none';
-    cells.push(renderSkuGridCell(p, pathKey, ctx.platform ? ((p.platformImages&&p.platformImages[ctx.platform.name])||'') : '', {width:170, editable:ctx.canManage && !!ctx.platform}));
-    ctx.assetTypes.forEach(at=>{
-      cells.push(renderSkuGridCell(p, `assets.${at.key}`, (p.assets&&p.assets[at.key])||'', {width:130, editable:ctx.canManage}));
-    });
-  }
+  cells.push(`<td class="skugrid-td skugrid-sticky" style="position:sticky;left:0"><input type="checkbox" data-skurowcheck="${p.id}" ${selected?'checked':''}></td>`);
+  cells.push(`<td class="skugrid-td skugrid-sticky sks-skucell" style="position:sticky;left:34px" title="${escAttr(p.primarySku)}"><strong>${escAttr(p.primarySku)}</strong>${needsSetup?` <span class="skugrid-dot" title="Needs Setup"></span>`:''}</td>`);
+  cells.push(renderSkuGridCell(p, 'aliasesText', (p.aliases||[]).join(', '), {sticky:true, left:244, width:170}));
+  cells.push(renderSkuWarrantyCell(p, canEditProtected, 414));
+  // ONE SHEET (Krissha: "อยากแก้ไขทั้งหมดในหน้าเดียวแผ่นเดียว … ถ้าคนอื่นใช้ เขาจะหาไม่เจอ"): every Platform
+  // gets its own column pair — ✓ ใช้ (= Platform Product List selection) + ชื่อไฟล์รูป — followed by every
+  // Asset column, all editable in place and saved together by the one Save bar.
+  if(ctx.showPlatforms) ctx.platforms.forEach((pl, i)=>{
+    const usePath = `use.${pl.id}`;
+    const orig = isSkuSelectedForPlatform(pl.id, p.id);
+    const on = skuCellVal(p, usePath, orig);
+    const tone = SKS_TONES[i % SKS_TONES.length];
+    cells.push(`<td class="skugrid-td sks-use ${skuCellDirty(p, usePath)?'skugrid-cell-dirty':''}" style="width:46px;min-width:46px;--sk:${tone[0]}"><input type="checkbox" data-skuuse="${p.id}::${pl.id}" ${on?'checked':''} ${ctx.canManage?'':'disabled'} title="ใช้ใน ${escAttr(pl.name)}"></td>`);
+    const c = renderSkuGridCell(p, `platformImages.${skuPlatformImageKey(p, pl)}`, skuPlatformImageFilename(p, pl), {width:180, editable:ctx.canManage,
+      cls: on ? 'sks-fn' : 'sks-fn sks-off', emptyHTML: on ? '<span class="sks-need">+ ใส่ชื่อรูป</span>' : '<span class="skugrid-empty">—</span>'});
+    cells.push(c);
+  });
+  if(ctx.showAssets) ctx.assetTypes.forEach(at=>{
+    cells.push(renderSkuGridCell(p, `assets.${at.key}`, (p.assets&&p.assets[at.key])||'', {width:140, editable:ctx.canManage, chip:true, cls:'sks-as', emptyHTML:'<span class="sks-plus">+</span>'}));
+  });
   cells.push(`<td class="skugrid-td" style="width:96px;min-width:96px">
-    <select data-skustatusselect="${p.id}" class="skugrid-statusselect" ${ctx.canManage?'':'disabled'}>
+    <select data-skustatusselect="${p.id}" class="skugrid-statusselect sks-st st-${String(p.status||'ACTIVE').toLowerCase()}" ${ctx.canManage?'':'disabled'}>
       ${SKU_STATUS.map(s=>`<option value="${s}" ${p.status===s?'selected':''}>${SKU_STATUS_LABEL[s]}</option>`).join('')}
     </select>
   </td>`);
@@ -31158,7 +31658,7 @@ function skuBulkBarContent(ui){
       <button type="button" class="btn btn-primary" id="skuBulkWarrantyApply">Apply</button>
       <button type="button" class="btn btn-ghost" id="skuBulkClearSelection" style="color:#111">Clear</button>
     </span>
-    ` : `<span style="color:#94a3b8">Select SKU to bulk edit</span><span></span>`;
+    ` : `<span style="color:#94a3b8">☐ ติ๊กช่องหน้าแถว เพื่อตั้ง Warranty หลาย SKU พร้อมกัน</span><span></span>`;
 }
 // §5 Checkbox click ให้ทำแค่ update selectedProductIds / update checkbox / update selected count / update
 // bulk toolbar — ห้าม rebuild Table. Re-renders only the bulk bar's own innerHTML (re-binding its own
@@ -31221,70 +31721,88 @@ function renderSkuManager(){
   counts.MISSING = STATE.skuMaster.filter(p=>p.status!=='ARCHIVED' && skuMissingPlatformImage(p, platform)).length;
   const draftCount = skuDraftCount();
 
+  const showPlatforms = ui.showPlatforms!==false, showAssets = ui.showAssets!==false;
+  const colCount = 4 + (showPlatforms?platforms.length*2:0) + (showAssets?assetTypes.length:0) + 2;
   return `
-  <h1 class="pagetitle">SKU Manager</h1>
-  <p class="pagesub">Product Database กลางของระบบ — 1 สินค้าจริง = 1 แถว ${canCreate?'':'· Read-Only'}</p>
-
-  <div class="pdir-toolbar" style="flex-wrap:wrap">
-    ${!ui.compareMode ? `<select id="skuPlatformFilter" class="ftp-select" style="max-width:180px">
-      ${platforms.length ? platforms.map(pl=>`<option value="${pl.id}" ${platform&&platform.id===pl.id?'selected':''}>${escAttr(pl.name)}</option>`).join('') : `<option value="">— ไม่มี Platform —</option>`}
-    </select>` : `<span class="chip" style="padding:8px 12px">Comparing all Platforms</span>`}
-    <input id="skuSearch" placeholder="Search SKU / Alias / Filename..." value="${escAttr(ui.search)}" style="flex:1;min-width:160px">
-    ${platforms.length>1 ? `<button type="button" class="btn btn-ghost" id="skuCompareToggle">${ui.compareMode?'✕ Exit Compare':'⇄ Compare Platforms'}</button>` : ''}
-    <button type="button" class="btn btn-ghost" id="skuManagePlatforms">⚙ Platforms</button>
-    <button type="button" class="btn btn-ghost" id="skuManageAssets">⚙ Assets</button>
-    <button type="button" class="btn btn-ghost" id="skuManageWarranty">⚙ Warranty</button>
-    ${canCreate ? `<button type="button" class="btn btn-ghost" id="skuAddMultiBtn">+ Add Multiple</button>
-      <button type="button" class="btn btn-primary" id="skuAddBtn">+ Add Product</button>` : ''}
-  </div>
-  <div class="pdir-quickfilters">
-    <div class="qf-pill ${ui.statusFilter==='ALL'?'active':''}" data-skufilter="ALL">All ${counts.ALL}</div>
-    <div class="qf-pill ${ui.statusFilter==='NEEDS_SETUP'?'active':''}" data-skufilter="NEEDS_SETUP">Needs Setup ${counts.NEEDS_SETUP}</div>
-    <div class="qf-pill ${ui.statusFilter==='MISSING'?'active':''}" data-skufilter="MISSING">Missing ${counts.MISSING}</div>
-    <div class="qf-pill ${ui.statusFilter==='HOLD'?'active':''}" data-skufilter="HOLD">Hold ${counts.HOLD}</div>
-    <div class="qf-pill ${ui.statusFilter==='ARCHIVED'?'active':''}" data-skufilter="ARCHIVED">Archived ${counts.ARCHIVED}</div>
+  <div class="sks-head">
+    <div>
+      <h1 class="pagetitle" style="margin:0">SKU Manager</h1>
+      <p class="pagesub" style="margin:2px 0 0">แก้ทุกอย่างของสินค้าได้ในตารางเดียว — 1 แถว = 1 สินค้า ${canCreate?'':'· Read-Only'}</p>
+    </div>
+    <div class="sks-settings">
+      <span class="sks-lbl">ตั้งค่ารายการหลัก</span>
+      <button type="button" class="sks-sbtn" id="skuManagePlatforms" title="เพิ่ม/แก้ชื่อ Platform">🛒 Platforms</button>
+      <button type="button" class="sks-sbtn" id="skuManageAssets" title="เพิ่ม/แก้คอลัมน์ Asset">🧩 Assets</button>
+      <button type="button" class="sks-sbtn" id="skuManageWarranty" title="ตัวเลือก Warranty">🛡 Warranty</button>
+    </div>
   </div>
 
-  <!-- §4 Bulk Action Bar ห้ามทำ Layout Shift — the bar itself is always rendered (never
-       inserted/removed) so its reserved height never pushes the table down when selection starts;
-       only the CONTENT inside it swaps between the idle hint and the live bulk-edit controls.
-       §5 Checkbox click ห้าม rebuild Table — id="skuBulkBar" lets a row-checkbox tick refresh just this
-       bar's innerHTML (see refreshSkuBulkBar()) instead of calling the full render() that rebuilds
-       every row in the grid. -->
+  <div class="sks-toolbar">
+    <label class="sks-search">🔍<input id="skuSearch" placeholder="ค้นหา SKU / Alias / ชื่อไฟล์รูป..." value="${escAttr(ui.search)}"></label>
+    ${canCreate ? `<button type="button" class="btn btn-ghost" id="skuAddMultiBtn">+ เพิ่มหลายรายการ</button>
+      <button type="button" class="btn btn-primary" id="skuAddBtn">+ เพิ่มสินค้า</button>` : ''}
+  </div>
+
+  <div class="sks-filters">
+    <div class="pdir-quickfilters" style="margin:0">
+      <div class="qf-pill ${ui.statusFilter==='ALL'?'active':''}" data-skufilter="ALL">ทั้งหมด ${counts.ALL}</div>
+      <div class="qf-pill ${ui.statusFilter==='NEEDS_SETUP'?'active':''}" data-skufilter="NEEDS_SETUP" title="ยังไม่มี Warranty หรือชื่อไฟล์รูป">ยังตั้งค่าไม่ครบ ${counts.NEEDS_SETUP}</div>
+      <div class="qf-pill ${ui.statusFilter==='MISSING'?'active':''}" data-skufilter="MISSING" title="มี Warranty แล้ว แต่ยังไม่มีชื่อไฟล์รูป">ไม่มีชื่อรูป ${counts.MISSING}</div>
+      <div class="qf-pill ${ui.statusFilter==='HOLD'?'active':''}" data-skufilter="HOLD">Hold ${counts.HOLD}</div>
+      <div class="qf-pill ${ui.statusFilter==='ARCHIVED'?'active':''}" data-skufilter="ARCHIVED">Archived ${counts.ARCHIVED}</div>
+    </div>
+    <div class="sks-fright">
+      <label class="sks-mini">ตรวจของ
+        <select id="skuPlatformFilter">${platforms.length ? platforms.map(pl=>`<option value="${pl.id}" ${platform&&platform.id===pl.id?'selected':''}>${escAttr(pl.name)}</option>`).join('') : `<option value="">—</option>`}</select>
+      </label>
+      <span class="sks-sep"></span>
+      <span class="sks-lbl">แสดงคอลัมน์</span>
+      <label class="sks-tog"><input type="checkbox" id="skuShowPlatforms" ${showPlatforms?'checked':''}> Platforms</label>
+      <label class="sks-tog"><input type="checkbox" id="skuShowAssets" ${showAssets?'checked':''}> Assets</label>
+    </div>
+  </div>
+
+  <div class="sks-help"><b>วิธีใช้</b> คลิกช่องไหนก็แก้ได้เลย · ติ๊ก <b>✓</b> = สินค้านี้ใช้ใน Platform นั้น · ช่องสีเหลือง = ยังไม่บันทึก → กด <b>บันทึก</b> ที่แถบด้านล่างตาราง</div>
+
   <div class="skugrid-savebar" id="skuBulkBar" style="top:auto">${skuBulkBarContent(ui)}</div>
 
-  <div class="skugrid-wrap">
-    <table class="skugrid">
-      <thead><tr>
-        <th class="skugrid-sticky" style="left:0;width:26px;min-width:26px"><input type="checkbox" id="skuSelectAllRows" ${list.length && list.every(p=>ui.selectedIds.includes(p.id))?'checked':''}></th>
-        <th class="skugrid-sticky" style="left:26px;width:130px;min-width:130px">SKU</th>
-        <th class="skugrid-sticky" style="left:156px;width:160px;min-width:160px">Alias</th>
-        <th class="skugrid-sticky" style="left:316px;width:100px;min-width:100px">Warranty</th>
-        ${ui.compareMode
-          ? platforms.map(pl=>`<th style="width:170px;min-width:170px">${escAttr(pl.name)}</th>`).join('')
-          : `<th style="width:170px;min-width:170px">${platform?escAttr(platform.name):'Platform'} Image</th>
-             ${assetTypes.map(at=>`<th style="width:130px;min-width:130px">${escAttr(at.label)}</th>`).join('')}`
-        }
-        <th style="width:96px;min-width:96px">Status</th>
-        <th style="width:70px;min-width:70px"></th>
-      </tr></thead>
+  <div class="skugrid-wrap sks-wrap">
+    <table class="skugrid sks-grid" style="width:${524 + (showPlatforms?platforms.length*226:0) + (showAssets?assetTypes.length*140:0) + 166}px">
+      <colgroup><col style="width:34px"><col style="width:210px"><col style="width:170px"><col style="width:110px">
+        ${showPlatforms ? platforms.map(()=>'<col style="width:46px"><col style="width:180px">').join('') : ''}
+        ${showAssets ? assetTypes.map(()=>'<col style="width:140px">').join('') : ''}<col style="width:96px"><col style="width:70px"></colgroup>
+      <thead>
+        <tr class="sks-grp">
+          <th class="skugrid-sticky sks-gh0" colspan="4" style="left:0"><span class="sks-ghl"><i></i>ข้อมูลสินค้า<em>${list.length} SKU</em></span></th>
+          ${showPlatforms ? platforms.map((pl,i)=>{ const t=SKS_TONES[i%SKS_TONES.length]; const n=list.filter(p=>isSkuSelectedForPlatform(pl.id,p.id)).length;
+            return `<th colspan="2" class="sks-gh" style="--sk:${t[0]};--sb:${t[1]}"><span class="sks-ghl"><i></i>${escAttr(pl.name)}<em>ใช้ ${n}</em></span></th>`; }).join('') : ''}
+          ${showAssets && assetTypes.length ? `<th colspan="${assetTypes.length}" class="sks-gh" style="--sk:#64748B;--sb:#F8FAFC"><span class="sks-ghl"><i></i>Assets<em>${assetTypes.length} คอลัมน์</em></span></th>` : ''}
+          <th colspan="2"></th>
+        </tr>
+        <tr class="sks-cols">
+          <th class="skugrid-sticky" style="left:0"><input type="checkbox" id="skuSelectAllRows" ${list.length && list.every(p=>ui.selectedIds.includes(p.id))?'checked':''}></th>
+          <th class="skugrid-sticky" style="left:34px">SKU</th>
+          <th class="skugrid-sticky" style="left:244px">Alias</th>
+          <th class="skugrid-sticky" style="left:414px">Warranty</th>
+          ${showPlatforms ? platforms.map((pl,i)=>{ const t=SKS_TONES[i%SKS_TONES.length]; return `<th class="sks-ch" style="--sk:${t[0]};width:46px;min-width:46px;text-align:center">ใช้</th><th class="sks-ch2" style="--sk:${t[0]};width:180px;min-width:180px">ชื่อไฟล์รูป</th>`; }).join('') : ''}
+          ${showAssets ? assetTypes.map(at=>`<th style="width:140px;min-width:140px">${escAttr(at.label)}</th>`).join('') : ''}
+          <th style="width:96px;min-width:96px">Status</th>
+          <th style="width:70px;min-width:70px"></th>
+        </tr>
+      </thead>
       <tbody>
-        ${list.length ? list.map(p=>renderSkuGridRow(p, {platform, platforms, assetTypes, compareMode:ui.compareMode, canManage})).join('') : `<tr><td colspan="20" class="ft-hint" style="padding:20px">ไม่พบ SKU ที่ตรงกับเงื่อนไข</td></tr>`}
+        ${list.length ? list.map(p=>renderSkuGridRow(p, {platform, platforms, assetTypes, canManage, showPlatforms, showAssets})).join('') : `<tr><td colspan="${colCount}" class="ft-hint" style="padding:20px">ไม่พบ SKU ที่ตรงกับเงื่อนไข</td></tr>`}
       </tbody>
     </table>
   </div>
-  <!-- §4 Bulk Action Bar ห้ามทำ Layout Shift — same fix as the Selected-SKU bar above: this bar is now
-       always rendered too (never inserted/removed), so committing the very first Inline Edit doesn't
-       shove the table (or the page) around; only its content swaps between the idle hint and the
-       Discard/Save controls. -->
-  <div class="skugrid-savebar" style="${draftCount ? '' : 'opacity:.55'}">
+  <div class="skugrid-savebar sks-savebar ${draftCount?'is-dirty':''}">
     ${draftCount ? `
-    <span>${draftCount} unsaved change${draftCount>1?'s':''}</span>
+    <span>✎ แก้ไว้ ${draftCount} ช่อง — ยังไม่บันทึก</span>
     <span style="display:flex;gap:8px">
-      <button type="button" class="btn btn-ghost" id="skuDiscardChanges" style="color:#111">Discard</button>
-      <button type="button" class="btn btn-primary" id="skuSaveChanges">Save Changes</button>
+      <button type="button" class="btn btn-ghost" id="skuDiscardChanges" style="color:#111;background:#fff">ยกเลิก</button>
+      <button type="button" class="btn btn-primary" id="skuSaveChanges" style="background:#fff;color:#1B76FF">บันทึก</button>
     </span>
-    ` : `<span style="color:#94a3b8">No unsaved changes</span><span></span>`}
+    ` : `<span>✓ บันทึกครบแล้ว</span><span></span>`}
   </div>
 
   ${renderSkuAddModal()}
@@ -31489,6 +32007,15 @@ function bindSkuManager(){
   });
   document.getElementById('skuPlatformFilter')?.addEventListener('change', e=>{ ui.platformFilterId = e.target.value || null; render(); });
   document.getElementById('skuCompareToggle')?.addEventListener('click', ()=>{ ui.compareMode = !ui.compareMode; render(); });
+  document.getElementById('skuShowPlatforms')?.addEventListener('change', e=>{ ui.showPlatforms = e.target.checked; render(); });
+  document.getElementById('skuShowAssets')?.addEventListener('change', e=>{ ui.showAssets = e.target.checked; render(); });
+  document.querySelectorAll('[data-skuuse]').forEach(cb=>cb.addEventListener('change', ()=>{
+    const [pid, platId] = cb.getAttribute('data-skuuse').split('::');
+    const path = `use.${platId}`, orig = isSkuSelectedForPlatform(platId, pid);
+    if(cb.checked===orig){ const d = ui.drafts[pid]; if(d){ delete d[path]; if(!Object.keys(d).length) delete ui.drafts[pid]; } }
+    else skuSetDraft(pid, path, cb.checked);
+    render();
+  }));
   document.querySelectorAll('[data-skufilter]').forEach(el=>{
     el.addEventListener('click', ()=>{ ui.statusFilter = el.getAttribute('data-skufilter'); render(); });
   });
@@ -31607,7 +32134,7 @@ function bindSkuManager(){
   // field any more, Warranty is the only input). Discard just clears the drafts with nothing written.
   document.getElementById('skuSaveChanges')?.addEventListener('click', ()=>{
     const drafts = ui.drafts;
-    let changed = 0;
+    let changed = 0, usedChanged = false;
     Object.keys(drafts).forEach(productId=>{
       const p = skuFindProduct(productId);
       if(!p) return;
@@ -31633,10 +32160,13 @@ function bindSkuManager(){
           updateSkuNestedField(p, 'platformImages', path.slice('platformImages.'.length), String(value||'').trim());
         } else if(path.indexOf('assets.')===0){
           updateSkuNestedField(p, 'assets', path.slice('assets.'.length), String(value||'').trim());
+        } else if(path.indexOf('use.')===0){
+          setSkuPlatformProduct(path.slice('use.'.length), p.id, !!value); usedChanged = true;
         }
         changed++;
       });
     });
+    if(usedChanged) savePlatformProducts();
     ui.drafts = {};
     ui.editCell = null;
     toast(`บันทึก ${changed} การเปลี่ยนแปลงแล้ว`);
@@ -31689,6 +32219,20 @@ function pplDraftCount(platformId){
 // Shared by render (what shows) and bind (what "Select All"/"Clear All" act on) so the two never drift —
 // both always the current Search + Quick Filter view, same as everywhere else this codebase does
 // select-all-of-what's-visible (see the Gift Frame SKU picker's "Select All Results" in Frame Manager).
+// Krissha: "อาจจะแยกตาม Warranty" — groups follow the Warranty this SKU uses on this Platform.
+function pplWarrantyKey(p, platform){
+  // Group by the SKU's MAIN Warranty so the same SKUs sit in the same box on every Platform (Krissha: "SKUs ในกล่องหายไปไหน").
+  // A Platform-only Warranty (from that Platform's CSV) is shown as a tag on the item instead of moving it.
+  const fp = p.frameProfileId ? skuFindFrameProfile(p.frameProfileId) : null;
+  // Special Warranty switched OFF on this Platform → the SKU sits in (and runs with) its base box, e.g. 1 Year.
+  if(fp){ const t = skuFindFrameProfile(ftFrameRouteTarget(platform, fp.id)); return (t||fp).label; }
+  const id = skuPlatformFrameProfileId(p, platform); const f2 = id ? skuFindFrameProfile(id) : null;
+  return f2 ? f2.label : 'ยังไม่ระบุ Warranty';
+}
+function pplFamily(sku){
+  const t = String(sku||'').toUpperCase().replace(/^(WT|LX)[-_ ]?/,'');
+  const m = t.match(/^[A-Z]+/); return m ? m[0] : (t.slice(0,2)||'อื่นๆ');
+}
 function pplSelOf(platformId, ui, p){
   const pend = ui.pending[platformId] || {};
   return Object.prototype.hasOwnProperty.call(pend, p.id) ? pend[p.id] : isSkuSelectedForPlatform(platformId, p.id);
@@ -31704,6 +32248,71 @@ function pplFilteredRows(platform, ui){
       return p.status===ui.filter;
     })
     .sort((a,b)=>(a.primarySku||'').localeCompare(b.primarySku||''));
+}
+// ⇄ Warranty audit across every Platform (Krissha: "จะตรวจวารันตีของทุกแพลตฟอร์มพร้อมกันได้ยังไง").
+function pplWarrantyAudit(){
+  const pls = activeSkuPlatforms();
+  let mismatch = 0, missing = 0;
+  const rows = STATE.skuMaster.filter(p=>p.status!=='ARCHIVED').map(p=>{
+    const used = pls.filter(pl=>isSkuSelectedForPlatform(pl.id, p.id));
+    const scope = used.length>=2 ? used : pls;
+    const eff = pls.map(pl=>skuPlatformFrameProfileId(p, pl));
+    const ids = new Set(scope.map(pl=>skuPlatformFrameProfileId(p, pl)));
+    const bad = ids.size>1, miss = scope.some(pl=>!skuPlatformFrameProfileId(p, pl));
+    if(bad) mismatch++; if(miss) missing++;
+    return {p, eff, bad, miss, used:new Set(used.map(x=>x.id))};
+  });
+  return {pls, rows, mismatch, missing};
+}
+function renderPplWarrantyCompare(){
+  const ui = STATE.platProdUI;
+  const A = pplWarrantyAudit();
+  const f = ui.cmpFilter || 'BAD';
+  const kw = (ui.search||'').toLowerCase();
+  const fps = activeFrameProfiles();
+  const can = isSkuDesignerOrLead();
+  const short = l => String(l||'').replace(/^warranty\s*/i,'').replace(/\bMonths?\b/gi,'M').replace(/\bYears?\b/gi,'Y').replace(/\bCompressor\b/gi,'Comp').replace(/\s+(?=[MY]\b)/g,'').replace(/\s*\+\s*/g,' + ') || '—';
+  const tone = l => !l?'#E11D48':/no/i.test(l)?'#64748B':/6\s*m/i.test(l)?'#D97706':/(comp|motor)/i.test(l)?'#7C3AED':/3\s*y/i.test(l)?'#16A34A':'#1B76FF';
+  let rows = A.rows.filter(r=>f==='ALL' ? true : f==='BAD' ? r.bad : r.miss);
+  if(kw) rows = rows.filter(r=>skuSearchMatch(r.p, kw));
+  rows.sort((a,b)=>(b.bad-a.bad) || String(a.p.primarySku).localeCompare(String(b.p.primarySku)));
+  const shown = rows.slice(0, 400);
+  return `
+  <div class="wc-intro">
+    <div><b>เทียบ Warranty ของสินค้าแต่ละตัวในทุก Platform</b><br><span>แถวสีแดง = แต่ละ Platform ตั้งไม่เหมือนกัน (เทียบเฉพาะ Platform ที่สินค้านั้นใช้) · แก้ในช่องได้เลย บันทึกทันที · เลือก "= ค่าหลัก" เพื่อกลับไปใช้ Warranty หลักของสินค้า</span></div>
+  </div>
+  <div class="ppl-bar">
+    <label class="sks-search ppl-search">🔍<input id="pplSearch" placeholder="ค้นหา SKU..." value="${escAttr(ui.search)}"></label>
+    <div class="pdir-quickfilters" style="margin:0">
+      <div class="qf-pill ${f==='BAD'?'active':''}" data-wcfilter="BAD">ไม่ตรงกัน ${A.mismatch}</div>
+      <div class="qf-pill ${f==='MISS'?'active':''}" data-wcfilter="MISS">ยังไม่ระบุ ${A.missing}</div>
+      <div class="qf-pill ${f==='ALL'?'active':''}" data-wcfilter="ALL">ทั้งหมด ${A.rows.length}</div>
+    </div>
+    <span class="wc-legend"><i class="u"></i> ใช้ใน Platform นี้ <i class="n"></i> ไม่ได้ใช้</span>
+  </div>
+  ${!shown.length ? `<div class="card placeholder" style="padding-top:22px">${f==='BAD'?'✓ ทุก SKU ตั้ง Warranty ตรงกันทุก Platform แล้ว':'ไม่พบ SKU ที่ตรงกับเงื่อนไข'}</div>` : `
+  <div class="wc-wrap"><table class="wc-table">
+    <thead><tr><th class="wc-sku">SKU</th><th>ค่าหลัก</th>${A.pls.map((pl,i)=>{ const t=SKS_TONES[i%SKS_TONES.length]; return `<th style="--sk:${t[0]}"><span class="wc-ph"><i></i>${escAttr(pl.name)}</span></th>`; }).join('')}<th>สถานะ</th></tr></thead>
+    <tbody>${shown.map(r=>{
+      const p = r.p, def = p.frameProfileId ? skuFindFrameProfile(p.frameProfileId) : null;
+      return `<tr class="${r.bad?'bad':''}">
+        <td class="wc-sku"><b>${escAttr(p.primarySku)}</b></td>
+        <td><span class="wc-chip" style="--wt:${tone(def&&def.label)}">${def?escAttr(short(def.label)):'ยังไม่ระบุ'}</span></td>
+        ${A.pls.map((pl,i)=>{
+          const ov = (p.platformWarranty||{})[pl.id] || '';
+          const effId = r.eff[i], eff = effId ? skuFindFrameProfile(effId) : null;
+          const used = r.used.has(pl.id);
+          const tgt = effId ? ftFrameRouteTarget(pl, effId) : null, tf = tgt && tgt!==effId ? skuFindFrameProfile(tgt) : null;
+          return `<td class="${used?'':'unused'}"><div class="wc-cell">
+            <select class="wc-sel ${ov?'ov':''}" data-wcset="${p.id}::${pl.id}" style="--wt:${tone(eff&&eff.label)}" ${can?'':'disabled'} title="${eff?escAttr(eff.label):'ยังไม่ระบุ'}">
+              <option value="" ${!ov?'selected':''}>= ค่าหลัก${def?' ('+escAttr(short(def.label))+')':''}</option>
+              ${fps.concat(eff && !fps.includes(eff) ? [eff] : []).map(x=>`<option value="${x.id}" ${ov===x.id?'selected':''}>${escAttr(short(x.label))}</option>`).join('')}
+            </select>
+            ${tf ? `<span class="wc-route" title="บน ${escAttr(pl.name)} ใช้เฟรมของ ${escAttr(tf.label)}">↳ เฟรม ${escAttr(short(tf.label))}</span>` : ''}
+          </div></td>`; }).join('')}
+        <td>${r.bad ? '<span class="wc-st bad">ไม่ตรงกัน</span>' : r.miss ? '<span class="wc-st miss">ยังไม่ระบุ</span>' : '<span class="wc-st ok">✓ ตรงกัน</span>'}</td>
+      </tr>`; }).join('')}</tbody></table></div>
+  ${rows.length>shown.length?`<div class="hint" style="text-align:center;margin-top:8px">แสดง ${shown.length} จาก ${rows.length} — ค้นหาเพื่อดูตัวอื่น</div>`:''}`}`;
 }
 function renderPlatformProductList(){
   const platforms = activeSkuPlatforms();
@@ -31724,47 +32333,127 @@ function renderPlatformProductList(){
   const selectedCount = STATE.skuMaster.filter(p=>p.status!=='ARCHIVED' && selOf(p)).length;
   const dirty = pplDraftCount(platform.id);
 
+  const totalActive = STATE.skuMaster.filter(p=>p.status!=='ARCHIVED').length;
+  const pctSel = totalActive ? Math.round(selectedCount/totalActive*100) : 0;
   return `
-  <h1 class="pagetitle">Platform Product List</h1>
-  <p class="pagesub">เลือกว่าสินค้าอะไรใช้ใน Platform นี้ — ไม่มี Campaign / Frame / QR / TISI Setting ในหน้านี้</p>
-
-  <div class="pdir-toolbar">
-    <select id="pplPlatformSelect" class="ftp-select" style="max-width:220px">
-      ${platforms.map(p=>`<option value="${p.id}" ${platform.id===p.id?'selected':''}>${escAttr(p.name)}</option>`).join('')}
-    </select>
-    <input id="pplSearch" placeholder="Search SKU..." value="${escAttr(ui.search)}">
-  </div>
-  <div class="pdir-quickfilters">
-    <div class="qf-pill ${ui.filter==='ALL'?'active':''}" data-pplfilter="ALL">All</div>
-    <div class="qf-pill ${ui.filter==='SELECTED'?'active':''}" data-pplfilter="SELECTED" id="pplSelectedPill">Selected ${selectedCount}</div>
-    <div class="qf-pill ${ui.filter==='ACTIVE'?'active':''}" data-pplfilter="ACTIVE">Active</div>
-    <div class="qf-pill ${ui.filter==='HOLD'?'active':''}" data-pplfilter="HOLD">Hold</div>
-  </div>
-  <div class="ftp-refbtns">
-    <button type="button" class="btn btn-ghost" id="pplSelectAll">☑ Select All (${rows.length})</button>
-    <button type="button" class="btn btn-ghost" id="pplClearAll">☐ Clear All</button>
-    ${isSkuDesignerOrLead() ? `<button type="button" class="btn btn-ghost" id="pplImportOpen">⬆ Import CSV</button>` : ''}
-    <a class="btn btn-ghost" href="${escAttr(cfg.campaignFolderUrl)}" target="_blank" rel="noopener">📁 View Campaign Images</a>
-    <a class="btn btn-ghost" href="${escAttr(cfg.wbgFolderUrl)}" target="_blank" rel="noopener">📁 View WBG Images</a>
+  <div class="ppl-head">
+    <div>
+      <h1 class="pagetitle" style="margin:0">Platform Product List</h1>
+      <p class="pagesub" style="margin:2px 0 0">ติ๊กเลือกสินค้าที่ใช้ในแต่ละ Platform · คลิกที่การ์ดได้ทั้งใบ</p>
+    </div>
+    <div class="ppl-links">
+      ${isSkuDesignerOrLead() ? `<button type="button" class="sks-sbtn" id="pplImportOpen">⬆ Import CSV</button>` : ''}
+      <a class="sks-sbtn" href="${escAttr(cfg.campaignFolderUrl)}" target="_blank" rel="noopener">📁 Campaign</a>
+      <a class="sks-sbtn" href="${escAttr(cfg.wbgFolderUrl)}" target="_blank" rel="noopener">📁 WBG</a>
+    </div>
   </div>
 
-  <div class="pplist" style="margin-top:14px">
-    ${rows.length ? rows.map(p=>{
-      const sel = selOf(p);
-      const held = p.status==='HOLD';
-      return `<div class="pplrow ${held?'pplrow-hold':''}">
-        <label class="pplrow-check">
-          <input type="checkbox" data-pplcheck="${p.id}" ${sel?'checked':''}>
-        </label>
-        <div class="skurow-primary">
-          <div class="skurow-sku">${escAttr(p.primarySku)}</div>
-        </div>
-        ${held ? `<span class="skuchip skuchip-hold">Hold</span>` : ''}
-      </div>`;
-    }).join('') : `<div class="card placeholder" style="padding-top:22px">ไม่พบ SKU ที่ตรงกับเงื่อนไข</div>`}
+  <div class="ppl-tabs">
+    ${platforms.map((pl,i)=>{ const t=SKS_TONES[i%SKS_TONES.length]; const n=STATE.skuMaster.filter(p=>p.status!=='ARCHIVED' && pplSelOf(pl.id, ui, p)).length;
+      return `<button type="button" class="ppl-tab ${platform.id===pl.id && ui.view!=='compare'?'on':''}" data-pplplat="${pl.id}" style="--sk:${t[0]};--sb:${t[1]}"><i></i>${escAttr(pl.name)}<em>${n}</em></button>`; }).join('')}
+    <button type="button" class="ppl-tab ppl-tabcmp ${ui.view==='compare'?'on':''}" data-pplview="compare" style="--sk:#6D28D9;--sb:#F5F0FF">⇄ ตรวจ Warranty ทุก Platform${(()=>{ const m = pplWarrantyAudit().mismatch; return m ? `<em class="bad">${m} ไม่ตรง</em>` : ''; })()}</button>
   </div>
+  ${ui.view==='compare' ? renderPplWarrantyCompare() : `
+
+  ${(()=>{
+    const fps = frameProfilesAllPlatforms();
+    if(!fps.length) return '';
+    const can = isSkuDesignerOrLead();
+    const open = ui.rulesOpen!==false;
+    const routed = fps.filter(f=>ftFrameRouteTarget(platform, f.id)!==f.id).length;
+    const own = fps.length - routed;
+    return `<div class="fr-panel ${open?'open':''}">
+      <button type="button" class="fr-head" id="pplRulesToggle">
+        <span class="fr-ico">🖼</span>
+        <span class="fr-ttl">กฎเฟรมของ <b>${escAttr(platform.name)}</b></span>
+        <span class="fr-sum">ใช้ <b>${own}</b> เฟรม${(()=>{ const sp = fps.filter(ftIsSpecialWarranty); return sp.length ? ` · Warranty พิเศษ เปิด ${sp.filter(f=>ftFrameRouteTarget(platform,f.id)===f.id).length}/${sp.length}` : ''; })()}</span>
+        <span class="fr-car">${open?'ซ่อน ▴':'แก้กฎ ▾'}</span>
+      </button>
+      ${open ? `<div class="fr-body">
+        ${(()=>{
+          // Krissha: standard Warranties (No / 1Y / 2Y / 3Y …) always run with their own frame; "special" ones
+          // (1Y + Comp, 1Y + Motor …) each get an ON/OFF switch PER PLATFORM. ON = own frame (the SKU is run
+          // ONCE with that special frame — never also with the plain 1Y frame). OFF = run with the base frame.
+          const std = fps.filter(f=>!ftIsSpecialWarranty(f)), spc = fps.filter(ftIsSpecialWarranty);
+          const stdOpts = std.filter(x=>x.status!=='ARCHIVED');
+          return `<div class="fr-sec"><div class="fr-sech">มาตรฐาน <span>เปิดเสมอ · ใช้เฟรมของตัวเอง</span></div>
+            <div class="fr-stds">${std.map(f=>{ const usedBy = spc.filter(x=>ftFrameRouteTarget(platform, x.id)===f.id);
+              return `<span class="fr-std" title="${usedBy.length?'ใช้ร่วมกับ: '+usedBy.map(x=>escAttr(x.label)).join(', '):''}"><i>✓</i>${escAttr(f.label)}${usedBy.length?` <em>+${usedBy.length}</em>`:''}</span>`; }).join('')}</div></div>
+          ${spc.length ? `<div class="fr-sec"><div class="fr-sech">Warranty พิเศษ <span>เปิด = ใช้เฟรมของตัวเอง (รันครั้งเดียว ไม่รันเฟรมปกติซ้ำ) · ปิด = ใช้เฟรมมาตรฐานแทน</span></div>
+            <div class="fr-rows">${spc.map(f=>{
+              const tgt = ftFrameRouteTarget(platform, f.id), on = tgt===f.id;
+              const base = ftWarrantyBase(f, stdOpts);
+              const offTo = on ? base : skuFindFrameProfile(tgt);
+              return `<div class="fr-row2 ${on?'on':'off'}">
+                <label class="fr-sw"><input type="checkbox" data-frtoggle="${f.id}" ${on?'checked':''} ${can?'':'disabled'}><span></span></label>
+                <div class="fr-info"><b title="${escAttr(f.label)}">${escAttr(f.label)}${f.status==='ARCHIVED'?' <em class="fr-arch">Archived</em>':''}</b>
+                  <small>${on ? '<span class="fr-on">เปิด · อัปเฟรมนี้ตอน Run</span>' : `<span class="fr-off">ปิด · ใช้เฟรม</span>
+                    <select class="fr-mini" data-frroute="${f.id}" ${can?'':'disabled'}>${stdOpts.map(x=>`<option value="${x.id}" ${offTo&&offTo.id===x.id?'selected':''}>${escAttr(x.label)}</option>`).join('')}</select>`}</small></div>
+              </div>`; }).join('')}</div></div>` : ''}`;
+        })()}
+      </div>` : ''}
+    </div>`;
+  })()}
+
+  <div class="ppl-bar">
+    <label class="sks-search ppl-search">🔍<input id="pplSearch" placeholder="ค้นหา SKU..." value="${escAttr(ui.search)}"></label>
+    <div class="pdir-quickfilters" style="margin:0">
+      <div class="qf-pill ${ui.filter==='ALL'?'active':''}" data-pplfilter="ALL">ทั้งหมด</div>
+      <div class="qf-pill ${ui.filter==='SELECTED'?'active':''}" data-pplfilter="SELECTED" id="pplSelectedPill">Selected ${selectedCount}</div>
+      <div class="qf-pill ${ui.filter==='ACTIVE'?'active':''}" data-pplfilter="ACTIVE">Active</div>
+      <div class="qf-pill ${ui.filter==='HOLD'?'active':''}" data-pplfilter="HOLD">Hold</div>
+    </div>
+    <div class="ppl-prog" title="เลือกแล้ว ${selectedCount} จาก ${totalActive}"><span style="width:${pctSel}%"></span></div>
+    <span class="ppl-progt"><b>${selectedCount}</b> / ${totalActive}</span>
+    <button type="button" class="ppl-mini" id="pplSelectAll">☑ เลือกทั้งหมด (${rows.length})</button>
+    <button type="button" class="ppl-mini" id="pplClearAll">☐ ล้าง</button>
+  </div>
+
+  ${(()=>{
+    // Krissha: "ดูยากไปนิดนึง คนน่าจะสับสน" — group by Warranty with a header per group
+    // (count + select/clear the whole group), one clean line per SKU, filename only on hover.
+    if(!rows.length) return `<div class="card placeholder" style="padding-top:22px">ไม่พบ SKU ที่ตรงกับเงื่อนไข</div>`;
+    const groups = new Map();
+    // Same boxes on every Platform (Krissha: "ทำไมเมนูกล่องวอรันตีไม่เท่ากัน ของแต่ละแพลตฟอร์ม") — union across Platforms.
+    frameProfilesAllPlatforms().forEach(f=>{ if(!groups.has(f.label)) groups.set(f.label, []); });
+    rows.forEach(p=>{ const k = pplWarrantyKey(p, platform); if(!groups.has(k)) groups.set(k, []); groups.get(k).push(p); });
+    const keepEmpty = !(ui.search||'').trim() && ui.filter==='ALL';
+    if(!keepEmpty) [...groups.keys()].forEach(k=>{ if(!groups.get(k).length) groups.delete(k); });
+    if(groups.has('ยังไม่ระบุ Warranty')){ const v = groups.get('ยังไม่ระบุ Warranty'); groups.delete('ยังไม่ระบุ Warranty'); groups.set('ยังไม่ระบุ Warranty', v); }
+    const wTone = l => /ยังไม่/.test(l)?'#E11D48':/no/i.test(l)?'#64748B':/6\s*m/i.test(l)?'#D97706':/(comp|motor)/i.test(l)?'#7C3AED':/3\s*y/i.test(l)?'#16A34A':'#1B76FF';
+    const shut = ui.groupShut || {};
+    return `<div class="ppl-groups">${[...groups.entries()].map(([k, items])=>{
+      if(!items.length){ const kf = frameProfilesAllPlatforms().find(x=>x.label===k); const kt = kf ? ftFrameRouteTarget(platform, kf.id) : null; const ktf = kt && kt!==kf.id ? skuFindFrameProfile(kt) : null;
+        return `<section class="ppl-grp none ppl-empty" style="--wt:#CBD5E1"><header class="ppl-gh"><div class="ppl-gtitle"><i class="ppl-gdot"></i><b>${escAttr(k)}</b></div>
+          <div class="ppl-gmeta"><span class="ppl-gc">${ktf ? `ปิดอยู่บน ${escAttr(platform.name)} — SKU ย้ายไปรวมใน <b style="color:#1B76FF">${escAttr(ktf.label)}</b>` : `ไม่มีสินค้าที่ใช้ Warranty นี้บน ${escAttr(platform.name)}`}</span></div></header></section>`; }
+      const n = items.filter(selOf).length, closed = !!shut[k];
+      return `<section class="ppl-grp ${n===items.length?'all':n?'some':'none'}" data-pplgrp="${escAttr(k)}" style="--wt:${wTone(k)}">
+        <header class="ppl-gh">
+          <button type="button" class="ppl-gtoggle" data-pplgshut="${escAttr(k)}">${closed?'▸':'▾'}</button>
+          <div class="ppl-gtitle"><i class="ppl-gdot"></i><b title="${escAttr(k)}">${escAttr(k)}</b>${(()=>{ const f = frameProfilesForPlatform(platform).find(x=>x.label===k); const t = f ? ftFrameRouteTarget(platform, f.id) : null; const tf = t && t!==f.id ? skuFindFrameProfile(t) : null; return tf ? `<span class="fr-gbadge" title="บน ${escAttr(platform.name)} กลุ่มนี้ใช้เฟรมของ ${escAttr(tf.label)}">↳ ใช้เฟรม ${escAttr(tf.label)}</span>` : ''; })()}</div>
+          <div class="ppl-gmeta"><span class="ppl-gc">เลือก <span data-pplgn>${n}</span> / ${items.length}</span>
+          <span class="ppl-gbar"><span data-pplgbar style="width:${Math.round(n/items.length*100)}%"></span></span>
+          <button type="button" class="ppl-gbtn" data-pplgall="${escAttr(k)}">เลือกทั้งกลุ่ม</button>
+          <button type="button" class="ppl-gbtn ghost" data-pplgnone="${escAttr(k)}">ล้าง</button></div>
+          ${(()=>{ const ovs = items.filter(p=>p.frameProfileId && (p.platformWarranty||{})[platform.id] && p.platformWarranty[platform.id]!==p.frameProfileId);
+            return ovs.length ? `<div class="ppl-ovbar">${ovs.length} SKU ตั้ง Warranty เฉพาะ ${escAttr(platform.name)} ไว้ <button type="button" class="ppl-gbtn ghost" data-pplovall="${ovs.map(p=>p.id).join(',')}">ใช้ Warranty หลักทั้งหมด</button></div>` : ''; })()}
+        </header>
+        ${closed ? '' : `<div class="ppl-list">${items.map(p=>{
+          const sel = selOf(p), held = p.status==='HOLD', fn = skuPlatformImageFilename(p, platform);
+          return `<label class="ppl-item ${held?'is-hold':''}" title="${fn?'รูป: '+escAttr(fn):'ยังไม่มีชื่อรูปสำหรับ '+escAttr(platform.name)}">
+            <input type="checkbox" data-pplcheck="${p.id}" ${sel?'checked':''}><span class="ppl-box"></span>
+            <span class="ppl-sku">${escAttr(p.primarySku)}</span>
+            ${(()=>{ const m = p.frameProfileId ? skuFindFrameProfile(p.frameProfileId) : null; return m && m.label!==k ? `<span class="ppl-from" title="Warranty หลัก: ${escAttr(m.label)} — ปิดสวิตช์ไว้บน ${escAttr(platform.name)} จึงรันด้วยเฟรม ${escAttr(k)}">${escAttr(String(m.label).replace(/^warranty\s*/i,'').replace(/\bYears?\b/gi,'Y').replace(/\bCompressor\b/gi,'Comp').replace(/\s+(?=Y\b)/g,''))}</span>` : ''; })()}
+            ${(()=>{ const ov = p.frameProfileId && (p.platformWarranty||{})[platform.id]; const of = ov && ov!==p.frameProfileId ? skuFindFrameProfile(ov) : null;
+              return of ? `<span class="ppl-ov" title="บน ${escAttr(platform.name)} สินค้านี้ตั้ง Warranty เป็น ${escAttr(of.label)} (จาก CSV ของ ${escAttr(platform.name)}) — กด ✕ เพื่อใช้ Warranty หลัก">${escAttr(platform.name)}: ${escAttr(String(of.label).replace(/^warranty\s*/i,''))}<button type="button" data-pplovclear="${p.id}" title="ใช้ Warranty หลัก">✕</button></span>` : ''; })()}
+            ${fn ? '' : `<span class="ppl-warn" title="ยังไม่มีชื่อรูป">ไม่มีรูป</span>`}
+            ${held ? `<span class="ppl-hold">Hold</span>` : ''}
+          </label>`; }).join('')}</div>`}
+      </section>`; }).join('')}</div>`;
+  })()}
+  `}
   <!-- §4 Bulk Action Bar ห้ามทำ Layout Shift — always rendered, same pattern as SKU Manager's savebar. -->
-  <div class="skugrid-savebar" id="pplSavebar" style="${dirty ? '' : 'opacity:.55'}">${pplSavebarContent(dirty)}</div>
+  <div class="skugrid-savebar" id="pplSavebar" style="${ui.view==='compare' ? 'display:none' : dirty ? '' : 'opacity:.55'}">${pplSavebarContent(dirty)}</div>
   ${renderPplImportModal(platform)}`;
 }
 // §4/§5 — pulled out of renderPlatformProductList's template so a row checkbox tick can refresh just the
@@ -31773,7 +32462,7 @@ function pplSavebarContent(dirty){
   return dirty ? `
     <span>${dirty} unsaved change${dirty>1?'s':''}</span>
     <span style="display:flex;gap:8px">
-      <button type="button" class="btn btn-ghost" id="pplDiscard" style="color:#111">Discard</button>
+      <button type="button" class="btn btn-ghost" id="pplDiscard" style="color:#111;background:#fff">Discard</button>
       <button type="button" class="btn btn-primary" id="pplSave">Save Changes</button>
     </span>
     ` : `<span style="color:#94a3b8">No unsaved changes</span><span></span>`;
@@ -31801,6 +32490,42 @@ function refreshPplBar(platform, ui){
 function bindPlatformProductList(){
   const ui = STATE.platProdUI;
   document.getElementById('pplPlatformSelect')?.addEventListener('change', e=>{ ui.activePlatformId = e.target.value; render(); });
+  document.querySelectorAll('[data-pplplat]').forEach(b=>b.addEventListener('click', ()=>{ ui.activePlatformId = b.dataset.pplplat; render(); }));
+  document.querySelectorAll('[data-pplview]').forEach(b=>b.addEventListener('click', ()=>{ ui.view = 'compare'; render(); }));
+  document.querySelectorAll('[data-pplplat]').forEach(b=>b.addEventListener('click', ()=>{ ui.view = ''; }, true));
+  document.querySelectorAll('[data-pplovall]').forEach(b=>b.addEventListener('click', ()=>{
+    const plId = ui.activePlatformId; const ids = b.dataset.pplovall.split(',');
+    if(!confirm(`ให้ ${ids.length} SKU นี้ใช้ Warranty หลักบน Platform นี้?`)) return;
+    ids.forEach(id=>{ const pr = skuFindProduct(id); if(!pr) return; updateSkuNestedField(pr, 'platformWarranty', plId, ''); if(pr.platformWarranty) delete pr.platformWarranty[plId]; });
+    toast(`ใช้ Warranty หลักแล้ว ${ids.length} SKU`); render();
+  }));
+  document.querySelectorAll('[data-pplovclear]').forEach(b=>b.addEventListener('click', e=>{
+    e.preventDefault(); e.stopPropagation();
+    const pr = skuFindProduct(b.dataset.pplovclear), plId = ui.activePlatformId; if(!pr) return;
+    updateSkuNestedField(pr, 'platformWarranty', plId, ''); if(pr.platformWarranty) delete pr.platformWarranty[plId];
+    toast(`${pr.primarySku} ใช้ Warranty หลักแล้ว`); render();
+  }));
+  document.querySelectorAll('[data-wcfilter]').forEach(b=>b.addEventListener('click', ()=>{ ui.cmpFilter = b.dataset.wcfilter; render(); }));
+  document.querySelectorAll('[data-wcset]').forEach(sel=>sel.addEventListener('change', ()=>{
+    const [pid, plId] = sel.dataset.wcset.split('::'); const p = skuFindProduct(pid); if(!p) return;
+    updateSkuNestedField(p, 'platformWarranty', plId, sel.value||'');
+    if(!sel.value && p.platformWarranty) delete p.platformWarranty[plId];
+    toast('บันทึก Warranty แล้ว'); render();
+  }));
+  document.getElementById('pplRulesToggle')?.addEventListener('click', ()=>{ ui.rulesOpen = ui.rulesOpen===false; render(); });
+  document.querySelectorAll('[data-frtoggle]').forEach(cb=>cb.addEventListener('change', ()=>{
+    const pl = skuFindPlatform(ui.activePlatformId); const f = skuFindFrameProfile(cb.dataset.frtoggle); if(!pl||!f) return;
+    if(cb.checked) ftSetFrameRoute(pl, f.id, f.id);
+    else { const base = ftWarrantyBase(f, frameProfilesForPlatform(pl).filter(x=>!ftIsSpecialWarranty(x) && x.status!=='ARCHIVED')); if(base) ftSetFrameRoute(pl, f.id, base.id); }
+    toast(`${pl.name}: ${f.label} ${cb.checked?'เปิด — ใช้เฟรมของตัวเอง':'ปิด — ใช้เฟรมมาตรฐานแทน'}`); render();
+  }));
+  document.querySelectorAll('[data-frroute]').forEach(sel=>sel.addEventListener('change', ()=>{
+    const pl = skuFindPlatform(ui.activePlatformId); const fp = skuFindFrameProfile(sel.dataset.frroute);
+    ftSetFrameRoute(pl, sel.dataset.frroute, sel.value);
+    const tf = skuFindFrameProfile(sel.value);
+    toast(sel.value===sel.dataset.frroute ? `${fp?fp.label:''} ใช้เฟรมของตัวเองแล้ว (${pl.name})` : `${pl.name}: ${fp?fp.label:''} → ใช้เฟรม ${tf?tf.label:''}`);
+    render();
+  }));
   document.getElementById('pplSearch')?.addEventListener('input', e=>{
     ui.search = e.target.value;
     render();
@@ -31823,6 +32548,20 @@ function bindPlatformProductList(){
       if(platform) refreshPplBar(platform, ui);
     });
   });
+  const grpSet = (k, on)=>{ const platform = skuFindPlatform(ui.activePlatformId); if(!platform) return;
+    ui.pending[platform.id] = ui.pending[platform.id] || {};
+    pplFilteredRows(platform, ui).filter(p=>pplWarrantyKey(p, platform)===k).forEach(p=>{ ui.pending[platform.id][p.id] = on; });
+    render(); };
+  document.querySelectorAll('[data-pplgall]').forEach(b=>b.addEventListener('click', ()=>grpSet(b.dataset.pplgall, true)));
+  document.querySelectorAll('[data-pplgnone]').forEach(b=>b.addEventListener('click', ()=>grpSet(b.dataset.pplgnone, false)));
+  document.querySelectorAll('[data-pplgshut]').forEach(b=>b.addEventListener('click', ()=>{ ui.groupShut = ui.groupShut||{}; ui.groupShut[b.dataset.pplgshut] = !ui.groupShut[b.dataset.pplgshut]; render(); }));
+  // live group counter without a rebuild
+  document.querySelectorAll('.ppl-grp [data-pplcheck]').forEach(cb=>cb.addEventListener('change', ()=>{
+    const g = cb.closest('.ppl-grp'); if(!g) return;
+    const all = g.querySelectorAll('[data-pplcheck]'), n = [...all].filter(x=>x.checked).length;
+    g.querySelector('[data-pplgn]').textContent = n; g.querySelector('[data-pplgbar]').style.width = Math.round(n/all.length*100)+'%';
+    g.classList.toggle('all', n===all.length); g.classList.toggle('some', n>0 && n<all.length); g.classList.toggle('none', n===0);
+  }));
   document.getElementById('pplSelectAll')?.addEventListener('click', ()=>{
     const platform = skuFindPlatform(ui.activePlatformId);
     if(!platform) return;
@@ -31882,7 +32621,9 @@ function pimpReadRows(text){
   if(!all.length) return {rows:[], error:'ไฟล์ว่าง'};
   const head = all[0].map(h=>String(h).trim().toLowerCase().replace(/\s+/g,'_'));
   const skuCol = head.findIndex(h=>['model_name','sku','model','primary_sku','seller_sku'].includes(h));
-  const imgCol = head.findIndex(h=>['model_image','image','image_name','filename','file_name'].includes(h));
+  let imgCol = head.findIndex(h=>['model_image','image','image_name','filename','file_name','model_image_name','image_file','picture'].includes(h));
+  // Fallback: any other header that clearly names the picture (e.g. "Variation_Image", "ชื่อรูป", "Image File Name").
+  if(imgCol<0) imgCol = head.findIndex((h,i)=>i!==skuCol && /(image|img|picture|photo|รูป|ภาพ|file)/.test(h));
   if(skuCol<0) return {rows:[], error:'ไม่พบคอลัมน์ Model_Name'};
   const rows = all.slice(1).map((r,i)=>({
     sku: String(r[skuCol]||'').trim(),
@@ -32064,7 +32805,7 @@ async function pimpApply(){
   const audit = (entityType, entityId, field, prev, next)=>STATE.auditLog.push({
     id:uidShort('aud'), entityType, entityId, field,
     previousValue: prev==null?null:String(prev), newValue: next==null?null:String(next), updatedBy:who, updatedAt:now});
-  const imgKeyFor = p => Object.keys(p.platformImages||{}).find(k=>k.toLowerCase()===platform.name.trim().toLowerCase()) || platform.name;
+  const imgKeyFor = p => skuPlatformImageKey(p, platform);
   const touch = p => { p.updatedAt = now; p.updatedBy = who; };
   const select = (p, on)=>{
     let rec = STATE.platformProducts.find(pp=>pp.platformId===platform.id && pp.productId===p.id);
@@ -33748,8 +34489,11 @@ function renderFtPlatform(){
         <div class="ft-sec-title">Warranty Frames</div>
         <div class="ft-hint" style="margin-bottom:8px">ไม่บังคับอัปครบทุกแบบ — อัปเฉพาะ Warranty ที่ Campaign นี้ใช้จริง (SKU ที่อยู่ใน Gift Frame ด้านล่างจะใช้ Gift Frame แทน)</div>
         <div class="ftp-platlist">
-          ${activeFrameProfiles().map(f=>{
+          ${frameProfilesForPlatform(platform).map(f=>{
             const url = (mgr.warrantyFrames||{})[f.id] || '';
+            const tgt = ftFrameRouteTarget(platform, f.id);
+            if(tgt!==f.id){ const tf = skuFindFrameProfile(tgt);
+              return `<div class="ftp-platrow" style="opacity:.75"><span>${escAttr(f.label)}</span><span class="fr-borrow">↳ ใช้เฟรม ${escAttr(tf?tf.label:'')}</span></div>`; }
             return `<div class="ftp-platrow">
               <span>${url?`<img src="${url}" style="width:28px;height:28px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:8px">`:''}${escAttr(f.label)}</span>
               <label class="btn btn-sm btn-ghost" data-fmwfupload="${f.id}" style="cursor:pointer;background:#1B76FF;color:#fff;border-color:#1B76FF;font-weight:700">⬆ ${url?'เปลี่ยนเฟรม':'อัปโหลด'}</label>
