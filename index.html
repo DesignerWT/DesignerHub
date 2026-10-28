@@ -1072,6 +1072,21 @@ select.aw-pill.on{background:rgba(99,102,241,.1);border-color:var(--accent);colo
 .lv-chip{font-size:10px;font-weight:700;padding:2px 5px;border-radius:6px;margin-bottom:2px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lv-chip.full{background:var(--crit-bg);color:var(--crit-tx)}
 .lv-chip.half{background:var(--pri-bg);color:var(--pri-tx)}
+.lv-chip.hours{background:#E0EDFF;color:#1B5FD1}
+.lv-reasons{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.lv-reason{cursor:pointer;margin:0}
+.lv-reason input{position:absolute;opacity:0;width:1px!important;height:1px}
+.lv-reason span{display:block;text-align:center;border:1.5px solid #E5E7EB;border-radius:10px;padding:8px 4px;font-size:12.5px;font-weight:700;color:#475569;background:#fff;transition:.12s;white-space:nowrap}
+.lv-reason:hover span{border-color:var(--rc)}
+.lv-reason input:checked + span{border-color:var(--rc);background:color-mix(in srgb,var(--rc) 10%,#fff);color:var(--rc)}
+.lv-rtag{display:inline-block;font-size:11px;font-weight:700;color:var(--rc);background:color-mix(in srgb,var(--rc) 10%,#fff);border-radius:999px;padding:2px 8px;vertical-align:middle}
+.lv-rule-item .lv-pt-pill.hours{background:#E0EDFF;color:#1B5FD1}
+.lv-hchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.lv-hchip{border:1px solid #D6E4FF;background:#fff;color:#1B5FD1;border-radius:999px;padding:6px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.lv-hchip:hover{background:#F5F9FF}
+.lv-hchip.on{background:#1B76FF;border-color:#1B76FF;color:#fff}
+.lv-hother{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#64748B;margin-left:4px}
+.lv-hother input{width:70px!important;padding:5px 8px!important;margin:0!important}
 .lv-chip.more{background:rgba(15,23,42,.06);color:var(--ink-faint)}
 .lv-upcoming-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;
   margin-bottom:8px;background:var(--surface-solid)}
@@ -7581,7 +7596,7 @@ function dayLoadFor(person, dateStr, excludeId){
   const overdueLoad = dateStr===todayISO() ? overdueLoadFor(person, dateStr, excludeId) : 0;
   const taskLoad = scheduledLoad + overdueLoad;
   const leave = STATE.leaves.find(l=>l.person===person && l.date===dateStr);
-  const leaveDeduct = leave ? (leave.type==="full" ? DAILY_CAP : DAILY_CAP/2) : 0;
+  const leaveDeduct = leaveCapacityImpact(leave);
   // Internal Task hours (Dev Handoff — Capacity, Internal Task & Performance System). DEV UPDATE per Krissha
   // ("นับเป็นภาระงาน ไม่ต้องไปลบ 8 ชม ออก" — count it AS workload, don't subtract it from the 8-hour ceiling):
   // logged Internal Task time is folded straight into `taskLoad` below (so the 7-Day Strip, the My Workspace
@@ -22396,7 +22411,7 @@ function prStats(person, c){
   const perf = {...base, output: lcLoad, workingHours: lcCap, briefHours: Math.max(0, Math.round((lcLoad-base.internalHours)*100)/100)};
   const capUsed = perf.workingHours>0 ? Math.round(perf.output/perf.workingHours*1000)/10 : 0;
   const leaves = (STATE.leaves||[]).filter(l=>l.person===person && prIn(l.date, c));
-  const leaveDays = leaves.reduce((s,l)=>s+(l.type==='full'?1:0.5),0);
+  const leaveDays = leaves.reduce((s,l)=>s+leaveCapacityImpact(l)/DAILY_CAP,0);
   const count = (arr, f)=>{ const o={}; arr.forEach(t=>{ const k=f(t)||'—'; o[k]=(o[k]||0)+1; }); return Object.entries(o).sort((a,b)=>b[1]-a[1]); };
   const daily = []; let d = c.from, g = 0;
   while(d<=c.to && g<40){ g++; daily.push({d, h: getDesignerDailyPlannedLoad(person, d), off: isWeekend(d)||isPublicHoliday(d)}); d = addDaysISO(d,1); }
@@ -25495,10 +25510,28 @@ function renderDesignerDrawer(personArg, dateArg){
 function canManageLeave(){
   return STATE.auth.role==='designer';
 }
+// Krissha: "ลาเป็นรายชั่วโมง 1 1.5 2 2.5 3 3.5" — type 'hours' + l.hours (0.5 steps, below a full day).
+const LEAVE_HOUR_PRESETS = [1,1.5,2,2.5,3,3.5];
+// Krissha: "ใส่เหตุผลว่าลาอะไร ลาป่วย ลากิจ ลาพักร้อน"
+const LEAVE_REASONS = [
+  {key:'sick', label:'ลาป่วย', icon:'🤒', color:'#E11D48'},
+  {key:'personal', label:'ลากิจ', icon:'📋', color:'#D97706'},
+  {key:'vacation', label:'ลาพักร้อน', icon:'🌴', color:'#0D9488'},
+  {key:'other', label:'อื่นๆ', icon:'•', color:'#64748B'},
+];
+function leaveReasonOf(l){ return LEAVE_REASONS.find(r=>r.key===(l&&l.reason)) || null; }
+function leaveReasonTag(l){ const r = leaveReasonOf(l); return r ? `<span class="lv-rtag" style="--rc:${r.color}">${r.icon} ${r.label}${r.key==='other'&&l.reasonNote?': '+escAttr(l.reasonNote):''}</span>` : ''; }
 function leaveTypeLabel(l){
+  if(l.type==='hours') return `ลา ${fmtLeaveH(l.hours)} ชม.${l.period?' · '+l.period:''}`;
   return l.type==='full' ? 'Full Day' : `Half Day${l.period?' · '+l.period:''}`;
 }
-function leaveCapacityImpact(l){ return l.type==='full' ? DAILY_CAP : DAILY_CAP/2; }
+function fmtLeaveH(h){ const n = Number(h)||0; return n % 1 ? n.toFixed(1) : String(n); }
+function leaveCapacityImpact(l){
+  if(!l) return 0;
+  if(l.type==='full') return DAILY_CAP;
+  if(l.type==='hours') return Math.max(0, Math.min(DAILY_CAP, Number(l.hours)||0));
+  return DAILY_CAP/2;
+}
 
 function renderLeave(opts){
   const embedded = !!(opts && opts.embedded);
@@ -25519,6 +25552,7 @@ function renderLeave(opts){
   <div class="lv-rule-card">
     <div class="lv-rule-item"><span class="lv-pt-pill full">-8.0 ชม.</span>Full Day Leave<span class="lv-hardlock-pill">HARD LOCK</span></div>
     <div class="lv-rule-item"><span class="lv-pt-pill half">-4.0 ชม.</span>Half Day Leave</div>
+    <div class="lv-rule-item"><span class="lv-pt-pill hours">-1 ถึง -7.5 ชม.</span>Hourly Leave (ลารายชั่วโมง)</div>
   </div>
 
   <div class="lv-layout ${canManage?'':'viewonly'}">
@@ -25531,13 +25565,23 @@ function renderLeave(opts){
         <div class="row2"><div class="field"><label>${editingRecord?'วันที่ลา':'วันเริ่มลา'}</label><input type="date" id="lv_date" required value="${editingRecord?editingRecord.date:''}"></div>
         ${!editingRecord?`<div class="field"><label>วันสิ้นสุด</label><input type="date" id="lv_end" aria-label="วันสิ้นสุดการลา"></div>`:''}</div>
         ${!editingRecord?'<div id="lv_range_summary" class="hint" aria-live="polite" style="margin-bottom:12px">เลือกวันลาย้อนหลังได้ · ลา 1 วัน เลือกเฉพาะวันเริ่มลา</div>':''}
+        <div class="field"><label>ลาอะไร <span style="color:#E11D48">*</span></label>
+          <div class="lv-reasons">${LEAVE_REASONS.map(r=>`<label class="lv-reason" style="--rc:${r.color}"><input type="radio" name="lv_reason" value="${r.key}" ${(editingRecord?.reason||'')===r.key?'checked':''}><span>${r.icon} ${r.label}</span></label>`).join('')}</div>
+          <input id="lv_reasonNote" placeholder="ระบุเหตุผล (ถ้าเลือก อื่นๆ)" value="${escAttr(editingRecord?.reasonNote||'')}" style="margin-top:6px;display:${editingRecord?.reason==='other'?'block':'none'}">
+        </div>
         <div class="field"><label>ประเภทการลา</label>
           <select id="lv_type">
             <option value="full" ${formType==='full'?'selected':''}>ลาวันเต็ม — Capacity -8.0 ชม. · Hard Lock</option>
             <option value="half" ${formType==='half'?'selected':''}>ลาครึ่งวัน — Capacity -4.0 ชม.</option>
+            <option value="hours" ${formType==='hours'?'selected':''}>ลารายชั่วโมง — เลือกจำนวนชั่วโมง</option>
           </select>
         </div>
-        <div class="field" id="lv_periodWrap" style="display:${formType==='half'?'block':'none'}">
+        <div class="field" id="lv_hoursWrap" style="display:${formType==='hours'?'block':'none'}">
+          <label>จำนวนชั่วโมง</label>
+          <div class="lv-hchips">${LEAVE_HOUR_PRESETS.map(h=>`<button type="button" class="lv-hchip ${Number(editingRecord?.hours||1)===h?'on':''}" data-lvh="${h}">${fmtLeaveH(h)} ชม.</button>`).join('')}
+            <span class="lv-hother">อื่นๆ <input type="number" id="lv_hours" min="0.5" max="7.5" step="0.5" value="${editingRecord?.type==='hours' ? escAttr(editingRecord.hours) : 1}"> ชม.</span></div>
+        </div>
+        <div class="field" id="lv_periodWrap" style="display:${formType==='half'||formType==='hours'?'block':'none'}">
           <label>ช่วงเวลา</label>
           <select id="lv_period">
             <option value="AM" ${formPeriod==='AM'?'selected':''}>ช่วงเช้า</option>
@@ -25553,7 +25597,7 @@ function renderLeave(opts){
     <div>
       ${!canManage ? `<div class="lv-filters">
         <select id="lvFilterPerson"><option value="ALL">All Designers</option>${Object.keys(PEOPLE).map(p=>`<option value="${p}" ${STATE.leaveUI.filterPerson===p?'selected':''}>${p}</option>`).join('')}</select>
-        <select id="lvFilterType"><option value="ALL">All Leave Types</option><option value="full" ${STATE.leaveUI.filterType==='full'?'selected':''}>Full Day</option><option value="half" ${STATE.leaveUI.filterType==='half'?'selected':''}>Half Day</option></select>
+        <select id="lvFilterType"><option value="ALL">All Leave Types</option><option value="full" ${STATE.leaveUI.filterType==='full'?'selected':''}>Full Day</option><option value="half" ${STATE.leaveUI.filterType==='half'?'selected':''}>Half Day</option><option value="hours" ${STATE.leaveUI.filterType==='hours'?'selected':''}>รายชั่วโมง</option></select>
         ${(STATE.leaveUI.filterPerson!=='ALL'||STATE.leaveUI.filterType!=='ALL')?`<button type="button" class="btn btn-sm btn-ghost" id="lvClearFilters">Clear filters</button>`:''}
       </div>` : ''}
 
@@ -25589,7 +25633,7 @@ function renderLeaveCalendarGrid(){
     const extra = dayLeaves.length - shown.length;
     cells += `<div class="lv-cell ${dayLeaves.length?'has-leave':''} ${ds===today?'today':''}" ${dayLeaves.length?`data-leaveday="${ds}"`:''}>
       <div class="lv-daynum">${d}</div>
-      ${shown.map(l=>`<span class="lv-chip ${l.type}">${l.person}${l.type==='half'?' · '+(l.period||''):''}</span>`).join('')}
+      ${shown.map(l=>`<span class="lv-chip ${l.type}" title="${escAttr((leaveReasonOf(l)||{}).label||'')}">${(leaveReasonOf(l)||{}).icon?leaveReasonOf(l).icon+' ':''}${l.person}${l.type==='half'?' · '+(l.period||''):l.type==='hours'?' · '+fmtLeaveH(l.hours)+' ชม.':''}</span>`).join('')}
       ${extra>0?`<span class="lv-chip more">+${extra} more</span>`:''}
     </div>`;
   }
@@ -25615,7 +25659,7 @@ function renderUpcomingLeave(){
     const d = new Date(l.date+'T00:00:00');
     return `<div class="lv-upcoming-item">
       <div class="lv-upcoming-date">${d.getDate()}<br>${d.toLocaleDateString('en-US',{month:'short'}).toUpperCase()}</div>
-      <div class="lv-upcoming-info"><div class="nm">${l.person}</div><div class="tp">${leaveTypeLabel(l)}</div></div>
+      <div class="lv-upcoming-info"><div class="nm">${l.person} ${leaveReasonTag(l)}</div><div class="tp">${leaveTypeLabel(l)}</div></div>
       <div class="lv-upcoming-pt">-${leaveCapacityImpact(l).toFixed(1)} ชม.</div>
     </div>`;
   }).join('');
@@ -25634,7 +25678,7 @@ function renderLeaveDayDetail(){
       ${dayLeaves.map(l=>`<div class="card" style="margin-bottom:10px">
         <div style="font-weight:700;font-size:13px">${l.person}</div>
         <div class="hint">${fmtDate(l.date)}</div>
-        <div style="margin-top:8px"><span class="badge ${l.type==='full'?'b-CRITICAL':'b-PRIORITY'}">${leaveTypeLabel(l)}</span></div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><span class="badge ${l.type==='full'?'b-CRITICAL':l.type==='hours'?'b-STANDARD':'b-PRIORITY'}">${leaveTypeLabel(l)}</span>${leaveReasonTag(l)}</div>
         <div class="sl-row" style="margin-top:8px"><span class="sl-k">Capacity Impact</span><span class="sl-v" style="color:var(--crit-tx)">-${leaveCapacityImpact(l).toFixed(1)} ชม.</span></div>
         ${l.type==='full'?`<div class="hint" style="margin-top:2px">Hard Lock</div>`:''}
         <div class="hint" style="margin-top:6px">Created: ${fmtDateTime(l.createdAt)}</div>
@@ -25815,7 +25859,7 @@ function performanceStatsFor(person, fromDate, toDate){
     guard++;
     if(!isWeekend(d) && !isPublicHoliday(d)){
       const leave = STATE.leaves.find(l=>l.person===person && l.date===d);
-      const leaveDeduct = leave ? (leave.type==='full'?DAILY_CAP:DAILY_CAP/2) : 0;
+      const leaveDeduct = leaveCapacityImpact(leave);
       workingHours += Math.max(0, DAILY_CAP - leaveDeduct);
       output += taskBreakdownFor(person, d).total;
     }
@@ -27053,8 +27097,19 @@ function bindEvents(){
   // Leave Calendar
   document.getElementById('leaveForm')?.addEventListener('submit', submitLeave);
   document.getElementById('lv_type')?.addEventListener('change', e=>{
-    document.getElementById('lv_periodWrap').style.display = e.target.value==='half' ? 'block':'none';
+    document.getElementById('lv_periodWrap').style.display = (e.target.value==='half'||e.target.value==='hours') ? 'block':'none';
+    const hw = document.getElementById('lv_hoursWrap'); if(hw) hw.style.display = e.target.value==='hours' ? 'block':'none';
     updateLeaveRangeSummary();
+  });
+  document.querySelectorAll('input[name="lv_reason"]').forEach(r=>r.addEventListener('change', ()=>{
+    const n = document.getElementById('lv_reasonNote'); if(n){ n.style.display = r.value==='other' ? 'block' : 'none'; if(r.value==='other') n.focus(); }
+  }));
+  document.querySelectorAll('[data-lvh]').forEach(b=>b.addEventListener('click', ()=>{
+    const inp = document.getElementById('lv_hours'); if(inp) inp.value = b.dataset.lvh;
+    document.querySelectorAll('[data-lvh]').forEach(x=>x.classList.toggle('on', x===b)); updateLeaveRangeSummary();
+  }));
+  document.getElementById('lv_hours')?.addEventListener('input', e=>{
+    document.querySelectorAll('[data-lvh]').forEach(x=>x.classList.toggle('on', Number(x.dataset.lvh)===Number(e.target.value))); updateLeaveRangeSummary();
   });
   ['lv_date','lv_end'].forEach(id=>document.getElementById(id)?.addEventListener('change',updateLeaveRangeSummary));
   document.getElementById('cancelEditLeave')?.addEventListener('click', ()=>{ STATE.leaveUI.editingId=null; render(); });
@@ -29240,8 +29295,9 @@ function updateLeaveRangeSummary(){
   if(!start){summary.textContent='เลือกวันลาย้อนหลังได้ · ลา 1 วัน เลือกเฉพาะวันเริ่มลา';return;}
   const dates=leaveRangeDates(start,endEl?.value||start);
   if(!dates){summary.textContent='วันสิ้นสุดต้องไม่ก่อนวันเริ่มลา';return;}
-  const half=document.getElementById('lv_type')?.value==='half';
-  summary.textContent=`ลา ${dates.length} วันทำงาน · ลด Capacity รวม ${dates.length*(half?4:8)} ชม. · ข้ามวันหยุดบริษัท${half?' · ครึ่งวันช่วงเดียวกันทุกวันที่เลือก':''}`;
+  const ty=document.getElementById('lv_type')?.value, half=ty==='half';
+  const perDay = leaveCapacityImpact({type:ty, hours:document.getElementById('lv_hours')?.value});
+  summary.textContent=`ลา ${dates.length} วันทำงาน · ลด Capacity รวม ${Math.round(dates.length*perDay*10)/10} ชม. · ข้ามวันหยุดบริษัท${half?' · ครึ่งวันช่วงเดียวกันทุกวันที่เลือก':''}`;
 }
 async function submitLeave(e){
   e.preventDefault();
@@ -29250,7 +29306,13 @@ async function submitLeave(e){
   const date=document.getElementById('lv_date').value;
   const end=document.getElementById('lv_end')?.value||date;
   const type=document.getElementById('lv_type').value;
-  const period=type==='half'?document.getElementById('lv_period').value:null;
+  const period=(type==='half'||type==='hours')?document.getElementById('lv_period').value:null;
+  const hours=type==='hours'?Math.round((Number(document.getElementById('lv_hours')?.value)||0)*2)/2:null;
+  if(type==='hours' && (!(hours>0) || hours>=DAILY_CAP)){toast(`ลารายชั่วโมงได้ 0.5–${DAILY_CAP-0.5} ชม. (ถ้า ${DAILY_CAP} ชม. ให้เลือกลาวันเต็ม)`);return;}
+  const reason=document.querySelector('input[name="lv_reason"]:checked')?.value||'';
+  const reasonNote=reason==='other'?(document.getElementById('lv_reasonNote')?.value||'').trim():'';
+  if(!reason){toast('กรุณาเลือกว่าลาอะไร (ลาป่วย / ลากิจ / ลาพักร้อน)');return;}
+  if(reason==='other'&&!reasonNote){toast('กรุณาระบุเหตุผลการลา');document.getElementById('lv_reasonNote')?.focus();return;}
   const editingId=STATE.leaveUI.editingId;
   const record=editingId?STATE.leaves.find(l=>l.id===editingId&&l.person===person):null;
   if(editingId&&!record){toast('ไม่พบรายการวันลาของคุณ');return;}
@@ -29261,10 +29323,10 @@ async function submitLeave(e){
   const duplicates=STATE.leaves.filter(l=>l.person===person&&dates.includes(l.date)&&l.id!==editingId);
   if(duplicates.length){toast('มีวันลาซ้ำ: '+duplicates.map(l=>fmtDate(l.date)).join(', ')+' — กรุณาปรับช่วงวันที่');return;}
   const previousLeaves=JSON.parse(JSON.stringify(STATE.leaves));
-  if(record){Object.assign(record,{date,type,period});}
+  if(record){Object.assign(record,{date,type,period,hours,reason,reasonNote});}
   else{
     const createdAt=new Date().toISOString();
-    dates.forEach(d=>STATE.leaves.push({id:'lv_'+uidShort(),person,date:d,type,period,createdAt,createdBy:person}));
+    dates.forEach(d=>STATE.leaves.push({id:uidShort('lv'),person,date:d,type,period,hours,reason,reasonNote,createdAt,createdBy:person}));
   }
   try{
     const saved=await saveLeaves();
