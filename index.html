@@ -361,6 +361,272 @@ textarea{resize:vertical;min-height:64px}
 .board-section-title{font-family:var(--font-app);font-weight:800;font-size:16px;margin-bottom:12px;
   padding:10px 16px;border-left:4px solid var(--accent);border-radius:8px;
   background:rgba(99,102,241,.06);color:var(--ink);letter-spacing:-.01em}
+/* ===== Process Board v2 (UI refresh) — scoped under .pb2 so no other page is affected ===== */
+.pb2-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.pb2-eyebrow{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.pb2-bar{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;background:var(--surface-solid);border:1px solid var(--line);
+  border-radius:14px;padding:10px 12px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.pb2-f{display:flex;flex-direction:column;gap:3px;flex:1 1 170px;max-width:240px;margin:0}
+.pb2-f>span{font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em}
+.pb2-f select{padding:7px 10px;font-size:13px}
+.pb2-bar-end{margin-left:auto;display:flex;align-items:center;gap:8px;align-self:center}
+.pb2-total{font-size:12px;color:var(--ink-soft);background:rgba(99,102,241,.08);padding:6px 12px;border-radius:999px;white-space:nowrap}
+.pb2-total b{color:var(--accent);font-size:14px}
+.pb2-clear{border:1px solid var(--line);background:#fff;color:var(--ink-soft);font:inherit;font-size:12px;font-weight:700;padding:6px 11px;border-radius:999px;cursor:pointer}
+.pb2-clear:hover{border-color:var(--crit-tx);color:var(--crit-tx)}
+.pb2-stats{display:grid;grid-template-columns:1.6fr repeat(5,1fr);gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:14px;margin-bottom:20px;box-shadow:var(--shadow-sm);overflow:hidden}
+.pb2-stat{padding:12px 16px;min-width:0;background:var(--surface-solid)}
+.pb2-stat .k{font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb2-stat .v{font-size:22px;font-weight:800;color:var(--ink);line-height:1.2;margin-top:2px}
+.pb2-stat .v small{font-size:12px;font-weight:600;color:var(--ink-soft)}
+.pb2-stat.zero .v{color:var(--ink-faint)}
+.pb2-stat-main{background:linear-gradient(135deg,rgba(99,102,241,.08),var(--surface-solid) 70%)}
+.pb2-stat-main .v{color:var(--accent)}
+.pb2-substats{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;font-size:11px;font-weight:600;color:var(--ink-soft)}
+.pb2-substats i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px}
+.pb2-substats .bad{color:var(--crit-tx)}
+.pb2-meter{height:4px;border-radius:999px;background:rgba(15,23,42,.06);margin-top:8px;overflow:hidden}
+.pb2-meter span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.pb2-sec{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.pb2-sec .t{font-weight:800;font-size:15px;color:var(--ink);letter-spacing:-.01em}
+.pb2-sec .c{font-size:11px;font-weight:800;color:var(--accent);background:rgba(99,102,241,.1);padding:2px 9px;border-radius:999px}
+.pb2-sec .ln{flex:1;height:1px;background:var(--line)}
+.pb2 .board-section{margin-bottom:24px}
+.pb2 .pb2-lane{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;align-items:start}
+.pb2 .tc2-meta{flex-wrap:wrap;row-gap:6px}
+.pb2 .tc2-left{white-space:normal}
+.pb2 .tc2-right{margin-left:auto}
+.pb2 .col{height:auto;min-height:0;max-height:calc(100vh - 190px);
+  background:#F4F6F9;border:1px solid var(--line);border-top:3px solid var(--sc);border-radius:12px}
+.pb2 .col-head{background:#F4F6F9;border-bottom:none;padding:10px 12px 6px;backdrop-filter:none}
+.pb2 .col-head .n{display:flex;align-items:center;gap:7px;min-width:0;color:var(--ink);font-size:12.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb2 .col-head .dot{width:8px;height:8px;border-radius:50%;background:var(--sc);flex-shrink:0}
+.pb2 .col-head .cnt{background:#fff;border:1px solid var(--line);color:var(--ink)}
+.pb2 .col.is-empty .col-head .cnt{color:var(--ink-faint)}
+.pb2 .col-body{padding:4px 8px 8px}
+.pb2 .empty-col{min-height:0;padding:12px 10px;font-size:12px;border-radius:10px;background:transparent}
+.pb2 .taskcard{border-radius:10px;padding:9px 10px;margin-bottom:8px}
+.pb2 .taskcard:hover{border-color:rgba(99,102,241,.35)}
+@media (max-width:900px){
+  .pb2-stats{display:flex;flex-wrap:wrap}
+  .pb2-stat{flex:1 1 120px}
+  .pb2-stat-main{flex-basis:100%}
+  .pb2-f{max-width:none}
+  .pb2-bar-end{margin-left:0;width:100%;justify-content:space-between}
+}
+/* ===== Process Board v3 — calmer & clearer (scoped .pb3) ===== */
+.pb3-lanewrap{position:relative}
+.pb3-lanewrap::after{content:'';position:absolute;top:0;right:0;bottom:8px;width:56px;pointer-events:none;opacity:0;transition:opacity .2s;
+  background:linear-gradient(90deg,rgba(248,249,250,0),rgba(248,249,250,.95))}
+.pb3-more{position:absolute;right:6px;top:14px;z-index:3;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:#fff;
+  box-shadow:var(--shadow-md);font-size:20px;font-weight:700;color:var(--accent);cursor:pointer;display:none;line-height:1}
+.pb3-lanewrap.has-more::after{opacity:1}
+.pb3-lanewrap.has-more .pb3-more{display:block}
+.pb3-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.pb3-seg{display:inline-flex;background:#EEF0F4;border-radius:10px;padding:3px}
+.pb3-seg button{border:none;background:transparent;font:inherit;font-size:13px;font-weight:700;color:var(--ink-soft);padding:7px 14px;border-radius:8px;cursor:pointer}
+.pb3-seg button.on{background:#fff;color:var(--ink);box-shadow:var(--shadow-sm)}
+.pb3-tog{border:1px solid var(--line);background:#fff;font:inherit;font-size:13px;font-weight:700;color:var(--ink-soft);padding:7px 13px;border-radius:10px;cursor:pointer}
+.pb3-tog.on{background:var(--crit-bg);border-color:#FCA5A5;color:var(--crit-tx)}
+.pb3-div{width:1px;height:24px;background:var(--line);margin:0 2px}
+.pb3 .pb3-sel{width:auto;max-width:200px;padding:7px 28px 7px 11px;font-size:13px;border-radius:10px;background-color:#fff}
+.pb3 .pb3-sel.set{border-color:var(--accent);color:var(--accent);font-weight:700;background-color:rgba(99,102,241,.06)}
+.pb3-flow{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:16px;box-shadow:var(--shadow-sm)}
+.pb3-steps{display:flex;align-items:stretch;gap:4px;overflow-x:auto}
+.pb3-step{flex:1 1 0;min-width:108px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:1px solid var(--line);
+  background:#FAFBFC;border-radius:10px;padding:8px 10px;font:inherit;cursor:pointer;text-align:left;border-top:3px solid var(--sc)}
+.pb3-step:hover{background:#fff;box-shadow:var(--shadow-sm)}
+.pb3-step .no{font-size:10.5px;font-weight:800;color:var(--ink-faint)}
+.pb3-step .lb{font-size:12.5px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+.pb3-step .nm{font-size:22px;font-weight:800;color:var(--ink);line-height:1.1}
+.pb3-step.zero .nm{color:#CBD5E1}
+.pb3-step.done{--sc:var(--ok-tx);flex:0 1 auto;background:#F6FBF8}
+.pb3-arrow{align-self:center;color:#CBD5E1;font-size:18px;font-weight:700;flex:none}
+.pb3-meta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:12.5px;color:var(--ink-soft)}
+.pb3-meta b{color:var(--ink)}
+.pb3-meta .bad{color:var(--crit-tx);font-weight:700}
+.pb3-meta .ok{color:var(--ok-tx);font-weight:700}
+.pb3-cats{margin-left:auto;color:var(--ink-faint)}
+.pb3 .pb3-lane{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(262px,1fr);grid-template-columns:none;gap:12px;
+  overflow-x:auto;padding-bottom:8px;align-items:start;scroll-behavior:smooth}
+.pb3 .pb3-lane::-webkit-scrollbar{height:10px}
+.pb3 .pb3-lane::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:999px}
+.pb3 .col{background:#F3F4F7;border:none;border-top:none;border-radius:12px;max-height:calc(100vh - 170px)}
+.pb3 .col.pb3-flash{animation:pb3flash 1s ease}
+@keyframes pb3flash{0%,40%{box-shadow:0 0 0 3px rgba(99,102,241,.45)}100%{box-shadow:none}}
+.pb3 .col-head{background:#F3F4F7;padding:11px 12px 8px;align-items:flex-start}
+.pb3 .col-head .n{align-items:flex-start;gap:8px}
+.pb3 .col-head .stepno{font-style:normal;width:20px;height:20px;border-radius:50%;background:var(--sc);color:#fff;font-size:11px;font-weight:800;
+  display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.pb3 .col-head .dot{margin-top:6px}
+.pb3 .col-head .nn{display:flex;flex-direction:column;min-width:0}
+.pb3 .col-head .nn b{font-size:14px;color:var(--ink);font-weight:800}
+.pb3 .col-head .nn small{font-size:10.5px;color:var(--ink-faint);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pb3 .col-head .cnt{font-size:12px;padding:2px 10px}
+.pb3 .empty-col{border:none;color:#B6BEC9;padding:14px 10px}
+/* card */
+.pb3 .pb3-card{border:1px solid #E5E7EB;border-left:1px solid #E5E7EB;border-radius:10px;padding:11px 12px;margin-bottom:8px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.pb3 .pb3-card.is-hot{box-shadow:inset 3px 0 0 var(--pc),0 1px 2px rgba(15,23,42,.05)}
+.pb3 .pb3-card.is-mine{border-color:rgba(99,102,241,.55);background:linear-gradient(180deg,rgba(99,102,241,.05),#fff 40%)}
+.pb3 .pb3-card:hover{border-color:rgba(99,102,241,.55);transform:translateY(-1px)}
+.pb3-pri{font-size:11px;font-weight:800;color:var(--pc);margin-bottom:3px;letter-spacing:.02em}
+.pb3 .pb3-card .tc2-title{font-size:14px;line-height:1.4;font-weight:700;color:var(--ink);padding-right:18px}
+.pb3-sub{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--ink-soft)}
+.pb3-sub .ty:not(:empty){color:var(--ink-faint)}
+.pb3-foot{display:flex;align-items:center;gap:6px;margin-top:10px}
+.pb3-due{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:#F1F5F9;color:var(--ink-soft);white-space:nowrap}
+.pb3-due.late{background:var(--crit-bg);color:var(--crit-tx)}
+.pb3-due.today{background:var(--urg-bg);color:var(--urg-tx)}
+.pb3-due.soon{background:var(--pri-bg);color:#B45309}
+.pb3-due.handoff{background:var(--ok-bg);color:var(--ok-tx)}
+.pb3-who{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ink-soft);white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis}
+.pb3-who .tc2-av{width:22px;height:22px;font-size:11px;flex-shrink:0}
+.pb3-who.pending{opacity:.6;font-style:italic}
+.pb3-who b{color:var(--accent)}
+.pb3-note{margin-top:8px;font-size:12px;font-weight:700;color:var(--accent)}
+.pb3-act{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:9px;border-top:1px dashed #E5E7EB}
+.pb3-act .pz-line{flex-basis:100%}
+.pb3 .tc2-lk{font-size:11.5px;padding:4px 9px}
+/* folds */
+.pb3-fold{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.pb3-fold>summary{list-style:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px 16px;cursor:pointer;font-size:13px}
+.pb3-fold>summary::-webkit-details-marker{display:none}
+.pb3-fold>summary .t{font-weight:800;font-size:14px;color:var(--ink)}
+.pb3-fold>summary .chev{margin-left:auto;font-size:12px;font-weight:700;color:var(--accent)}
+.pb3-fold>summary .chev::after{content:' ▾'}
+.pb3-fold[open]>summary .chev::after{content:' ▴'}
+.pb3-fold[open]>summary{border-bottom:1px solid var(--line)}
+.pb3-fold>.pb3-lane{padding:12px}
+.pb3-fold-body>.card{margin:0!important;border:none;box-shadow:none;background:transparent}
+.pb3-mini{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-soft);background:#F6F7F9;padding:3px 9px;border-radius:999px}
+.pb3-mini i{width:7px;height:7px;border-radius:50%;background:var(--sc)}
+@media (max-width:900px){
+  .pb3-div{display:none}
+  .pb3 .pb3-sel{flex:1 1 140px;max-width:none}
+  .pb3-cats{margin-left:0;flex-basis:100%}
+  .pb3 .pb3-lane{grid-auto-columns:82%}
+  .pb3-arrow{display:none}
+  .pb3-step{min-width:96px}
+}
+/* Process Board v3.1 — all 6 workflow columns visible at once, no horizontal scroll.
+   Sized off the board's own width (container query), so the sidebar open/closed is handled too:
+   ≥1000px → 6 across · 600–999px → 3×2 · <600px → 2×3. */
+.pb3 .pb3-lanewrap{container-type:inline-size}
+.pb3 #pbLane{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;overflow:visible;padding-bottom:0}
+@container (max-width:999px){ .pb3 #pbLane{grid-template-columns:repeat(3,minmax(0,1fr))} }
+@container (max-width:599px){ .pb3 #pbLane{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px} }
+.pb3 #pbLane .col-head{padding:10px 10px 6px;gap:6px}
+.pb3 #pbLane .col-head .n{gap:6px;white-space:normal;overflow:visible;flex:1 1 auto}
+.pb3 #pbLane .col-head .nn small{display:none}
+.pb3 #pbLane .col-head{min-height:52px;align-items:center}
+.pb3 #pbLane .col-head .n{align-items:center}
+.pb3 #pbLane .col-head .cnt{margin-top:1px}
+.pb3 #pbLane .pb3-card .tc2-title{-webkit-line-clamp:3}
+.pb3 #pbLane .col-head .nn b{font-size:13px;line-height:1.3}
+.pb3 #pbLane .pb3-due{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.pb3 #pbLane .col-head .cnt{padding:1px 8px;font-size:11.5px}
+.pb3 #pbLane .col-body{padding:4px 6px 6px}
+.pb3 #pbLane .pb3-card{padding:10px}
+.pb3 #pbLane .pb3-card .tc2-title{font-size:13.5px}
+.pb3 #pbLane .pb3-foot{flex-wrap:wrap;row-gap:6px}
+.pb3 #pbLane .pb3-who{max-width:100%}
+.pb3 #pbLane .pb3-act{gap:5px}
+.pb3 #pbLane .pb3-act .tc2-lk{padding:3px 7px;font-size:11px}
+/* ===== Content Planner v2 (UI refresh) — scoped under .cp2 ===== */
+.cp2-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.cp2-eyebrow{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.cp2 .cp-months{gap:6px;padding:8px 2px 10px;margin-bottom:10px}
+.cp2 .cp-mpill{min-width:84px;padding:7px 11px;border-radius:10px;box-shadow:none}
+.cp2 .cp-mpill.on{background:var(--accent);border-color:var(--accent);box-shadow:0 4px 12px -4px rgba(99,102,241,.55)}
+.cp2 .cp-mpill.has:not(.on){background:#F5F6FF;border-color:#C7CBFB}
+.cp2 .cp-mpill.has:not(.on) .cp-mp-n{color:var(--accent)}
+.cp2-stats{display:grid;grid-template-columns:1.7fr repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.cp2-stat{background:#fff;padding:12px 16px;border:none;text-align:left;font:inherit;min-width:0;display:flex;flex-direction:column;gap:2px}
+button.cp2-stat[data-cpissue]{cursor:pointer}
+button.cp2-stat[data-cpissue]:hover{background:#FAFAFF}
+.cp2-stat .k{font-size:11px;font-weight:700;color:var(--ink-faint);letter-spacing:.02em}
+.cp2-stat .v{font-size:24px;font-weight:800;color:var(--ink);line-height:1.15}
+.cp2-stat .v small{font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+.cp2-stat .s{font-size:11.5px;color:var(--ink-faint)}
+.cp2-stat.main{background:linear-gradient(135deg,rgba(99,102,241,.08),#fff 70%)}
+.cp2-stat.main .v{color:var(--accent)}
+.cp2-meter{height:6px;border-radius:999px;background:rgba(15,23,42,.06);overflow:hidden;margin:6px 0 2px}
+.cp2-meter span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.cp2-stat.warn .v{color:#B45309}.cp2-stat.bad .v{color:var(--crit-tx)}.cp2-stat.ok .v{color:var(--ok-tx)}
+.cp2-stat.zero .v{color:#CBD5E1}
+.cp2-stat.on{box-shadow:inset 0 -3px 0 var(--accent);background:#F5F6FF}
+.cp2-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.cp2-seg{display:inline-flex;background:#EEF0F4;border-radius:10px;padding:3px;max-width:100%;overflow-x:auto}
+.cp2-seg button{border:none;background:transparent;font:inherit;font-size:13px;font-weight:700;color:var(--ink-soft);padding:7px 14px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.cp2-seg button.on{background:#fff;color:var(--ink);box-shadow:var(--shadow-sm)}
+.cp2-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1;justify-content:flex-end}
+.cp2 .cp2-search{width:220px;max-width:100%;padding:7px 11px;font-size:13px;border-radius:10px;border:1px solid #E5E7EB;background:#fff}
+.cp2 .cp2-filters select{width:auto!important;max-width:220px;font-size:13px;padding:7px 28px 7px 11px;border:1px solid #E5E7EB;border-radius:10px;background-color:#fff}
+.cp2 .cp2-filters select.set{border-color:var(--accent);color:var(--accent);font-weight:700;background-color:rgba(99,102,241,.06)}
+.cp2-clear{border:1px solid var(--line);background:#fff;color:var(--ink-soft);font:inherit;font-size:12px;font-weight:700;padding:6px 11px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.cp2-clear:hover{border-color:var(--crit-tx);color:var(--crit-tx)}
+.cp2 .cp-types{margin-bottom:12px}
+.cp2 .cp-tchip[disabled]{cursor:default}
+.cp2 .cp-check{padding:12px 16px;border-radius:14px}
+.cp2 .cp-carry{border-radius:14px}
+.cp2 .cp-carry-d{white-space:nowrap}
+.cp2 .cp-carry-i{border-radius:10px;padding:8px 12px}
+/* table → row cards with the post-date as the last cell of the same card */
+.cp2 .cp-proj{border-radius:14px;margin-bottom:14px}
+.cp2 .cp-proj-head{padding:12px 16px;flex-wrap:wrap;background:#fff}
+.cp2 .cp-proj-head i{width:12px;height:12px;border-radius:4px}
+.cp2 .cp-proj-head b{font-size:15px}
+.cp2 .cp-proj-acts{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.cp2 .cp-table-wrap{background:#F7F8FA;padding:2px 12px 12px}
+.cp2 .cp-table{font-size:13px;min-width:960px}
+.cp2 .cp-table th{font-size:11px;text-transform:uppercase;letter-spacing:.03em;padding:10px 10px 4px;color:#98A2B3}
+.cp2 .cp-table th.cp-postth{color:var(--accent);padding-left:10px;text-align:left}
+.cp2 .cp-table tr.cp-gap td{height:6px}
+.cp2 .cp-table tr.cp-row td{padding:11px 10px;border-color:#E9ECF1}
+.cp2 .cp-table tr.cp-row td:first-child{border-left:4px solid var(--ct);border-radius:10px 0 0 10px}
+.cp2 .cp-table tr.cp-row td:nth-child(6){border-right:none;border-radius:0}
+.cp2 .cp-table tr.cp-row td.cp-postcell{background:#fff!important;border-top:1px solid #E9ECF1!important;border-bottom:1px solid #E9ECF1!important;border-right:1px solid #E9ECF1!important;border-left:1px dashed #E4E7EC!important;border-radius:0 10px 10px 0;padding:8px 10px!important;width:170px}
+.cp2 .cp-table tr.cp-row:hover td{background:#FAFAFF!important}
+.cp2 .cp-post{border:none;background:transparent;padding:0;gap:2px}
+.cp2 .cp-post.set{border:none;background:transparent}
+.cp2 .cp-post.is-bad{border:none;background:transparent}
+.cp2 .cp-post.is-bad input{border-color:#F97066;background:#FEF3F2;color:#B42318}
+.cp2 .cp-post:not(.set) input{border-style:dashed;border-color:#C7CBFB;background:#F8F8FF;color:#98A2B3}
+.cp2 .cp-post-l{display:none}
+.cp2 .cp-post input{width:100%;font-size:13px;padding:5px 8px;border-radius:8px}
+.cp2 .cp-post b{font-size:13.5px}
+.cp2 .mp-tname{font-size:13.5px;font-weight:700}
+.cp2 .cp-table td.tl .cx-muted{margin-top:2px}
+/* calendar */
+.cp2 .cpc{padding:12px;border-radius:14px}
+.cp2 .mpc-grid{gap:4px}
+.cp2 .mpc-dow{padding:4px 0 6px;color:var(--ink-faint)}
+.cp2 .mpc-dow.is-wknd{color:#F04438}
+.cp2 .cp-cell{min-height:96px;border-radius:8px;border-color:#EEF0F3;padding:5px}
+.cp2 .cp-cell.wknd:not(.out){background:#F7F8FA}
+.cp2 .cp-cell.out{opacity:.35;background:transparent}
+.cp2 .cp-cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.cp2 .cp-cell.today .mpc-day{background:var(--accent);color:#fff;border-radius:999px;padding:0 6px}
+.cp2 .cp-item{padding:4px 7px;border-radius:6px;gap:0}
+.cp2 .cp-item-n{font-size:11.5px;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.3}
+.cp2 .cp-tray{border-radius:14px;top:72px}
+.cp2 .cp-tray .cp-item-n{font-size:12.5px}
+@media (max-width:900px){
+  .cp2-stats{grid-template-columns:1fr 1fr}
+  .cp2-stat.main{grid-column:1/-1}
+  .cp2-stat:last-child{grid-column:1/-1}
+  .cp2 .cp-wait-i{flex-wrap:wrap}
+  .cp2 .cp-wait-i span:last-child{margin-left:auto}
+  .cp2-filters{justify-content:stretch}
+  .cp2 .cp2-search{flex:1 1 100%;width:auto}
+  .cp2 .cp2-filters select{flex:1 1 140px;max-width:none}
+  .cp2 .cp-calwrap{grid-template-columns:1fr}
+  .cp2 .cp-tray{position:static;max-height:none}
+  .cp2 .cp-cell{min-height:64px}
+  .cp2 .cp-item-n{font-size:10px;-webkit-line-clamp:1}
+}
 .chip{background:rgba(99,102,241,.09);color:var(--accent);font-weight:700;font-size:10px;padding:2px 8px;border-radius:999px}
 .tc-actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
 /* DEV UPDATE — Compact Kanban Card + Column Scroll: each .col is a fixed-height flex column so a column
@@ -3631,6 +3897,266 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 .ss-toggle input{width:auto!important;margin:0;flex:none;accent-color:#4A47E0;transform:scale(1.15)}
 .ss-toggle{display:flex;align-items:center;gap:8px;font-size:13px;margin:4px 0 10px;cursor:pointer;flex-wrap:wrap}
 .ss-permtable{margin-top:10px}
+
+
+/* Content Planner — post-date tile */
+.cp2 .cp-table tr.cp-row td.cp-postcell{width:190px;padding:7px 10px!important;background:#FAFAFF!important}
+.cp-pt{--c:#6366F1;--bg:#EEF0FF;position:relative;display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px;background:var(--bg);border:1.5px solid color-mix(in srgb,var(--c) 30%,transparent);min-height:50px;cursor:default}
+.cp-pt.can{cursor:pointer}
+.cp-pt.can:hover{border-color:var(--c);box-shadow:0 4px 12px -6px color-mix(in srgb,var(--c) 60%,transparent)}
+.cp-pt:focus-within{outline:2px solid var(--c);outline-offset:1px}
+.cp-pt-cal{flex:none;width:38px;border-radius:8px;overflow:hidden;background:#fff;text-align:center;box-shadow:0 1px 2px rgba(15,23,42,.12);display:flex;flex-direction:column}
+.cp-pt-cal i{font-style:normal;font-size:9.5px;font-weight:800;color:#fff;background:var(--c);line-height:15px;letter-spacing:.02em}
+.cp-pt-cal b{font-size:17px;font-weight:800;color:var(--ink);line-height:22px}
+.cp-pt-cal.empty{background:transparent;box-shadow:none;border:1.5px dashed color-mix(in srgb,var(--c) 45%,transparent);height:38px;justify-content:center}
+.cp-pt-cal.empty i{background:transparent;font-size:16px;line-height:1}
+.cp-pt-txt{display:flex;flex-direction:column;align-items:flex-start;text-align:left;min-width:0;line-height:1.3}
+.cp-pt-txt b{font-size:13px;font-weight:800;color:var(--c);white-space:nowrap}
+.cp-pt-txt small{font-size:11px;font-weight:600;color:var(--ink-soft);white-space:nowrap}
+.cp-pt-in{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;margin:0}
+.cp-pt-in::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:100%;height:100%;cursor:pointer}
+.cp-pt.is-today{--c:#EA580C;--bg:#FFF4EB}
+.cp-pt.is-bad{--c:#DC2626;--bg:#FEF2F2}
+.cp-pt.is-bad .cp-pt-txt small{color:#DC2626;font-weight:800}
+.cp-pt.is-past{--c:#64748B;--bg:#F4F5F7}
+.cp-pt.is-past .cp-pt-cal{opacity:.75}
+.cp-pt.is-none{--c:#6366F1;--bg:#fff;border-style:dashed}
+.cp-pt.is-none .cp-pt-txt small{color:var(--ink-faint)}
+
+/* ===== All Work v3 — colourful (Krissha: "อยากเป็นด้วยสี") ===== */
+.aw3-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:20px 24px;margin-bottom:14px;border-radius:16px;
+  background:linear-gradient(120deg,#6366F1 0%,#3B82F6 55%,#06B6D4 100%);box-shadow:0 10px 30px -14px rgba(79,70,229,.6)}
+.aw3-hero-n{display:flex;align-items:baseline;gap:8px;color:#fff;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:8px 14px}
+.aw3-hero-n b{font-size:28px;font-weight:800;line-height:1}
+.aw3-hero-n span{font-size:12.5px;font-weight:600;opacity:.9}
+.aw3-dist{display:flex;height:8px;border-radius:999px;overflow:hidden;gap:2px;margin:0 0 12px;background:#EEF0F4}
+.aw3-dist span{min-width:6px}
+.aw3-tabs{gap:8px!important;overflow-x:auto}
+.aw3-tabs .aw3-tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:104px;padding:9px 14px 10px!important;border-radius:12px!important;
+  border:1px solid var(--line)!important;background:#fff!important;color:var(--ink-soft)!important;box-shadow:inset 0 3px 0 var(--gc);font:inherit;cursor:pointer;text-align:left}
+.aw3-tile .l{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700}
+.aw3-tile .l i{width:8px;height:8px;border-radius:50%;background:var(--gc)}
+.aw3-tile b{font-size:20px;font-weight:800;color:var(--gc)!important;line-height:1.15}
+.aw3-tile.zero b{color:#CBD5E1!important}
+.aw3-tile:hover{border-color:var(--gc)!important}
+.aw3-tile.on{background:var(--gb)!important;border-color:var(--gc)!important;color:var(--gc)!important;box-shadow:inset 0 3px 0 var(--gc),0 6px 16px -10px var(--gc)}
+.aw3-row{grid-template-columns:minmax(0,1fr) 120px 210px!important;border-left:4px solid var(--gc)!important;border-radius:12px!important;padding:11px 14px!important;margin-bottom:8px;transition:.12s}
+.aw3-row:hover{background:linear-gradient(90deg,var(--gb),#fff 45%)!important;border-color:color-mix(in srgb,var(--gc) 35%,var(--line))!important;transform:translateY(-1px);box-shadow:0 8px 20px -14px var(--gc)}
+.aw3-row .aw-title{font-size:13.5px}
+.aw3-row .aw-sub{gap:6px}
+.aw3-cat{flex:none;font-size:10.5px;font-weight:800;color:var(--cc);background:color-mix(in srgb,var(--cc) 12%,#fff);border:1px solid color-mix(in srgb,var(--cc) 30%,transparent);padding:1px 8px;border-radius:999px}
+.aw3-who{flex:none;display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--ink)}
+.aw3-who i{font-style:normal;width:18px;height:18px;border-radius:50%;color:#fff;font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center}
+.aw3-due{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.aw3-due-d{font-size:12.5px;font-weight:800;color:var(--ink);background:#F1F5F9;padding:2px 9px;border-radius:999px}
+.aw3-due small{font-size:11px;color:var(--ink-faint);font-weight:600;padding-left:4px}
+.aw3-due.late .aw3-due-d{background:var(--crit-bg);color:var(--crit-tx)}.aw3-due.late small{color:var(--crit-tx)}
+.aw3-due.today .aw3-due-d{background:var(--urg-bg);color:var(--urg-tx)}.aw3-due.today small{color:var(--urg-tx)}
+.aw3-due.soon .aw3-due-d{background:var(--pri-bg);color:#B45309}.aw3-due.soon small{color:#B45309}
+.aw3-due.done .aw3-due-d{background:var(--ok-bg);color:var(--ok-tx)}.aw3-due.done small{color:var(--ok-tx)}
+.aw3-st{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;font-weight:800;color:var(--gc);background:var(--gb);border:1px solid color-mix(in srgb,var(--gc) 30%,transparent);padding:3px 10px;border-radius:999px}
+@media (max-width:760px){
+  .aw3-row{grid-template-columns:minmax(0,1fr) auto!important}
+  .aw3-row>div:last-child{grid-column:1/-1;text-align:left!important}
+  .aw3-tabs .aw3-tile{min-width:88px}
+}
+
+/* ===== ประวัติงาน v3 ===== */
+.mc3-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:20px 24px;margin-bottom:14px;border-radius:16px;
+  background:linear-gradient(120deg,#059669 0%,#0D9488 45%,#0EA5E9 100%);box-shadow:0 10px 30px -14px rgba(5,150,105,.6)}
+.mc3-kpis{display:flex;gap:8px;flex-wrap:wrap}
+.mc3-kpis>div{display:flex;flex-direction:column;min-width:92px;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff}
+.mc3-kpis b{font-size:24px;font-weight:800;line-height:1.1}
+.mc3-kpis span{font-size:11.5px;font-weight:600;opacity:.9}
+.mc3-bar{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:12px;box-shadow:var(--shadow-sm)}
+.mc3-f{display:flex;flex-direction:column;gap:3px;flex:1 1 120px;min-width:110px;margin:0}
+.mc3-f.mc3-search{flex:2 1 240px}
+.mc3-f>span{font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em}
+.mc3-f select,.mc3-f input{padding:7px 10px;font-size:13px}
+.mc3-f.set select,.mc3-f.set input{border-color:#10B981;background-color:#ECFDF5;color:#047857;font-weight:700}
+.mc3-clear{align-self:flex-end;height:36px;border:1px solid var(--line);background:#fff;color:var(--ink-soft);font:inherit;font-size:12px;font-weight:700;padding:0 12px;border-radius:10px;cursor:pointer;white-space:nowrap}
+.mc3-clear:hover{border-color:var(--crit-tx);color:var(--crit-tx)}
+.mc3-chip{background:#ECFDF5;color:#047857}
+.mc3-found{font-size:12.5px;color:var(--ink-soft);margin:0 0 10px 2px}.mc3-found b{color:#059669}
+.mc3-yh{cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:linear-gradient(90deg,#ECFDF5,#fff 60%)}
+.mc3-yl{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+.mc3-ybadge{font-size:15px;font-weight:800;color:#fff;background:#059669;border-radius:8px;padding:2px 10px}
+.mc3-chev{font-style:normal;width:12px;color:var(--ink-faint);font-size:12px}
+.mc3-cnt{font-size:12px;font-weight:800;color:#047857;background:#D1FAE5;border-radius:999px;padding:2px 10px;white-space:nowrap}
+.mc3-mh{cursor:pointer;display:grid;grid-template-columns:minmax(140px,auto) 1fr auto;align-items:center;gap:14px;padding:10px 16px 10px 24px;border-top:1px solid var(--line);font-size:13.5px;font-weight:700}
+.mc3-mh:hover,.mc3-mh.open{background:color-mix(in srgb,var(--mc) 6%,#fff)}
+.mc3-ml{display:flex;align-items:center;gap:8px}
+.mc3-mdot{width:10px;height:10px;border-radius:3px;background:var(--mc)}
+.mc3-mbar{height:6px;border-radius:999px;background:#F1F5F9;overflow:hidden;max-width:420px}
+.mc3-mbar span{display:block;height:100%;border-radius:999px;background:var(--mc)}
+.mc3-mh .mc3-cnt{color:var(--mc);background:color-mix(in srgb,var(--mc) 12%,#fff)}
+.mc3 .po-briefs-table th{background:#FAFBFC}
+.mc3 .po-briefs-table td{padding:11px 14px;vertical-align:middle}
+.mc3 .po-briefs-table tbody tr:hover{background:#F6FDF9}
+.mc3-date{display:inline-block;font-size:11.5px;font-weight:800;color:#047857;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:999px;padding:2px 9px}
+.mc3-name{font-size:13px}
+.mc3-proj{font-weight:700;color:var(--ink)}
+.mc3-type{display:inline-block;font-size:11px;font-weight:800;color:var(--cc);background:color-mix(in srgb,var(--cc) 10%,#fff);border:1px solid color-mix(in srgb,var(--cc) 28%,transparent);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.mc3-plats{display:inline-flex;gap:4px;flex-wrap:wrap}
+.mc3-role{display:inline-block;font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 8px}
+.mc3-role.d{background:#EEF0FF;color:#4F46E5}.mc3-role.o{background:#FFF1E6;color:#C2410C}
+@media (max-width:760px){ .mc3-mh{grid-template-columns:1fr auto}.mc3-mbar{display:none} }
+
+/* ===== Work links — make every artwork / folder link obvious (Krissha: "ตรงลิงก์ไม่เด่นเลย ขอแบบชัดๆ") ===== */
+.awl-multi{border:1.5px solid #C7D2FE;background:linear-gradient(180deg,#F5F7FF,#fff 70%);padding:12px 14px;border-radius:14px}
+.awl-multi-head{font-size:14px;font-weight:800;margin-bottom:8px}
+.awl-count{background:var(--accent);color:#fff;font-weight:800}
+.awl-row{--sc:#6366F1;gap:10px;padding:10px 12px;margin-top:6px;border-radius:12px;background:#fff;border:1px solid #E0E7FF;box-shadow:0 1px 2px rgba(15,23,42,.05);transition:.15s}
+.awl-row:hover{background:#fff;border-color:var(--sc);box-shadow:0 8px 18px -12px var(--sc);transform:translateY(-1px)}
+.awl-num{background:var(--sc)}
+.awl-ic{width:34px;height:34px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;font-size:18px;background:color-mix(in srgb,var(--sc) 12%,#fff)}
+.awl-txt{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.awl-lbl{font-size:14px;font-weight:800;flex:none}
+.awl-url{font-size:11.5px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.awl-src{flex:none;font-size:12.5px;font-weight:800;color:#fff;background:var(--sc);padding:7px 14px;border-radius:10px;box-shadow:0 4px 10px -4px var(--sc);white-space:nowrap}
+.awl-row:hover .awl-src{filter:brightness(1.08)}
+.fwf-card.fwf-link{--sc:#6366F1;align-items:center;border:1.5px solid color-mix(in srgb,var(--sc) 35%,#fff);background:linear-gradient(180deg,color-mix(in srgb,var(--sc) 7%,#fff),#fff)}
+a.fwf-card.fwf-link:hover{border-color:var(--sc);background:#fff;box-shadow:0 10px 22px -14px var(--sc)}
+.fwf-link .fwf-icon{width:44px;height:44px;font-size:22px;background:color-mix(in srgb,var(--sc) 14%,#fff)}
+.fwf-link .fwf-title{font-weight:800;font-size:15px}
+.fwf-link .fwf-cta{display:inline-block;margin-top:6px;color:#fff;background:var(--sc);padding:6px 14px;border-radius:10px;font-weight:800;font-size:12.5px;box-shadow:0 4px 10px -4px var(--sc)}
+.fwf-alllinks{border:1.5px solid #C7D2FE;background:#F8F9FF}
+.fwf-alllink{background:#fff;border:1px solid #E0E7FF;margin-top:5px;padding:9px 10px;font-size:12.5px;font-weight:700}
+.fwf-alllink:hover{border-color:var(--accent);background:#fff}
+.fwf-alllink-src{color:#fff;background:var(--accent);padding:4px 10px;border-radius:8px;font-size:11.5px}
+.ui-linkbtn{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:800;color:#fff!important;background:var(--accent);padding:6px 12px;border-radius:9px;text-decoration:none;white-space:nowrap;box-shadow:0 4px 10px -5px var(--accent)}
+.ui-linkbtn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+
+/* ===== Review action panel (Krissha: "ขอปุ่ม Action ตรงนี้ เด่นๆ ชัดๆ ดูง่ายๆ") ===== */
+.rv-panel{border:2px solid #A5B4FC!important;background:linear-gradient(135deg,#EEF2FF,#fff 70%)!important;padding:16px 18px!important;box-shadow:0 10px 26px -18px rgba(79,70,229,.7)}
+.rv-panel-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.rv-panel-ic{width:40px;height:40px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 1px 3px rgba(15,23,42,.1);flex:none}
+.rv-panel-title{font-size:16px;font-weight:800;color:var(--ink)}
+.rv-panel-sub{font-size:12.5px;color:var(--ink-soft);margin-top:1px}
+.rv-panel-acts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.rv-panel-acts .btn{display:flex;align-items:center;justify-content:center;gap:8px;min-height:50px;padding:12px 18px;font-size:15px;font-weight:800;border-radius:12px;white-space:normal;text-align:center;transition:.15s}
+.rv-panel-acts .btn[data-act="approveQC"],.rv-panel-acts .btn[data-act="clientApprove"]{background:linear-gradient(135deg,#10B981,#059669);color:#fff;border:none;box-shadow:0 8px 18px -8px rgba(5,150,105,.75)}
+.rv-panel-acts .btn[data-act="requestRevision"]{background:#fff;color:#C2410C;border:2px solid #FB923C;box-shadow:0 4px 12px -8px rgba(234,88,12,.6)}
+.rv-panel-acts .btn[data-act="requestRevision"].btn-primary{background:linear-gradient(135deg,#FB923C,#EA580C);color:#fff;border:none}
+.rv-panel-acts .btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
+.rv-panel-acts .btn[data-act="requestRevision"]:not(.btn-primary):hover{background:#FFF7ED}
+@media (max-width:600px){.rv-panel-acts{grid-template-columns:1fr}}
+
+/* ===== Pop-up / modal v3 (Krissha: "ปรับ UI พวกกล่อง POP up ใหม่") — applies to every .modal in the system ===== */
+@keyframes uiFade{from{opacity:0}to{opacity:1}}
+@keyframes uiPop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.modal-bg{background:rgba(15,23,42,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:uiFade .15s ease}
+.modal{position:relative;border-radius:20px;padding:22px 24px 20px;border:1px solid rgba(255,255,255,.6);
+  box-shadow:0 30px 60px -20px rgba(15,23,42,.45),0 0 0 1px rgba(15,23,42,.04);animation:uiPop .18s ease;scrollbar-width:thin}
+/* header band: the first <h3> (+ the hint line right under it) */
+.modal>h3:first-child,.modal>.modal-close:first-child+h3{margin:-22px -24px 0;padding:20px 56px 6px 24px;font-size:18px;font-weight:800;letter-spacing:-.01em;color:var(--ink);
+  background:linear-gradient(135deg,#EEF0FF 0%,#F5F3FF 55%,#fff 100%);border-radius:20px 20px 0 0}
+.modal>h3:first-child:only-of-type:not(:has(+ .hint)),.modal>.modal-close:first-child+h3:not(:has(+ .hint)){padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid #E8EAF6}
+.modal>h3:first-child+.hint,.modal>.modal-close:first-child+h3+.hint{margin:0 -24px 16px!important;padding:0 24px 14px;font-size:12.5px;color:var(--ink-soft);
+  background:linear-gradient(135deg,#EEF0FF 0%,#F5F3FF 55%,#fff 100%);border-bottom:1px solid #E8EAF6}
+.modal-close{top:14px;right:14px;width:32px;height:32px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.15);z-index:2;color:var(--ink-soft);font-weight:700}
+.modal-close:hover{background:#FEE2E2;color:#DC2626}
+/* form fields inside pop-ups */
+.modal .field{margin-bottom:14px}
+.modal .field>label{display:block;margin-bottom:6px}
+.modal input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color]),.modal select,.modal textarea{
+  background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;min-height:42px;font-size:13.5px;transition:background .12s,border-color .12s,box-shadow .12s}
+.modal textarea{min-height:84px;line-height:1.5}
+.modal input:not([type=checkbox]):not([type=radio]):focus,.modal select:focus,.modal textarea:focus{background:#fff;border-color:var(--accent);outline:none;box-shadow:0 0 0 4px rgba(99,102,241,.14)}
+/* footer: the last row of buttons sticks to the bottom as an action bar */
+.modal>div:last-child:has(> .btn){position:sticky;bottom:-20px;margin:18px -24px -20px!important;padding:14px 24px 18px;background:rgba(250,251,252,.96);
+  backdrop-filter:blur(4px);border-top:1px solid #EEF0F3;border-radius:0 0 20px 20px;display:flex;gap:10px;z-index:1}
+.modal .btn{min-height:44px;border-radius:12px;font-size:14px;font-weight:800}
+.modal>div:last-child:has(> .btn)>.btn{flex:1 1 0}
+.modal>div:last-child:has(> .btn)>.btn-primary{flex:1.6 1 0}
+.modal .btn-sm{min-height:34px;font-size:12.5px;border-radius:10px}
+.modal .btn-ghost{background:#fff;border:1px solid #E2E8F0;color:var(--ink-soft)}
+.modal .btn-ghost:hover{background:#F8FAFC;color:var(--ink)}
+.modal .btn-primary{box-shadow:0 10px 20px -10px rgba(79,70,229,.8)}
+/* info / calc boxes used in pop-ups */
+.modal .rv-note{border-radius:12px;border:1px solid #DDD6FE}
+.modal .rv-calc{border-radius:12px;font-size:12.5px}
+@media (max-width:600px){ .modal{padding:20px 18px 18px;border-radius:18px}
+  .modal>h3:first-child,.modal>.modal-close:first-child+h3{margin:-20px -18px 0;padding:18px 50px 6px 18px}
+  .modal>h3:first-child+.hint,.modal>.modal-close:first-child+h3+.hint{margin:0 -18px 14px!important;padding:0 18px 12px}
+  .modal>div:last-child:has(> .btn){margin:16px -18px -18px!important;padding:12px 18px 16px;bottom:-18px} }
+/* =====================================================================================================
+   UI v3 — SYSTEM-WIDE LAYER (Krissha: "ปรับ UI ทั้งระบบ ตามที่เพิ่งปรับไป")
+   Brings every page in line with the redesigned Process Board / Content Planner. Visual only — no markup
+   behaviour changes. Lives at the END of the main stylesheet on purpose so it wins over older per-page rules.
+   1) page header  2) cards  3) segmented tabs  4) stat strips  5) form controls  6) small parts
+   ===================================================================================================== */
+:root{ --ui-seg-bg:#EEF0F4; --ui-ctl-line:#E5E7EB; --r-card:14px; }
+
+/* 1) Page header — one title size everywhere; breadcrumbs become a small accent eyebrow */
+h1.pagetitle,.cx-title{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.25;color:var(--ink)}
+h1.pagetitle{margin:0 0 4px}
+.pagesub,.cx-sub{font-size:13px;color:var(--ink-soft)}
+.ui-eyebrow,.cx-crumb{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:0 0 4px;line-height:1.4}
+
+/* 2) Cards — solid white, same radius/border/shadow as the board */
+.card{background:var(--surface-solid);backdrop-filter:none;border-radius:14px;border-color:var(--line)}
+.cx-card{border-radius:14px}
+.section-title{font-size:14px;font-weight:800;letter-spacing:-.01em}
+
+/* 3) Tabs — every tab group uses the same grey segmented control (white "on" pill) */
+.pr-tabs,.kpi-tabs,.gd-entry-modes,.ft-tabs{background:var(--ui-seg-bg);border:none;border-radius:10px;padding:3px;gap:2px}
+.pr-tab,.kpi-tab,.gd-entry-mode,.ft-tab{border-radius:8px;font-size:13px;font-weight:700;color:var(--ink-soft);padding:7px 14px;height:auto}
+.pr-tab.active,.kpi-tab.active,.gd-entry-mode.active,.ft-tab.active{background:#fff;color:var(--ink);box-shadow:var(--shadow-sm)}
+.ft-tab:hover{background:rgba(255,255,255,.6)}
+.ss-tabs{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;background:var(--ui-seg-bg);border:none;border-radius:10px;margin:12px 0 16px;max-width:100%}
+.ss-tab{border:none;border-radius:8px;margin:0;padding:7px 13px;font-size:13px;color:var(--ink-soft)}
+.ss-tab:hover{background:rgba(255,255,255,.6)}
+.ss-tab.on{background:#fff;color:var(--ink);border:none;box-shadow:var(--shadow-sm)}
+.ss-tab.adm-danger.on{background:#fff;color:#DC2626}
+.tdp-tabs{display:inline-flex;gap:2px;padding:3px;background:var(--ui-seg-bg);border-radius:10px}
+.tdp-tab{border:none;background:transparent;border-radius:8px;padding:7px 13px;font-size:13px}
+.tdp-tab.active{background:#fff;color:var(--ink);box-shadow:var(--shadow-sm)}
+.tdp-tab.active span{background:rgba(99,102,241,.12);color:var(--accent)}
+.wsv-range{background:var(--ui-seg-bg);border-radius:10px}
+.wsv-range button{border-radius:8px}
+.wsv-range button.is-on{color:var(--ink)}
+
+/* 4) Stat strips — KPI tiles join into one bar with hairline dividers (like the board summary) */
+.cx-kpis,.dash-summary,.ws-stats,.ws-stats-5{gap:0;background:var(--surface-solid);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)}
+.cx-kpis>.cx-kpi,.dash-summary>.dsum-card,.ws-stats>.ws-stat-card,.ws-stats-5>.ws-stat-card{border:none;border-radius:0;box-shadow:1px 0 0 var(--line),0 1px 0 var(--line);margin:0}
+.cx-kpi{padding:14px 18px}
+.cx-kpi-top,.ws-stat-card .lbl,.dsum-card .dl{font-size:11px;font-weight:700;color:var(--ink-faint);letter-spacing:.02em;text-transform:none}
+.cx-kpi-num,.ws-stat-card .num,.dsum-card .dv{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.cx-kpi-hero{background:linear-gradient(135deg,rgba(99,102,241,.08),var(--surface-solid) 70%)}
+.cx-kpi-hero .cx-kpi-num{color:var(--accent)}
+.cx-kpi.attn{background:#FEF6F6}
+.dsum-card.attn{background:#FEF6F6}
+.tdp-stats{border-radius:14px}
+
+/* 5) Form controls — same height/radius/border as the board filters */
+input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=color]),select,textarea{border-radius:10px;border-color:var(--ui-ctl-line)}
+.btn{border-radius:10px}
+.btn-sm{border-radius:8px}
+
+.main .kpi-tabs{display:inline-flex;max-width:100%;padding:3px;gap:2px;background:var(--ui-seg-bg);border:none;border-radius:10px;margin-bottom:18px}
+.main .kpi-tab{border-radius:8px;padding:7px 14px}
+.main .kpi-tab.active{background:#fff!important;color:var(--ink);box-shadow:var(--shadow-sm)!important}
+.main .kpi-tab.active::after{display:none}
+.ft-page>.ui-eyebrow{padding:6px 20px 0}
+
+/* 7) Typography — one text scale for the whole system (Krissha: "ปรับรูปแบบ Text ให้เหมือนกัน")
+      Title 24/800 · Section 14/800 · Item title 13.5/700 · Body 13/400 · Field label 12/700 · Table header 11/700 UPPER
+      · Meta/hint 11.5/500. Thai labels are never uppercased/letter-spaced (only Latin table headers & the eyebrow). */
+.field>label,.board-toolbar label,.pb2-f>span,.mc3-f>span,.ss-grid label,.cp-post-l{font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:none;letter-spacing:0}
+.admin-table th,.ss-table th,.po-briefs-table th,.pr-table th,.cp-table th,.cp-htable th,.mc3 .po-briefs-table th{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.03em}
+.wq-title,.aw-title,.mp-tname,.mc3-name,.tc2-title,.cp-item-n.big{font-size:13.5px;font-weight:700}
+.pb3 #pbLane .pb3-card .tc2-title{font-size:13.5px}
+.hint{font-size:11.5px}
+.wq-sub,.aw-sub,.cx-muted{font-size:12px}
+.cx-kpi-top,.cp2-stat .k,.pb2-stat .k,.ws-stat-card .lbl,.dsum-card .dl,.tdp-stat .lbl,.wsv-lbl{font-size:11.5px;font-weight:700;color:var(--ink-faint);text-transform:none;letter-spacing:0}
+.cx-kpi-num,.cp2-stat .v,.ws-stat-card .num,.dsum-card .dv,.tdp-stat .val{font-size:24px;font-weight:800;letter-spacing:-.02em}
+.section-title,.pf-tabtitle,.cp-log-h b,.cp-tray-h b,.awl-multi-head{font-size:14px;font-weight:800}
+.pagesub,.cx-sub{font-size:13px;font-weight:400;line-height:1.55}
+/* 6) Small parts */
+.chip{border-radius:999px}
+.badge{border-radius:999px}
+.back-home-bar{margin-bottom:14px}
 </style>
 <style>
 .gd-entry-modes{display:flex;gap:6px;margin:14px 0 16px;padding:5px;background:#e9edf5;border-radius:12px;width:max-content;max-width:100%}
@@ -9803,7 +10329,7 @@ function renderStudioFlowPage(){
   // DEV MASTER REQUEST §10 — a small breadcrumb above the embedded iframe; safe to add since
   // positionStudioFlowFrame() always re-measures the placeholder's live rect after each render, so the
   // iframe simply resizes to whatever space is left below this line — no change to the iframe itself.
-  return `<div class="sf-page"><div class="hint" style="margin-bottom:8px">Tools / Studio Flow</div><div class="sf-placeholder" data-sfplaceholder="1"></div></div>`;
+  return `<div class="sf-page"><div class="ui-eyebrow">Tools / Studio Flow</div><div class="sf-placeholder" data-sfplaceholder="1"></div></div>`;
 }
 // The live <iframe> is created once and appended to document.body — OUTSIDE the innerHTML-managed #app
 // subtree — specifically so it is never destroyed/recreated by an unrelated render() elsewhere in this app
@@ -9846,7 +10372,7 @@ window.addEventListener('resize', positionStudioFlowFrame);
 // ---- Tools / Resize (Video & Image Compressor) — same persistent-iframe pattern as Studio Flow, so a running
 // batch keeps going when you switch to another page and come back.
 function renderResizeToolPage(){
-  return `<div class="sf-page rz-page"><div class="hint" style="margin-bottom:8px">Tools / Resize — ย่อ / บีบอัดรูปภาพและวีดีโอ (ทำในเครื่อง ไม่อัปโหลดไฟล์)</div><div class="sf-placeholder" data-rzplaceholder="1"></div></div>`;
+  return `<div class="sf-page rz-page"><div class="ui-eyebrow">Tools / Resize — ย่อ / บีบอัดรูปภาพและวีดีโอ (ทำในเครื่อง ไม่อัปโหลดไฟล์)</div><div class="sf-placeholder" data-rzplaceholder="1"></div></div>`;
 }
 let rzFrameEl = null;
 function positionResizeFrame(){
@@ -10103,10 +10629,11 @@ function renderToolsGroupHTML(){
   const curSub = ftCurrentSub();
   const inRunFrame = inFrame && ftCurrentSection()==='run';
   const frameChildren = [
-    {sub:'manual', label:'Manual'},
+    // Krissha, 2026-11 — menu order: Platform Frame → White Background → Automation CSV → Manual.
+    {sub:'platform', label:'Platform Frame'},
     {sub:'whitebg', label:'White Background'},
     {sub:'csv', label:'Automation CSV'},
-    {sub:'platform', label:'Platform Frame'},
+    {sub:'manual', label:'Manual'},
   ];
   // Krissha, 2026-09-24: Studio Flow moved to the bottom of the TOOLS group (was first).
   return `<button type="button" class="sidenav-btn" data-navtoolexpand="frame"><span class="sidenav-chev">${frameOpen?'▾':'▸'}</span>Frame</button>
@@ -12012,7 +12539,7 @@ function renderImageStitchingPage(){
   const st = STATE.imgStitch;
   const hasItems = st.items.length>0;
   return `
-  <div class="breadcrumb hint" style="margin-bottom:6px">Tools / Image Stitching</div>
+  <div class="ui-eyebrow">Tools / Image Stitching</div>
   <h1 class="pagetitle">Image Stitching</h1>
   <p class="pagesub">ต่อภาพหลายภาพตามลำดับและ Export เป็นภาพเดียว</p>
   <div class="imgstitch-grid">
@@ -13203,13 +13730,13 @@ function myCompletedRowHTML(t, me, opts){
   const showReopen = !!o.showReopen && (isLead() || hasAdminAccess());
   const roles = myRoleOnTask(t, me);
   return `<tr data-opentask="${t.task_id}">
-    <td style="white-space:nowrap">${fmtDate(deliveredDateOf(t))}</td>
-    <td><strong>${taskDisplayName(t)}</strong><div class="hint mono" style="margin-top:1px">${t.task_id}</div>${t.is_backdated ? `<span class="chip" style="color:#a15c00;font-weight:700;margin-top:2px;display:inline-block">⏱ Backdated</span>` : ''}</td>
-    <td>${t.project_name||'—'}</td>
-    <td>${t.task_type||t.task_category||'—'}</td>
-    <td>${(t.platform||[]).length ? t.platform.join(', ') : '—'}</td>
-    ${showRole ? `<td class="hint">${roles.length ? roles.join(' / ') : '—'}</td>` : ''}
-    <td style="white-space:nowrap">${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Final Work Folder" onclick="event.stopPropagation()">📁 เปิด Folder</a>` : t.aw_link ? `<a href="${escAttr(t.aw_link)}" target="_blank" rel="noopener" class="btn btn-sm btn-ghost" title="Artwork Link" onclick="event.stopPropagation()">🔗 เปิดลิงก์งาน</a>` : '—'}</td>
+    <td style="white-space:nowrap"><span class="mc3-date">✓ ${fmtDate(deliveredDateOf(t))}</span></td>
+    <td><strong class="mc3-name">${taskDisplayName(t)}</strong><div class="hint mono" style="margin-top:1px">${t.task_id}</div>${t.is_backdated ? `<span class="chip" style="color:#a15c00;font-weight:700;margin-top:2px;display:inline-block">⏱ Backdated</span>` : ''}</td>
+    <td>${t.project_name?`<span class="mc3-proj">${escAttr(t.project_name)}</span>`:'—'}</td>
+    <td>${(t.task_type||t.task_category)?`<span class="mc3-type" style="--cc:${awCatColor(t.task_category)}">${escAttr(t.task_type||t.task_category)}</span>`:'—'}</td>
+    <td>${(t.platform||[]).length ? `<span class="mc3-plats">${t.platform.map(platformChipHTML).join('')}</span>` : '—'}</td>
+    ${showRole ? `<td>${roles.length ? roles.map(r=>`<span class="mc3-role ${r==='Designer'?'d':'o'}">${escAttr(r)}</span>`).join(' ') : '—'}</td>` : ''}
+    <td style="white-space:nowrap">${t.completedWorkFolderUrl ? `<a href="${t.completedWorkFolderUrl}" target="_blank" rel="noopener" class="ui-linkbtn" title="Final Work Folder" onclick="event.stopPropagation()">📁 เปิด Folder ↗</a>` : t.aw_link ? `<a href="${escAttr(t.aw_link)}" target="_blank" rel="noopener" class="ui-linkbtn" title="Artwork Link" onclick="event.stopPropagation()">🔗 เปิดลิงก์งาน ↗</a>` : '—'}</td>
     <td style="white-space:nowrap;display:flex;gap:6px">
       <button type="button" class="btn btn-sm btn-ghost">ดูงาน →</button>
       ${showReopen ? `<button type="button" class="btn btn-sm btn-ghost" style="color:#b45309" data-act="reopenTask" data-id="${t.task_id}" title="นำงานนี้กลับเข้า Work Queue">เปิดงานใหม่</button>` : ''}
@@ -14868,6 +15395,7 @@ function myCompletedMonthDefaultOpen(y,m){ const cur=myCompletedGroupInfo(todayI
 function myCompletedIsExpanded(ui, key, defaultOpen){
   return Object.prototype.hasOwnProperty.call(ui.expanded, key) ? ui.expanded[key] : defaultOpen;
 }
+const MC3_MONTH_COLORS = ['#6366F1','#8B5CF6','#EC4899','#F43F5E','#F97316','#F59E0B','#84CC16','#10B981','#14B8A6','#06B6D4','#3B82F6','#6366F1'];
 function renderMyCompletedJobs(){
   const me = STATE.auth.identity;
   const ui = STATE.myCompletedUI;
@@ -14916,31 +15444,50 @@ function renderMyCompletedJobs(){
       ${options.map(o=>`<option value="${escAttr(String(o))}" ${String(current)===String(o)?'selected':''}>${escAttr(String(o))}</option>`).join('')}
     </select>`;
 
+  // ประวัติงาน v3 (Krissha: "ปรับ UI หน้านี้ให้สวยหน่อย"): colour hero with quick stats, filters in one tidy card,
+  // colour-coded year/month headers. Same IDs/handlers/filters as before — presentation only.
+  const nowYm = todayISO().slice(0,7), nowBYear = String(Number(nowYm.slice(0,4))+543);
+  const thisMonthN = all.filter(t=>(deliveredDateOf(t)||'').slice(0,7)===nowYm).length;
+  const thisYearN = all.filter(t=>String(myCompletedGroupInfo(deliveredDateOf(t)).bYear)===nowBYear).length;
+  const withLinkN = all.filter(t=>t.completedWorkFolderUrl||t.aw_link).length;
+  const mcSel = (id, cur, options, allLabel, label) => `<label class="mc3-f${String(cur)!=='ALL'?' set':''}"><span>${label}</span>${filterSelect(id, cur, options, allLabel)}</label>`;
   return `
-  <h1 class="pagetitle">ประวัติงาน</h1>
-  <p class="pagesub">งานที่คุณเคยมีส่วนเกี่ยวข้อง (Designer/Brief Owner) และเสร็จสมบูรณ์แล้วทั้งหมด — เห็นเฉพาะของคุณเท่านั้น</p>
+  <div class="mc3">
+  <div class="mc3-hero">
+    <div>
+      <div class="ui-eyebrow" style="color:rgba(255,255,255,.85)">Working Process / ประวัติงาน</div>
+      <h1 class="pagetitle" style="color:#fff">ประวัติงาน</h1>
+      <p class="pagesub" style="margin:0;color:rgba(255,255,255,.88)">งานที่คุณมีส่วนเกี่ยวข้อง (Designer / Brief Owner) และเสร็จสมบูรณ์แล้ว — เห็นเฉพาะของคุณ</p>
+    </div>
+    <div class="mc3-kpis">
+      <div><b>${all.length}</b><span>งานเสร็จทั้งหมด</span></div>
+      <div><b>${thisMonthN}</b><span>เดือนนี้</span></div>
+      <div><b>${thisYearN}</b><span>ปี ${nowBYear}</span></div>
+      <div><b>${withLinkN}</b><span>มีลิงก์งาน</span></div>
+    </div>
+  </div>
 
-  <div class="board-toolbar">
-    <div style="min-width:240px;flex:1"><label>ค้นหา</label><input id="myCompletedSearch" value="${escAttr(ui.search)}" placeholder="ชื่องาน / Task ID / Project / คีย์เวิร์ด..."></div>
-    <div style="min-width:150px"><label>Project</label>${filterSelect('myCompletedFilterProject', f.project, opts.projects, 'ทุก Project')}</div>
-    <div style="min-width:150px"><label>ประเภทงาน</label>${filterSelect('myCompletedFilterType', f.workType, opts.types, 'ทุกประเภท')}</div>
-    <div style="min-width:150px"><label>Platform</label>${filterSelect('myCompletedFilterPlatform', f.platform, opts.platforms, 'ทุก Platform')}</div>
-    <div style="min-width:130px"><label>Role</label>${filterSelect('myCompletedFilterRole', f.role, ['Designer','Brief Owner'], 'ทุก Role')}</div>
-    <div style="min-width:110px"><label>ปี</label>${filterSelect('myCompletedFilterYear', f.year, opts.years, 'ทุกปี')}</div>
-    <div style="min-width:140px"><label>เดือน</label>
+  <div class="mc3-bar">
+    <label class="mc3-f mc3-search${searchQ?' set':''}"><span>ค้นหา</span><input id="myCompletedSearch" value="${escAttr(ui.search)}" placeholder="🔍 ชื่องาน / Task ID / Project / คีย์เวิร์ด..."></label>
+    ${mcSel('myCompletedFilterProject', f.project, opts.projects, 'ทุก Project', 'Project')}
+    ${mcSel('myCompletedFilterType', f.workType, opts.types, 'ทุกประเภท', 'ประเภทงาน')}
+    ${mcSel('myCompletedFilterPlatform', f.platform, opts.platforms, 'ทุก Platform', 'Platform')}
+    ${mcSel('myCompletedFilterRole', f.role, ['Designer','Brief Owner'], 'ทุก Role', 'Role')}
+    ${mcSel('myCompletedFilterYear', f.year, opts.years, 'ทุกปี', 'ปี')}
+    <label class="mc3-f${f.month!=='ALL'?' set':''}"><span>เดือน</span>
       <select id="myCompletedFilterMonth">
         <option value="ALL">ทุกเดือน</option>
         ${TH_MONTHS_FULL.map((lbl,i)=>`<option value="${i+1}" ${f.month===String(i+1)?'selected':''}>${lbl}</option>`).join('')}
-      </select></div>
-    <button type="button" class="btn btn-sm btn-ghost" id="myCompletedClearFilters" style="align-self:center">ล้างตัวกรอง</button>
+      </select></label>
+    <button type="button" class="mc3-clear" id="myCompletedClearFilters">✕ ล้างตัวกรอง</button>
   </div>
 
-  ${activeChips.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:-8px 0 14px">
-    ${activeChips.map(c=>`<span class="chip" style="cursor:pointer" data-clearchip="${c.k}">${escapeFtHtml(c.label)} ✕</span>`).join('')}
+  ${activeChips.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">
+    ${activeChips.map(c=>`<span class="chip mc3-chip" style="cursor:pointer" data-clearchip="${c.k}">${escapeFtHtml(c.label)} ✕</span>`).join('')}
     <span class="chip" style="cursor:pointer;background:transparent;color:var(--ink-faint)" id="myCompletedClearFilters2">ล้างทั้งหมด</span>
   </div>` : ''}
 
-  <div class="hint" style="margin:-4px 0 14px">พบ ${filtered.length} งาน</div>
+  <div class="mc3-found">พบ <b>${filtered.length}</b> งาน${hasActive?' ตามตัวกรอง':''}</div>
 
   ${filtered.length===0 ? `
     <div class="card placeholder"><div class="ico">📋</div>${hasActive ? `ไม่พบงานที่ตรงกับการค้นหา<div style="margin-top:10px"><button type="button" class="btn btn-sm btn-ghost" id="myCompletedClearSearch">ล้างการค้นหา</button></div>` : 'ยังไม่มีประวัติงานที่เสร็จแล้ว'}</div>
@@ -14948,17 +15495,19 @@ function renderMyCompletedJobs(){
     const yOpen = hasActive || myCompletedIsExpanded(ui, 'y'+y, myCompletedYearDefaultOpen(y));
     const monthKeys = Object.keys(byYear[y].months).sort((a,b)=>b-a);
     return `
-    <div class="card" style="margin-bottom:10px;padding:0;overflow:hidden">
-      <div data-yeartoggle="${y}" style="cursor:pointer;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;font-weight:700;background:#F8FAFC">
-        <span>${yOpen?'▼':'▶'} ${y}</span><span class="hint">${byYear[y].count} งาน</span>
+    <div class="card mc3-year" style="margin-bottom:12px;padding:0;overflow:hidden">
+      <div data-yeartoggle="${y}" class="mc3-yh">
+        <span class="mc3-yl"><i class="mc3-chev">${yOpen?'▾':'▸'}</i><b class="mc3-ybadge">${y}</b>ปี พ.ศ.</span><span class="mc3-cnt">${byYear[y].count} งาน</span>
       </div>
       ${yOpen ? monthKeys.map(m=>{
         const md = byYear[y].months[m];
         const mOpen = hasActive || myCompletedIsExpanded(ui, 'm'+y+'-'+m, myCompletedMonthDefaultOpen(y,m));
         return `
         <div>
-          <div data-monthtoggle="${y}-${m}" style="cursor:pointer;padding:10px 16px 10px 28px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);font-weight:600;font-size:13px">
-            <span>${mOpen?'▼':'▶'} ${md.label}</span><span class="hint">${md.count} งาน</span>
+          <div data-monthtoggle="${y}-${m}" class="mc3-mh${mOpen?' open':''}" style="--mc:${MC3_MONTH_COLORS[(Number(m)-1+12)%12]}">
+            <span class="mc3-ml"><i class="mc3-chev">${mOpen?'▾':'▸'}</i><i class="mc3-mdot"></i>${md.label}</span>
+            <span class="mc3-mbar"><span style="width:${Math.max(4, Math.round(md.count/Math.max(1,byYear[y].count)*100))}%"></span></span>
+            <span class="mc3-cnt">${md.count} งาน</span>
           </div>
           ${mOpen ? `<table class="po-briefs-table" style="border-radius:0;border-left:none;border-right:none;box-shadow:none;margin:0">
             <thead><tr><th>วันที่เสร็จ</th><th>ชื่องาน</th><th>Project</th><th>ประเภทงาน</th><th>Platform</th><th>Role</th><th>Final Folder</th><th></th></tr></thead>
@@ -14968,7 +15517,7 @@ function renderMyCompletedJobs(){
       }).join('') : ''}
     </div>`;
   }).join('')}
-  `;
+  </div>`;
 }
 function bindMyCompletedJobs(){
   const ui = STATE.myCompletedUI;
@@ -19918,6 +20467,12 @@ function allWorkSortTasks(list, field, dir){
   });
   return sorted;
 }
+// All Work v3 — one colour per status group (same family as the Process Board stages).
+const AW_GROUP_COLOR = {ALL:{c:'#6366F1',bg:'#EEF0FF'}, NOT_STARTED:{c:'#64748B',bg:'#F1F5F9'}, IN_PROGRESS:{c:'#2563EB',bg:'#E8F0FE'},
+  REVIEW:{c:'#7C3AED',bg:'#F3EEFF'}, REVISION:{c:'#EA580C',bg:'#FFF1E6'}, DONE:{c:'#059669',bg:'#E6F7F0'}};
+const AW_PERSON_PALETTE = ['#6366F1','#0EA5E9','#10B981','#F59E0B','#EC4899','#8B5CF6','#14B8A6','#F97316'];
+function awPersonColor(name){ let h=0; for(const ch of String(name||'')) h=(h*31+ch.charCodeAt(0))>>>0; return AW_PERSON_PALETTE[h%AW_PERSON_PALETTE.length]; }
+function awCatColor(cat){ return ({'E-Commerce':'#2563EB','Content':'#DB2777','Product':'#059669','Offline Artwork':'#D97706'})[cat] || '#64748B'; }
 function renderAllWorkPage(){
   const aw = STATE.allWork;
   if(!aw.month) aw.month = todayISO().slice(0,7); // §3 Default: เดือนปัจจุบัน
@@ -19959,23 +20514,36 @@ function renderAllWorkPage(){
     const finished = allWorkStatusGroup(t)==='DONE';
     const late = !finished && t.prefer_delivery_date && t.prefer_delivery_date<today;
     const sub = [t.task_type||t.task_category, t.project_name, `${allWorkRequesterName(t)||'—'} → ${allWorkDesignerName(t)||'Pending Assignment'}`].filter(Boolean).map(escAttr).join(' · ');
-    return `<div class="aw-row" data-opentask="${t.task_id}">
+    // All Work v3 (Krissha: "อยากเป็นด้วยสี"): row coloured by its status group (left strip + status pill),
+    // colourful designer avatar, and a due pill that turns red/orange/amber as the deadline gets close.
+    const g = allWorkStatusGroup(t), gc = AW_GROUP_COLOR[g] || AW_GROUP_COLOR.ALL;
+    const dn = allWorkDesignerName(t) || '', dc = awPersonColor(dn);
+    const dd = t.prefer_delivery_date ? Math.round((new Date(t.prefer_delivery_date+'T00:00:00') - new Date(today+'T00:00:00'))/864e5) : null;
+    const dueCls = finished ? 'done' : dd===null ? '' : dd<0 ? 'late' : dd===0 ? 'today' : dd<=2 ? 'soon' : '';
+    const dueHint = finished ? 'เสร็จแล้ว' : dd===null ? '' : dd<0 ? `เลย ${-dd} วัน` : dd===0 ? 'วันนี้' : `อีก ${dd} วัน`;
+    const cat = t.task_category || '';
+    return `<div class="aw-row aw3-row" data-opentask="${t.task_id}" style="--gc:${gc.c};--gb:${gc.bg}">
       <div style="min-width:0">
         <div class="aw-title">${escAttr(taskDisplayName(t))}<span class="aw-id">${escAttr(t.task_id||'')}</span></div>
-        <div class="aw-sub">${plats.map(platformChipHTML).join('')}<span>${sub}</span></div>
+        <div class="aw-sub">${cat?`<span class="aw3-cat" style="--cc:${awCatColor(cat)}">${escAttr(cat)}</span>`:''}${plats.map(platformChipHTML).join('')}<span>${[t.task_type, t.project_name, `${allWorkRequesterName(t)||'—'} →`].filter(Boolean).map(escAttr).join(' · ')}</span>
+          <span class="aw3-who" title="${escAttr(dn||'Pending Assignment')}"><i style="background:${dn?dc:'#CBD5E1'}">${dn?escAttr(dn.trim().charAt(0).toUpperCase()):'?'}</i>${escAttr(dn?dn.split(' ')[0]:'ยังไม่ Assign')}</span></div>
       </div>
-      <div class="aw-dates${late?' late':''}">Brief ${t.brief_timestamp?fmtDateShort(t.brief_timestamp):'—'}<br>Due <b>${t.prefer_delivery_date?fmtDateShort(t.prefer_delivery_date):'—'}</b></div>
-      <div style="text-align:right;min-width:0"><span class="wq-st s-${t.review_status} aw-st-${allWorkStatusGroup(t)}">${STATUS_LABEL[t.review_status]||t.review_status}</span></div>
+      <div class="aw3-due ${dueCls}">
+        <span class="aw3-due-d">${t.prefer_delivery_date?fmtDateShort(t.prefer_delivery_date):'—'}</span>
+        <small>${dueHint || ('Brief '+(t.brief_timestamp?fmtDateShort(t.brief_timestamp):'—'))}</small>
+      </div>
+      <div style="text-align:right;min-width:0"><span class="aw3-st">${STATUS_LABEL[t.review_status]||t.review_status}</span></div>
     </div>`;
   };
 
   return `
-  <div class="hint" style="margin-bottom:8px">Working Process / All Work</div>
-  <div class="dash-header">
+  <div class="aw3-hero">
     <div>
-      <h1 class="pagetitle">All Work</h1>
-      <p class="pagesub" style="margin-bottom:0">Monthly Work Database — งานทั้งหมดของทีมในเดือนที่เลือก</p>
+      <div class="ui-eyebrow" style="color:rgba(255,255,255,.85)">Working Process / All Work</div>
+      <h1 class="pagetitle" style="color:#fff">All Work</h1>
+      <p class="pagesub" style="margin:0;color:rgba(255,255,255,.85)">Monthly Work Database — งานทั้งหมดของทีมในเดือนที่เลือก</p>
     </div>
+    <div class="aw3-hero-n"><b>${counts.ALL}</b><span>งาน · ${monthLabel}</span></div>
   </div>
 
   <div class="aw-bar">
@@ -19990,11 +20558,12 @@ function renderAllWorkPage(){
     </div>
   </div>
 
+  ${counts.ALL ? `<div class="aw3-dist" title="สัดส่วนงานตามสถานะ">${TABS.slice(1).filter(([k])=>counts[k]).map(([k,l])=>`<span style="flex:${counts[k]};background:${AW_GROUP_COLOR[k].c}" title="${l} ${counts[k]}"></span>`).join('')}</div>` : ''}
   <!-- Krissha — "มันกินที่ไป": status tabs + compact pill dropdowns share ONE row (tabs scroll sideways on
        narrow screens instead of wrapping into extra rows). -->
   <div class="aw-row2">
-    <div class="aw-tabs">
-      ${TABS.map(([k,l])=>`<button type="button" class="${aw.status===k?'on':''}" data-awstatus="${k}">${l} <b>${counts[k]}</b></button>`).join('')}
+    <div class="aw-tabs aw3-tabs">
+      ${TABS.map(([k,l])=>{ const c = AW_GROUP_COLOR[k]; return `<button type="button" class="aw3-tile ${aw.status===k?'on':''} ${counts[k]?'':'zero'}" data-awstatus="${k}" style="--gc:${c.c};--gb:${c.bg}"><span class="l"><i></i>${l}</span><b>${counts[k]}</b></button>`; }).join('')}
     </div>
     <div class="aw-pills">
       <select id="awDesignerFilter" class="aw-pill${aw.designer!=='ALL'?' on':''}">
@@ -20162,6 +20731,15 @@ function renderBoard(){
   const designers = (STATE.users||[]).filter(u=>(u.role==='designer'||u.role==='lead') && u.status==='active')
     .map(u=>u.name).sort((a,b)=>a.localeCompare(b));
   const month = STATE.board.month;
+  // Default view per profile (Krissha): a Designer / Lead Designer opens the board on THEIR OWN work; a requester
+  // (Project Owner / anyone who isn't on the designer list) keeps seeing everyone's work. Applied once per signed-in
+  // person (re-applied if a different person signs in), so switching to "งานทั้งทีม" afterwards sticks for the session.
+  const boardDefaultDesigner = (STATE.auth.role==='designer' && designers.includes(STATE.auth.identity)) ? STATE.auth.identity : 'ALL';
+  if(STATE.board.defaultFor !== STATE.auth.identity){
+    STATE.board.defaultFor = STATE.auth.identity;
+    STATE.board.designer = boardDefaultDesigner;
+  }
+  STATE.board.defaultDesigner = boardDefaultDesigner;
 
   // §3/§4: Month scope first, then Designer + Project on top of it (all three combine — §2 "ทั้ง 3 Filter
   // ต้องทำงานร่วมกัน") — this single `filtered` list feeds BOTH the Monthly Summary and every Kanban
@@ -20199,7 +20777,11 @@ function renderBoard(){
   if(STATE.board.requester!=='ALL') filtered = filtered.filter(t=>boardRequesterName(t)===STATE.board.requester);
   if(STATE.board.category!=='ALL') filtered = filtered.filter(t=>t.task_category===STATE.board.category);
   if(STATE.board.platform!=='ALL') filtered = filtered.filter(t=>(t.platform||[]).includes(STATE.board.platform));
-  const boardAnyFilter = ['designer','project','requester','category','platform'].some(k=>STATE.board[k]!=='ALL');
+  // Process Board v3 — "เฉพาะงานเร่ง" quick toggle: late / due within 2 working days / URGENT-CRITICAL, live work only.
+  const isBoardHot = t=>{ if(isBoardTaskTerminal(t)) return false; const d=dueRelative(t);
+    return d.late || (d.days!==null && d.days<=2 && !designerHandoff(t)) || ['URGENT','CRITICAL'].includes(t.priority); };
+  if(STATE.board.onlyHot) filtered = filtered.filter(isBoardHot);
+  const boardAnyFilter = STATE.board.designer!==boardDefaultDesigner || ['project','requester','category','platform'].some(k=>STATE.board[k]!=='ALL') || !!STATE.board.onlyHot;
 
   // §6/§7: counts always show all 5 categories, even at 0, "เพื่อให้ Layout คงที่และเทียบเดือนได้ง่าย".
   const catCounts = {}; BOARD_SUMMARY_CATEGORIES.forEach(c=>catCounts[c]=0);
@@ -20208,66 +20790,101 @@ function renderBoard(){
   const monthLabel = boardMonthOptions().find(o=>o.value===month)?.label
     || new Date(month+'-01T00:00:00').toLocaleDateString('th-TH',{month:'long',year:'numeric'});
 
+  // Process Board v3 (feedback "ยังดูยาก"): one clear path down the page —
+  //   1) header  2) quick toggles + filters  3) pipeline overview (count per step, click to jump)
+  //   4) the Kanban itself, in workflow order on one row  5) secondary info (queue, finished work) folded away.
+  // Same data/filters/IDs/sort as before; only presentation changed.
+  const nOverdue = filtered.filter(t=>!isBoardTaskTerminal(t) && dueRelative(t).late).length;
+  const me = STATE.auth.identity;
+  const canMine = designers.includes(me);
+  const isMine = canMine && STATE.board.designer===me;
+  const live = BOARD_SECTIONS[0], done = BOARD_SECTIONS[1];
+  const byStatus = st=>filtered.filter(t=>t.review_status===st);
+  const doneCount = filtered.filter(t=>done.statuses.includes(t.review_status)).length;
+  const openRel = !!STATE.board.releaseOpen;
   return `
-  <div class="dash-header" style="align-items:flex-start;flex-wrap:wrap;gap:10px">
+  <div class="pb2 pb3">
+  <div class="pb2-head">
     <div>
-      <h1 class="pagetitle">Working Process Board</h1>
-      <p class="pagesub" style="margin-bottom:0">Kanban View — คลิกการ์ดเพื่อดูรายละเอียด/ประวัติการตรวจ</p>
+      <h1 class="pagetitle" style="margin:0">Process Board</h1>
+      <p class="pagesub" style="margin:4px 0 0">งานทุกชิ้นของเดือน${monthLabel} เรียงตามขั้นตอน · คลิกการ์ดเพื่อดูรายละเอียด</p>
     </div>
-    <!-- DEV SUMMARY — Create New Brief Entry Points §2/§6/§12 — second entry point into the EXACT same
-         Create Brief flow as My Workspace's own button (identical data-side="brief" target, so there is
-         no second Brief Form/State/Validation/Submit path to fork — see the shared [data-side] handler).
-         Gated by brief.create, never a hardcoded role check, so a future Custom Role with that
-         permission sees this automatically. Header Action style, not a banner — wraps to full width on
-         narrow screens via the existing flex-wrap on this header, no separate mobile layout needed. -->
+    <!-- DEV SUMMARY — Create New Brief Entry Points §2/§6/§12 — same data-side="brief" target as My
+         Workspace's button (one shared Brief flow). Gated by brief.create, never a hardcoded role check. -->
     ${hasPermission(STATE.auth.role,'brief.create') ? `<button type="button" class="btn btn-primary" data-side="brief" data-briefsource="working_process" style="flex:none">+ Create New Brief</button>` : ''}
   </div>
-  <div class="board-toolbar">
-    <div style="min-width:190px"><label>Designer</label>
-      <select id="boardDesignerFilter">
-        <option value="ALL" ${STATE.board.designer==='ALL'?'selected':''}>All Designers</option>
-        ${designers.map(d=>`<option value="${d}" ${STATE.board.designer===d?'selected':''}>${d}</option>`).join('')}
-      </select>
-    </div>
-    <div style="min-width:220px"><label>Project</label>
-      <select id="boardProjectFilter">
-        <option value="ALL" ${STATE.board.project==='ALL'?'selected':''}>ทุกโปรเจกต์ (All Projects)</option>
-        ${proj.map(p=>`<option value="${p}" ${STATE.board.project===p?'selected':''}>${p}</option>`).join('')}
-      </select>
-    </div>
-    <div style="min-width:190px"><label>ผู้บรีฟ (Requester)</label>
-      <select id="boardRequesterFilter">
-        <option value="ALL" ${STATE.board.requester==='ALL'?'selected':''}>ทุกคน (All Requesters)</option>
-        ${boardRequesters.map(r=>`<option value="${escAttr(r)}" ${STATE.board.requester===r?'selected':''}>${escAttr(r)}</option>`).join('')}
-      </select>
-    </div>
-    <div class="chip" style="padding:8px 12px;font-size:12px">${filtered.length} งานทั้งหมด</div>
-    ${boardAnyFilter ? `<button type="button" class="btn btn-ghost" id="boardClearFilters" style="flex:none;padding:8px 12px;font-size:12px">ล้างตัวกรอง</button>` : ''}
+
+  <div class="pb3-bar">
+    ${canMine ? `<div class="pb3-seg" role="group" aria-label="มุมมอง">
+      <button type="button" class="${STATE.board.designer==='ALL'?'on':''}" id="boardViewAll">งานทั้งทีม</button>
+      <button type="button" class="${isMine?'on':''}" id="boardViewMine">👤 งานของฉัน</button>
+    </div>` : ''}
+    <button type="button" class="pb3-tog${STATE.board.onlyHot?' on':''}" id="boardOnlyHot" title="เลยกำหนด · ส่งภายใน 2 วัน · งาน Urgent/Critical">🔥 เฉพาะงานเร่ง</button>
+    <span class="pb3-div"></span>
+    <select id="boardDesignerFilter" class="pb3-sel${STATE.board.designer!=='ALL'?' set':''}" aria-label="Designer">
+      <option value="ALL" ${STATE.board.designer==='ALL'?'selected':''}>Designer: ทุกคน</option>
+      ${designers.map(d=>`<option value="${d}" ${STATE.board.designer===d?'selected':''}>${d}</option>`).join('')}
+    </select>
+    <select id="boardProjectFilter" class="pb3-sel${STATE.board.project!=='ALL'?' set':''}" aria-label="Project">
+      <option value="ALL" ${STATE.board.project==='ALL'?'selected':''}>โปรเจกต์: ทั้งหมด</option>
+      ${proj.map(p=>`<option value="${p}" ${STATE.board.project===p?'selected':''}>${p}</option>`).join('')}
+    </select>
+    <select id="boardRequesterFilter" class="pb3-sel${STATE.board.requester!=='ALL'?' set':''}" aria-label="ผู้บรีฟ">
+      <option value="ALL" ${STATE.board.requester==='ALL'?'selected':''}>ผู้บรีฟ: ทุกคน</option>
+      ${boardRequesters.map(r=>`<option value="${escAttr(r)}" ${STATE.board.requester===r?'selected':''}>${escAttr(r)}</option>`).join('')}
+    </select>
+    ${boardAnyFilter ? `<button type="button" class="pb2-clear" id="boardClearFilters">✕ ล้างตัวกรอง</button>` : ''}
   </div>
 
-  <!-- §5-§8/§12 Monthly Summary — reuses the same .dash-summary/.dsum-card tiles Team Dashboard already
-       uses, counted strictly off Task Category and recalculated live from the exact same filtered task
-       list the Kanban columns below use, so Month/Designer/Project always agree with the numbers here. -->
-  <div class="card" style="margin-bottom:20px">
-    <div class="section-title" style="margin-bottom:10px">Monthly Summary — ${monthLabel}</div>
-    <div class="dash-summary" style="margin-bottom:0">
-      ${BOARD_SUMMARY_CATEGORIES.map(c=>`<div class="dsum-card"><div class="dv">${catCounts[c]}</div><div class="dl">${BOARD_SUMMARY_CATEGORY_LABEL[c]}</div></div>`).join('')}
-      <div class="dsum-card" style="border-color:var(--accent)"><div class="dv" style="color:var(--accent)">${filtered.length}</div><div class="dl">Total</div></div>
+  <!-- Pipeline overview: one number per step in workflow order — answers "งานค้างอยู่ตรงไหน" at a glance.
+       Also carries the §5-§8 Monthly Summary (by Task Category) as one quiet line underneath. -->
+  <div class="pb3-flow">
+    <div class="pb3-steps">
+      ${live.statuses.map((st,ix)=>{ const n=byStatus(st).length; return `
+        <button type="button" class="pb3-step${n?'':' zero'}" data-pbjump="${st}" style="--sc:${BOARD_STATUS_COLOR[st]}" title="${escAttr(STATUS_LABEL[st]||st)}">
+          <span class="no">${ix+1}</span><span class="lb">${BOARD_STATUS_SHORT[st]}</span><span class="nm">${n}</span>
+        </button>`;}).join('<span class="pb3-arrow">›</span>')}
+      <span class="pb3-arrow">›</span>
+      <button type="button" class="pb3-step done" data-pbjump="release" title="Approval & Release">
+        <span class="no">✓</span><span class="lb">ปิดงานแล้ว</span><span class="nm">${doneCount}</span>
+      </button>
+    </div>
+    <div class="pb3-meta">
+      <span><b>${filtered.length}</b> งาน</span>
+      ${nOverdue?`<span class="bad">⚠ ${nOverdue} งานเลยกำหนด</span>`:`<span class="ok">✓ ไม่มีงานเลยกำหนด</span>`}
+      <span class="pb3-cats">${BOARD_SUMMARY_CATEGORIES.filter(c=>catCounts[c]).map(c=>`${BOARD_SUMMARY_CATEGORY_LABEL[c]} <b>${catCounts[c]}</b>`).join(' · ') || ''}</span>
     </div>
   </div>
 
-  ${renderBoardQueue(filtered)}
-
-  ${BOARD_SECTIONS.map(sec=>`
-    <div class="board-section">
-      <div class="board-section-title">${sec.title}</div>
-      <div class="board-grid">
-        ${sec.statuses.map(st=>renderColumn(st, filtered.filter(t=>t.review_status===st))).join('')}
-      </div>
+  <div class="board-section pb3-lanewrap" id="pbLaneWrap">
+    <div class="board-grid pb3-lane" id="pbLane">
+      ${live.statuses.map((st,ix)=>renderColumn(st, byStatus(st), ix+1)).join('')}
     </div>
-  `).join('')}`;
+  </div>
+
+  <details class="pb3-fold" id="pbRelease" ${openRel?'open':''}>
+    <summary><span class="t">✓ ปิดงานแล้ว (Approval & Release)</span>
+      ${done.statuses.map(st=>`<span class="pb3-mini" style="--sc:${BOARD_STATUS_COLOR[st]}"><i></i>${BOARD_STATUS_SHORT[st]} ${byStatus(st).length}</span>`).join('')}
+      <span class="chev">${openRel?'ซ่อน':'แสดง'}</span></summary>
+    <div class="board-grid pb3-lane pb3-lane-done">
+      ${done.statuses.map(st=>renderColumn(st, byStatus(st))).join('')}
+    </div>
+  </details>
+
+  <details class="pb3-fold" id="pbQueue" ${STATE.board.queueOpen?'open':''}>
+    <summary><span class="t">📋 คิวงานเรียงตามกำหนดส่ง (All Work Queue)</span><span class="chev">${STATE.board.queueOpen?'ซ่อน':'แสดง'}</span></summary>
+    <div class="pb3-fold-body">${renderBoardQueue(filtered)}</div>
+  </details>
+  </div>`;
 }
-function renderColumn(status, tasks){
+// Process Board v2 — one accent color per workflow stage (column dot + top edge), reusing the app's tokens.
+const BOARD_STATUS_COLOR = {pending_lead_approval:'#64748B', new:'var(--accent)', in_progress:'var(--std-tx)',
+  pending_review:'#7C3AED', pending_client_review:'var(--pri-tx)', revision:'var(--urg-tx)',
+  delivered:'var(--ok-tx)', rejected:'var(--crit-tx)', closed_max_revision:'#334155'};
+const BOARD_STATUS_SHORT = {pending_lead_approval:'รอ Lead อนุมัติ', new:'Brief ใหม่', in_progress:'กำลังทำ',
+  pending_review:'รอ Lead ตรวจ', pending_client_review:'รอผู้บรีฟอนุมัติ', revision:'แก้ไขงาน',
+  delivered:'พร้อมปล่อย', rejected:'ไม่อนุมัติ', closed_max_revision:'ปิด (แก้ครบรอบ)'};
+function renderColumn(status, tasks, stepNo){
   // §10/§11 "การ์ดใหม่ / Action ล่าสุดต้องอยู่บนสุด": every column sorts newest-workflow-activity-first,
   // via the SAME lastUpdateOf() the app already computes from review_history (its latest entry timestamp,
   // falling back to brief_timestamp for a card with no history yet) — so "New Brief" naturally sorts by
@@ -20287,10 +20904,10 @@ function renderColumn(status, tasks){
   // it so it never scrolls out of view. data-boardcol is a stable per-column key (status is unique across
   // both BOARD_SECTIONS) used to restore this exact column's own scroll position after a full render() —
   // see SCROLL_PRESERVE_MULTI / captureScrollState / restoreScrollState.
-  return `<div class="col">
-    <div class="col-head"><span class="n">${STATUS_LABEL[status]}</span><span class="cnt">${sorted.length}</span></div>
+  return `<div class="col${sorted.length?'':' is-empty'}" style="--sc:${BOARD_STATUS_COLOR[status]||'var(--ink-faint)'}">
+    <div class="col-head" id="pbcol-${status}"><span class="n" title="${escAttr(STATUS_LABEL[status]||status)}">${stepNo?`<i class="stepno">${stepNo}</i>`:'<i class="dot"></i>'}<span class="nn"><b>${BOARD_STATUS_SHORT[status]||STATUS_LABEL[status]}</b><small>${STATUS_LABEL[status]||''}</small></span></span><span class="cnt">${sorted.length}</span></div>
     <div class="col-body" data-boardcol="${status}">
-      ${sorted.length===0 ? `<div class="empty-col">ไม่มีงาน</div>` : sorted.map(t=>taskCardHTML(t,true)).join('')}
+      ${sorted.length===0 ? `<div class="empty-col">— ว่าง —</div>` : sorted.map(t=>taskCardHTML(t,true)).join('')}
     </div>
   </div>`;
 }
@@ -20435,18 +21052,31 @@ function taskCardHTML(t){
     linkPill = `<a class="tc2-lk done" href="${escAttr(t.aw_link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="เปิดลิงก์ส่งงาน">✓ ส่งแล้ว ↗</a>`;
   }
   const platHTML = cardPlatformMetaHTML(t);
+  // Process Board v3 card: title → platform/type → due pill + who. Pending-approval cards show the
+  // suggested designer (faded) so a Lead still sees who it will go to.
   const assignee = t.assigned_user_name || '';
+  const who = assignee || t.suggested_designer || '';
   const countdown = autoCompleteCountdownShort(t);
-  return `<div class="taskcard ${t.paused&&t.review_status==='in_progress'?'is-paused':''}" data-opentask="${t.task_id}" style="border-left-color:${t.paused&&t.review_status==='in_progress'?'#94A3B8':priorityAccentColor(t.priority)}">
+  const paused = t.paused && t.review_status==='in_progress';
+  const mine = !!STATE.auth.identity && assignee===STATE.auth.identity;
+  const dueCls = designerHandoff(t) ? 'handoff' : due.late ? 'late' : due.days===0 ? 'today' : (due.days!==null && due.days<=2) ? 'soon' : '';
+  const hotPri = ['CRITICAL','URGENT'].includes(t.priority);
+  const pz = t.review_status==='in_progress' && (t.paused || pauseBtnHTML(t));
+  const actions = linkPill || pz;
+  return `<div class="taskcard pb3-card${paused?' is-paused':''}${mine?' is-mine':''}${hotPri?' is-hot':''}" data-opentask="${t.task_id}" style="--pc:${paused?'#94A3B8':priorityAccentColor(t.priority)}">
     ${canEditBriefTask(t) ? `<button type="button" class="iconbtn tc2-edit" data-editbrief="${t.task_id}" title="Edit Brief" onclick="event.stopPropagation()">✎</button>` : ''}
+    ${hotPri ? `<div class="pb3-pri">${t.priority==='CRITICAL'?'● วิกฤต':'● ด่วน'}</div>` : ''}
     <div class="tc2-title">${escAttr(taskDisplayName(t))}</div>
-    <div class="tc2-meta">
-      <span class="tc2-left">${platHTML}<span class="tc2-due${due.late?' late':''}">⏰ ${due.txt}</span>${scopeChangeChipHTML(t)}${boardCardFlagsHTML(t, false, extPending)}</span>
-      <span class="tc2-right">${linkPill}<span class="tc2-av${assignee?'':' none'}" title="${escAttr(assignee||'Pending Assignment')}">${assignee?escAttr(assignee.trim().charAt(0).toUpperCase()):'?'}</span></span>
+    <div class="pb3-sub">${platHTML}<span class="ty">${escAttr(t.task_type||t.task_category||'')}</span>${scopeChangeChipHTML(t)}</div>
+    <div class="pb3-foot">
+      <span class="pb3-due ${dueCls}" title="${escAttr(due.txt)}">${dueCls==='handoff'?'✓ ส่งตรวจแล้ว':due.txt==='—'?'ไม่มีกำหนดส่ง':due.txt}</span>${boardCardFlagsHTML(t, false, extPending)}
+      <span class="pb3-who${assignee?'':' pending'}" title="${escAttr(assignee?assignee:(who?'แนะนำ: '+who:'ยังไม่ Assign'))}">
+        <span class="tc2-av${who?'':' none'}">${who?escAttr(who.trim().charAt(0).toUpperCase()):'?'}</span>${mine?'<b>ฉัน</b>':escAttr(who?who.split(' ')[0]:'ยังไม่ Assign')}
+      </span>
     </div>
     ${t.cancelled ? `<div class="cxl-line">✕ ยกเลิกแล้ว · ${escAttr(t.cancelled.reason)}</div>` : ''}
-    ${t.review_status==='in_progress' && (t.paused || pauseBtnHTML(t)) ? `<div class="pz-row">${pauseInfoHTML(t)}${pauseBtnHTML(t)}</div>` : ''}
-    ${countdown ? `<div class="hint" style="font-weight:700;color:var(--accent);margin-top:4px">⏳ ${countdown}</div>` : ''}
+    ${countdown ? `<div class="pb3-note">⏳ ${countdown}</div>` : ''}
+    ${actions ? `<div class="pb3-act">${linkPill}${pz?`${pauseInfoHTML(t)}${pauseBtnHTML(t)}`:''}</div>` : ''}
     ${linkForm}
   </div>`;
 }
@@ -21746,23 +22376,29 @@ function renderTaskAllLinksList(t, excludeUrls){
     </a>`).join('')}
   </div>`;
 }
+// Link source → icon + brand-ish colour, so a Drive / Figma / Canva link is recognisable at a glance.
+function linkSourceIcon(src){
+  return ({'Google Drive':{i:'📁',c:'#1A73E8'},'Google Slides':{i:'📊',c:'#F4B400'},'Google Sheets':{i:'📗',c:'#0F9D58'},'Google Docs':{i:'📘',c:'#4285F4'},
+    'Canva':{i:'🎨',c:'#00C4CC'},'Figma':{i:'✏️',c:'#A259FF'},'Dropbox':{i:'📦',c:'#0061FF'}})[src] || {i:'🔗',c:'#6366F1'};
+}
 function renderAwLinkCards(t, descSuffix){
   const links = awLinksOf(t);
   if(links.length<=1){
     const url = links[0]?.url||'';
-    return `<a class="fwf-card" href="${escAttr(url)}" target="_blank" rel="noopener">
-    <div class="fwf-icon">🔗</div>
+    const si = linkSourceIcon(detectLinkSource(url));
+    return `<a class="fwf-card fwf-link" href="${escAttr(url)}" target="_blank" rel="noopener" style="--sc:${si.c}">
+    <div class="fwf-icon">${si.i}</div>
     <div class="fwf-body">
       <div class="fwf-title">Artwork Link</div>
       <div class="fwf-desc">${descSuffix} — ${detectLinkSource(url)}</div>
-      <div class="fwf-cta">Open Link ↗</div>
+      <div class="fwf-cta">เปิดลิงก์ ↗</div>
     </div>
   </a>`;
   }
   return `<div class="awl-multi">
     <div class="awl-multi-head">🔗 Artwork Links <span class="awl-count">${links.length} ลิงก์</span><span class="hint" style="margin-left:auto">${descSuffix}</span></div>
-    ${links.map((l,i)=>`<a class="awl-row" href="${escAttr(l.url)}" target="_blank" rel="noopener" title="${escAttr(l.url)}">
-      <span class="awl-num">${i+1}</span><span class="awl-lbl">${escAttr(awLinkLabel(l,i,links.length))}</span><span class="awl-src">${escAttr(detectLinkSource(l.url))} ↗</span></a>`).join('')}
+    ${links.map((l,i)=>{ const src = detectLinkSource(l.url), si = linkSourceIcon(src); return `<a class="awl-row" href="${escAttr(l.url)}" target="_blank" rel="noopener" title="${escAttr(l.url)}" style="--sc:${si.c}">
+      <span class="awl-num">${i+1}</span><span class="awl-ic">${si.i}</span><span class="awl-txt"><span class="awl-lbl">${escAttr(awLinkLabel(l,i,links.length))}</span><span class="awl-url">${escAttr(src)} · ${escAttr(String(l.url).replace(/^https?:\/\//,'').slice(0,48))}${String(l.url).length>56?'…':''}</span></span><span class="awl-src">เปิดลิงก์ ↗</span></a>`; }).join('')}
   </div>`;
 }
 function renderArtworkLinkHeroCard(t){
@@ -21993,8 +22629,8 @@ function renderTaskWorkspacePage(t){
       <button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ ขอแก้ไข (บังคับคอมเมนต์)</button>`;
   }
   if(canAct && isLead && s==='pending_client_review'){
-    reviewActionsHTML += `<button class="btn btn-sm btn-primary" data-act="clientApprove" data-id="${t.task_id}">✓ ลูกค้าอนุมัติแล้ว</button>
-      <button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ ลูกค้าขอแก้</button>`;
+    reviewActionsHTML += `<button class="btn btn-sm btn-primary" data-act="clientApprove" data-id="${t.task_id}">✓ อนุมัติแล้ว</button>
+      <button class="btn btn-sm btn-ghost" data-act="requestRevision" data-id="${t.task_id}">✎ ขอแก้</button>`;
   }
   // BUG FIX (Krissha, 2026-09-24 — "ไม่มีปุ่ม Approve"): the Awaiting Approval card tells the Brief Owner
   // to "Approve หรือ Request Revision ภายใน 2 วันทำงาน", but only the Lead ever got those buttons — the
@@ -22092,9 +22728,9 @@ function renderTaskWorkspacePage(t){
              see reviewActionsHTML at the top of this function — so the Lead can open the link, look at the
              work, then approve/request-revision without scrolling past Task Info/Brief Content/Images/Work
              Scope to find the buttons in the Actions card below. -->
-        ${reviewActionsHTML ? `<div class="taskws-card" style="border:1px solid var(--accent);background:#F5F7FF">
-          <div class="taskws-card-title">ตรวจงาน</div>
-          <div class="tc-actions">${reviewActionsHTML}</div>
+        ${reviewActionsHTML ? `<div class="taskws-card rv-panel">
+          <div class="rv-panel-head"><span class="rv-panel-ic">✅</span><div><div class="rv-panel-title">ตรวจงานนี้</div><div class="rv-panel-sub">เปิดลิงก์งานด้านบนดูก่อน แล้วเลือกผลการตรวจ</div></div></div>
+          <div class="rv-panel-acts">${reviewActionsHTML}</div>
         </div>` : ''}
         <!-- DEV FIX (Krissha — "ลิงก์บรีฟ เอาไปไว้บนสุด ดีไซนเนอร์จะได้ไม่ต้องหา รวมถึงลิงค์เรฟด้วย" +
              "Link KV ด้วย เอาไว้ด้านบน" + "กล่องลิงก์ทุกกล่อง ห้ามมีลูกศรย่อหุบกล่อง ใช้โชว์ขึ้นมาเลย"):
@@ -22362,7 +22998,7 @@ function renderProductsDirectory(){
   const activeIsInMore = moreCats.includes(STATE.pui.category);
 
   return `
-  <div class="hint" style="margin-bottom:8px">Assets Center / Product</div>
+  <div class="ui-eyebrow">Assets Center / Product</div>
   <h1 class="pagetitle">Products Assets Directory</h1>
   <p class="pagesub">Manage and access product design assets ${canManage?'':'· Read-Only'}</p>
 
@@ -22688,7 +23324,7 @@ function canManagePlatforms(){
 function renderPlatformsDirectory(){
   const canManage = canManagePlatforms();
   return `
-  <div class="hint" style="margin-bottom:8px">Assets Center / Platform Assets</div>
+  <div class="ui-eyebrow">Assets Center / Platform Assets</div>
   <h1 class="pagetitle">Platform Assets</h1>
   <p class="pagesub">Google Drive shortcuts for artwork submission by platform</p>
   ${canManage ? `<button type="button" class="btn btn-primary" id="addPlatformBtn" style="margin-bottom:16px">+ Add Platform</button>` : ''}
@@ -25159,18 +25795,31 @@ function renderContentPlannerPage(){
   const ui0 = cpUI();
   if(!ui0.ymPicked){ ui0.ymPicked = true; const cur = todayISO().slice(0,7); if(!cpTasks(cur).length){ const ms = [...cpMonthsWithData()].filter(Boolean).sort(); const next = ms.find(m=>m>=cur) || ms[ms.length-1]; if(next) ui0.ym = next; } }
   const ui = cpUI(), ym = ui.ym;
-  const all = cpTasks(ym), list = cpFiltered(ym);
+  const all = cpTasks(ym);
   const monthLabel = new Date(ym+'-01T00:00:00').toLocaleDateString('th-TH',{month:'long',year:'numeric'});
   const people = [...new Set(all.map(x=>x.t.assigned_user_name).filter(Boolean))].sort();
   const projs = [...new Map(all.map(x=>[x.p.id, x.p])).values()];
   const typesPresent = [...new Set(all.map(x=>cpTypeOf(x.t)||'—'))];
   const typeKeys = [...Object.keys(CP_TYPE_COLORS), ...typesPresent.filter(k=>k!=='—' && !CP_TYPE_COLORS[k]), ...(typesPresent.includes('—')?['—']:[])];
+  // BUG FIX — filters used to survive a month switch: a Designer/Project picked in one month that doesn't exist in the
+  // next was still applied, but the dropdown fell back to "ทั้งหมด" (option missing), so the page showed
+  // "ไม่พบงาน" with no visible reason. Same for an issue chip whose count dropped to 0 (its chip + "ล้าง" vanished).
+  // Drop any filter value that isn't selectable in the current month.
+  if(ui.person!=='ALL' && !people.includes(ui.person)) ui.person = 'ALL';
+  if(ui.proj!=='ALL' && !projs.some(p=>p.id===ui.proj)) ui.proj = 'ALL';
+  ui.types = (ui.types||[]).filter(k=>typesPresent.includes(k));
+  if(ui.issue){ const tmp = ui.issue; ui.issue = ''; const base = cpFiltered(ym); ui.issue = tmp; if(!base.some(x=>cpIssueMatch(x))) ui.issue = ''; }
+  const list = cpFiltered(ym);
+  const cpAnyFilter = ui.person!=='ALL' || ui.proj!=='ALL' || ui.types.length || !!(ui.q||'').trim() || !!ui.issue;
   const sched = list.filter(x=>cpPost(x.t)).length, early = list.filter(x=>cpPost(x.t) && x.t.prefer_delivery_date && cpPost(x.t) < x.t.prefer_delivery_date && !designerHandoff(x.t)).length;
-  return `<div class="cx-page cp-page">
-  <div class="cx-crumb">Working Process / Content Planner</div>
-  <div class="cx-head">
-    <div><h1 class="cx-title">Content Planner</h1>
-      <p class="cx-sub">แผนโพสต์รายเดือน — ดึงงานหมวด Content จาก My Project ของทุกคน · ใส่วันที่โพสต์ต่อท้ายการ์ด · สีตามประเภทคอนเทนต์</p></div>
+  const done = list.filter(x=>designerHandoff(x.t)).length, pct = list.length ? Math.round(sched/list.length*100) : 0;
+  return `<div class="cx-page cp-page cp2">
+  <div class="cp2-head">
+    <div>
+      <div class="cp2-eyebrow">Working Process</div>
+      <h1 class="cx-title" style="margin:0">Content Planner</h1>
+      <p class="cx-sub" style="margin:4px 0 0">แผนโพสต์รายเดือนจากงานหมวด Content ใน My Project · สีตามประเภทคอนเทนต์</p>
+    </div>
     <div class="cx-datenav">
       <button type="button" class="cx-navbtn" data-cpmonth="-1" aria-label="เดือนก่อน">‹</button>
       <strong class="cx-month">${monthLabel}</strong>
@@ -25178,32 +25827,59 @@ function renderContentPlannerPage(){
     </div>
   </div>
   ${cpMonthStrip(ym)}
-  <div class="cx-kpis cp-kpis">
-    <div class="cx-kpi cx-kpi-hero"><div class="cx-kpi-top">คอนเทนต์เดือนนี้</div><div class="cx-kpi-num">${list.length}<span> โพสต์ · ${projs.length} โปรเจกต์</span></div>${cxBar(list.length?sched/list.length*100:0,'avail')}<div class="cx-kpi-sub">กำหนดวันโพสต์แล้ว ${sched}/${list.length}</div></div>
-    <div class="cx-kpi ${list.length-sched?'attn':''}"><div class="cx-kpi-top">ยังไม่กำหนดวันโพสต์</div><div class="cx-kpi-num">${list.length-sched}</div><div class="cx-kpi-sub">ใส่วันที่ในช่องท้ายการ์ด</div></div>
-    <div class="cx-kpi ${early?'attn':''}"><div class="cx-kpi-top">โพสต์ก่อนส่งงาน</div><div class="cx-kpi-num">${early}</div><div class="cx-kpi-sub">วันโพสต์มาก่อน DL ส่งงาน</div></div>
-    <div class="cx-kpi"><div class="cx-kpi-top">ส่งงานแล้ว</div><div class="cx-kpi-num">${list.filter(x=>designerHandoff(x.t)).length}</div><div class="cx-kpi-sub">จาก ${list.length} โพสต์</div></div>
-  </div>
-  <div class="cp-bar">
-    <div class="pr-tabs" style="margin:0">
-      <button type="button" class="pr-tab ${ui.view!=='cal'?'active':''}" data-cpview="table">☰ ตาราง</button>
-      <button type="button" class="pr-tab ${ui.view==='cal'?'active':''}" data-cpview="cal">▦ ปฏิทินโพสต์</button>
-      <button type="button" class="pr-tab ${ui.view==='hist'?'active':''}" data-cpview="hist">🗂 ประวัติแผน</button>
+  <div class="cp2-stats">
+    <div class="cp2-stat main">
+      <div class="k">โพสต์เดือนนี้</div>
+      <div class="v">${list.length}<small> โพสต์ · ${projs.length} โปรเจกต์</small></div>
+      <div class="cp2-meter"><span style="width:${pct}%"></span></div>
+      <div class="s">กำหนดวันโพสต์แล้ว ${sched}/${list.length}</div>
     </div>
-    <div class="cp-filters">
-      <div class="mp-search"><input id="cpSearch" placeholder="ค้นหางาน / หัวข้อ…" value="${escAttr(ui.q||'')}"></div>
-      <select id="cpPerson"><option value="ALL">ดีไซเนอร์ทั้งหมด</option>${people.map(n=>`<option ${ui.person===n?'selected':''}>${escAttr(n)}</option>`).join('')}</select>
-      <select id="cpProj"><option value="ALL">ทุกโปรเจกต์</option>${projs.map(p=>`<option value="${p.id}" ${ui.proj===p.id?'selected':''}>${escAttr(p.name)} · ${escAttr(p.person)}</option>`).join('')}</select>
+    <button type="button" class="cp2-stat ${list.length-sched?'warn':'zero'} ${ui.issue==='nopost'?'on':''}" ${list.length-sched?'data-cpissue="nopost"':''} title="กดเพื่อดูเฉพาะงานที่ยังไม่มีวันโพสต์">
+      <div class="k">ยังไม่กำหนดวันโพสต์</div><div class="v">${list.length-sched}</div><div class="s">${list.length-sched?'กดเพื่อดูรายการ':'ครบแล้ว ✓'}</div></button>
+    <button type="button" class="cp2-stat ${early?'bad':'zero'} ${ui.issue==='early'?'on':''}" ${early?'data-cpissue="early"':''} title="วันโพสต์มาก่อน DL ส่งงาน">
+      <div class="k">โพสต์ก่อนส่งงาน</div><div class="v">${early}</div><div class="s">${early?'วันโพสต์มาก่อน DL ส่งงาน':'ไม่มีปัญหา ✓'}</div></button>
+    <div class="cp2-stat ${done?'ok':'zero'}">
+      <div class="k">ส่งงานแล้ว</div><div class="v">${done}<small> / ${list.length}</small></div><div class="s">ดีไซน์เสร็จพร้อมโพสต์</div></div>
+  </div>
+  <div class="cp2-bar">
+    <div class="cp2-seg" role="tablist">
+      <button type="button" class="${ui.view!=='cal'&&ui.view!=='hist'?'on':''}" data-cpview="table">☰ ตาราง</button>
+      <button type="button" class="${ui.view==='cal'?'on':''}" data-cpview="cal">▦ ปฏิทินโพสต์</button>
+      <button type="button" class="${ui.view==='hist'?'on':''}" data-cpview="hist">🗂 ประวัติแผน</button>
+    </div>
+    <div class="cp2-filters">
+      <input id="cpSearch" class="cp2-search" placeholder="🔍 ค้นหางาน / หัวข้อ…" value="${escAttr(ui.q||'')}">
+      <select id="cpPerson" class="${ui.person!=='ALL'?'set':''}"><option value="ALL">ดีไซเนอร์: ทุกคน</option>${people.map(n=>`<option value="${escAttr(n)}" ${ui.person===n?'selected':''}>${escAttr(n)}</option>`).join('')}</select>
+      <select id="cpProj" class="${ui.proj!=='ALL'?'set':''}"><option value="ALL">โปรเจกต์: ทั้งหมด</option>${projs.map(p=>`<option value="${p.id}" ${ui.proj===p.id?'selected':''}>${escAttr(p.name)} · ${escAttr(p.person)}</option>`).join('')}</select>
+      ${cpAnyFilter ? `<button type="button" class="cp2-clear" id="cpClearAll">✕ ล้างตัวกรอง</button>` : ''}
     </div>
   </div>
-  <div class="cp-types">${typeKeys.map(k=>{ const n = all.filter(x=>(cpTypeOf(x.t)||'—')===k).length; return `<button type="button" class="cp-tchip ${ui.types.includes(k)?'on':''} ${!n?'empty':''}" data-cptype="${escAttr(k)}" style="--ct:${cpColor(k==='—'?'':k)}"><i></i>${escAttr(k==='—'?'ไม่ระบุ':k)} <span>${n}</span></button>`; }).join('')}
+  <div class="cp-types">${typeKeys.map(k=>{ const n = all.filter(x=>(cpTypeOf(x.t)||'—')===k).length; return `<button type="button" class="cp-tchip ${ui.types.includes(k)?'on':''} ${!n?'empty':''}" ${n?'':'disabled'} data-cptype="${escAttr(k)}" style="--ct:${cpColor(k==='—'?'':k)}"><i></i>${escAttr(k==='—'?'ไม่ระบุ':k)} <span>${n}</span></button>`; }).join('')}
     ${ui.types.length ? `<button type="button" class="pr-linkbtn" data-cptype="__clear">ล้างตัวกรองสี</button>` : ''}</div>
   ${ui.view==='hist' ? renderCpHistory(ym) : cpCheckBarHTML(ym, cpTasks(ym)) + cpCarryHTML(ym)}
   ${ui.view==='hist' ? '' : !all.length ? (()=>{ const ms = [...cpMonthsWithData()].filter(Boolean).sort(); const lbl = m=>new Date(m+'-01T00:00:00').toLocaleDateString('th-TH',{month:'long',year:'numeric'});
       return `<div class="cx-card mp-empty">ยังไม่มีแผนคอนเทนต์ที่อนุมัติใน${lbl(ym)}${ms.length ? `<div class="cp-goto">มีแผนในเดือน: ${ms.map(m=>`<button type="button" class="cp-gotob" data-cpym="${m}">${lbl(m)} · ${cpTasks(m).length} โพสต์</button>`).join('')}</div>` : '<div class="cx-muted" style="margin-top:6px">ใน My Project กด “ส่งเข้า Content Planner” ที่โปรเจกต์ แล้วรอ Lead อนุมัติ</div>'}</div>`; })()
-    : !list.length ? `<div class="cx-card mp-empty">ไม่พบงานที่ตรงกับตัวกรอง</div>`
+    : !list.length ? `<div class="cx-card mp-empty">ไม่พบงานที่ตรงกับตัวกรอง<div style="margin-top:10px"><button type="button" class="cp2-clear" data-cpclearall="1">✕ ล้างตัวกรองทั้งหมด</button></div></div>`
     : ui.view==='cal' ? renderCpCalendar(list, ym) : renderCpTable(list)}
   </div>`;
+}
+// Content Planner — post-date tile (Krissha: "วันที่โพสต์ ขอให้ดูแตกต่างหน่อย"): instead of a plain date input that
+// looked like every other field, the post date is a small calendar tile — month on top, big day number, weekday,
+// and a relative hint (วันนี้ / อีก N วัน / ผ่านมาแล้ว) — colour-coded by state. The real <input type="date"> sits
+// invisibly on top of the tile, so clicking anywhere opens the date picker (showPicker) and keyboard entry still works.
+function cpPostTileHTML(t, post, early, can, today){
+  const st = !post ? 'none' : early ? 'bad' : post===today ? 'today' : post<today ? 'past' : 'set';
+  let tile;
+  if(post){
+    const d = new Date(post+'T00:00:00');
+    const mon = d.toLocaleDateString('th-TH',{month:'short'}), dow = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'][d.getDay()];
+    const diff = Math.round((d - new Date(today+'T00:00:00'))/864e5);
+    const rel = early ? '⚠ ก่อน DL ส่งงาน' : diff===0 ? 'โพสต์วันนี้' : diff>0 ? `อีก ${diff} วัน` : `ผ่านมา ${-diff} วัน`;
+    tile = `<span class="cp-pt-cal"><i>${escAttr(mon)}</i><b>${d.getDate()}</b></span><span class="cp-pt-txt"><b>${escAttr(dow)} ${d.getDate()} ${escAttr(mon)}</b><small>${rel}</small></span>`;
+  } else {
+    tile = `<span class="cp-pt-cal empty"><i>📅</i></span><span class="cp-pt-txt"><b>${can?'+ ตั้งวันโพสต์':'ยังไม่กำหนด'}</b><small>${can?'คลิกเพื่อเลือกวัน':'—'}</small></span>`;
+  }
+  return `<label class="cp-pt is-${st}${can?' can':''}" title="${post?'วันที่โพสต์ '+escAttr(fmtDate(post)):'ยังไม่กำหนดวันโพสต์'}${can?' · คลิกเพื่อเปลี่ยน':''}">${tile}${can?`<input type="date" class="cp-pt-in" data-cppost="${t.task_id}" value="${escAttr(post)}" aria-label="วันที่โพสต์">`:''}</label>`;
 }
 function renderCpTable(list){
   const groups = new Map(); list.forEach(x=>{ if(!groups.has(x.p.id)) groups.set(x.p.id, {p:x.p, rows:[]}); groups.get(x.p.id).rows.push(x.t); });
@@ -25224,11 +25900,7 @@ function renderCpTable(list){
             <td data-opentask="${t.task_id}" class="cp-sku">${escAttr(t.mp_details?.product||'') || '<span class="cp-dash">—</span>'}</td>
             <td data-opentask="${t.task_id}" class="cp-tg">${t.mp_details?.target_main||t.mp_details?.target_sub ? `${t.mp_details?.target_main?`<b>${escAttr(t.mp_details.target_main)}</b>`:''}${t.mp_details?.target_sub?`<span>${escAttr(t.mp_details.target_sub)}</span>`:''}` : '<span class="cp-dash">—</span>'}</td>
             <td data-opentask="${t.task_id}"><span class="cx-chip ${st.c}">${st.l}</span></td>
-            <td class="cp-postcell"><div class="cp-post ${post?'set':''} ${early?'is-bad':''} ${post && post<today?'past':''}">
-              <span class="cp-post-l">วันที่โพสต์</span>
-              ${can ? `<input type="date" data-cppost="${t.task_id}" value="${escAttr(post)}">` : `<b>${post?fmtDateShort(post):'—'}</b>`}
-              ${early ? `<em>ก่อน DL ส่งงาน</em>` : (!post ? `<em class="muted">ยังไม่กำหนด</em>` : '')}
-            </div></td>
+            <td class="cp-postcell">${cpPostTileHTML(t, post, early, can, today)}</td>
           </tr>`; }).join('')}</tbody>
       </table></div>
     </div>`; }).join('');
@@ -25272,6 +25944,8 @@ function cpHoverHTML(t){
     <div class="cp-pop-f">คลิกเพื่อเปิดการ์ดงาน</div>`;
 }
 function bindContentPlanner(){
+  // BUG FIX — the hover card lives on <body>; leaving the page while it was showing left it stuck on screen.
+  const oldPop = document.getElementById('cpPop'); if(oldPop) oldPop.style.display = 'none';
   if(!document.querySelector('.cp-page')) return;
   const ui = cpUI();
   document.querySelectorAll('[data-cpym]').forEach(b=>b.onclick=()=>{ ui.ym = b.dataset.cpym; render(); });
@@ -25302,7 +25976,20 @@ function bindContentPlanner(){
       b.addEventListener('mouseleave', ()=>{ const row = b.closest('[data-cphover]'); const t = row && STATE.tasks.find(x=>x.task_id===row.dataset.cphover); if(t){ pop.innerHTML = cpHoverHTML(t); place(row); } });
     }
   });
-  document.querySelectorAll('[data-cppost]').forEach(inp=>inp.addEventListener('change', ()=>cpSetPost(inp.dataset.cppost, inp.value)));
+  // BUG FIX — typing a date by keyboard fired 'change' on every intermediate value (year 0002 → 0020 → 0202 → 2026),
+  // saving wrong dates + a history line + a re-render each time. Now: only a full, sane date is saved, after a short
+  // pause (picker clicks still save almost instantly), and immediately on blur / Enter.
+  document.querySelectorAll('[data-cppost]').forEach(inp=>{
+    let tm = null;
+    const ok = v=>!v || (/^\d{4}-\d{2}-\d{2}$/.test(v) && v>='2000-01-01' && v<='2100-12-31');
+    const commit = ()=>{ clearTimeout(tm); tm = null; const v = inp.value; if(!ok(v)) return; cpSetPost(inp.dataset.cppost, v); };
+    inp.addEventListener('change', ()=>{ clearTimeout(tm); if(ok(inp.value)) tm = setTimeout(commit, 600); });
+    inp.addEventListener('blur', ()=>{ if(tm) commit(); });
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); } });
+    inp.addEventListener('click', e=>e.stopPropagation());
+  });
+  document.querySelectorAll('.cp-pt-in').forEach(inp=>inp.addEventListener('click', ()=>{ try{ inp.showPicker && inp.showPicker(); }catch(e){} }));
+  document.querySelectorAll('#cpClearAll,[data-cpclearall]').forEach(b=>b.onclick=()=>{ Object.assign(ui, {person:'ALL', proj:'ALL', types:[], q:'', issue:''}); render(); });
   document.querySelectorAll('[data-cpdrag]').forEach(el=>{
     el.addEventListener('dragstart', e=>{ e.stopPropagation(); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', el.dataset.cpdrag); el.classList.add('dragging'); });
     el.addEventListener('dragend', ()=>{ el.classList.remove('dragging'); document.querySelectorAll('.drop').forEach(c=>c.classList.remove('drop')); });
@@ -25482,7 +26169,7 @@ function cpCheckBarHTML(ym, shown){
     <div class="cp-check-row"><span class="cp-check-ok">✓</span><div><b>ดึงจาก My Project: ${inPlan.length} โพสต์</b> จาก ${new Set(inPlan.map(x=>x.p.id)).size} โปรเจกต์ที่อนุมัติแล้ว${people.length?` · ${escAttr(people.join(', '))}`:''}
       <div class="cx-muted">งาน Content ของเดือนนี้ใน My Project ทั้งหมด ${allContent.length} งาน${notSent.length?` · ยังไม่ส่งแผน ${notSent.length}`:''}${waiting.length?` · รอ Lead อนุมัติ ${waiting.length}`:''}${cancelled?` · ยกเลิก/Reject ${cancelled}`:''} · นับเดือนตามวันที่โพสต์ (ไม่มีวันโพสต์ = เดือนของโปรเจกต์)</div></div></div>
     ${waitingProjs.length ? `<div class="cp-wait">${waitingProjs.map(p=>`<div class="cp-wait-i"><span><b>${escAttr(p.name)}</b> · ${new Date(p.ym+'-01T00:00:00').toLocaleDateString('th-TH',{month:'short',year:'2-digit'})} · ${escAttr(p.person)} · ส่งเมื่อ ${fmtDateShort((p.cp_submitted_at||'').slice(0,10))} · ${cpContentTasksOf(p.id).length} โพสต์</span>${isLead()?`<span><button type="button" class="btn btn-primary btn-sm" data-cpapprove="${p.id}">✓ อนุมัติ</button><button type="button" class="btn btn-ghost btn-sm" data-cpreturn="${p.id}">ส่งกลับแก้</button></span>`:'<span class="cx-muted">รอ Lead อนุมัติ</span>'}</div>`).join('')}</div>` : ''}
-    ${noType||noPost||early ? `<div class="cp-issues"><span class="cx-muted">ต้องตรวจ:</span>${chip('notype',noType,'ไม่มีประเภทคอนเทนต์')}${chip('nopost',noPost,'ยังไม่มีวันโพสต์')}${chip('early',early,'โพสต์ก่อนส่งงาน',true)}${ui.issue?`<button type="button" class="pr-linkbtn" data-cpissue="${ui.issue}">ล้าง</button>`:''}</div>` : ''}
+    ${noType||noPost||early||ui.issue ? `<div class="cp-issues"><span class="cx-muted">ต้องตรวจ:</span>${chip('notype',noType,'ไม่มีประเภทคอนเทนต์')}${chip('nopost',noPost,'ยังไม่มีวันโพสต์')}${chip('early',early,'โพสต์ก่อนส่งงาน',true)}${ui.issue?`<button type="button" class="pr-linkbtn" data-cpissue="${ui.issue}">ล้าง</button>`:''}</div>` : ''}
   </div>`;
 }
 function cpIssueMatch(x){
@@ -25498,7 +26185,7 @@ function cpChangeLog(ym){
   (STATE.tasks||[]).filter(t=>t.task_category==='Content' && t.my_project_id).forEach(t=>{ const p = projs.find(x=>x.id===t.my_project_id); if(!p || cpProjStatus(p)!=='approved' || !p.cp_approved_at || (cpMonthOf(t,p)!==ym && p.ym!==ym)) return;
     const since = (STATE.cpHistory||[]).filter(h=>h.projectId===p.id).map(h=>h.approvedAt).sort()[0] || p.cp_approved_at;
     (t.review_history||[]).forEach(h=>{ if(h && h.timestamp > since && CP_LOG_ACTIONS[h.action]) out.push({h, t, p}); }); });
-  projs.filter(p=>p.ym===ym).forEach(p=>(p.cp_log||[]).forEach(l=>out.push({h:{timestamp:l.at, action:l.action, comment:`${l.how||'ลบ'}ออกจากแผน`, by:l.by}, t:{task_id:'', task_name:l.name}, p})));
+  projs.filter(p=>p.ym===ym).forEach(p=>(p.cp_log||[]).forEach(l=>out.push({h:{timestamp:l.at, action:l.action, comment: l.action==='CP_REMOVE' ? `${l.how||'ลบ'}ออกจากแผน` : (l.how||''), by:l.by}, t:{task_id:'', task_name:l.name}, p})));
   return out.sort((a,b)=>b.h.timestamp.localeCompare(a.h.timestamp));
 }
 function renderCpLog(ym){
@@ -26573,7 +27260,7 @@ function renderStandardBannerPage(){
   const fileTypes = [...new Set(allItems.flatMap(i=>(i.fileTypes||'').split(',').map(s=>s.trim()).filter(Boolean)))];
   const lastUpdated = allItems.reduce((max,i)=> (i.lastUpdated && i.lastUpdated>max) ? i.lastUpdated : max, '');
   return `
-  <div class="hint" style="margin-bottom:8px">Assets Center / GD Assets / Standard Banner</div>
+  <div class="ui-eyebrow">Assets Center / GD Assets / Standard Banner</div>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
     <div>
       <h1 class="pagetitle">Standard Banner Sizes</h1>
@@ -26620,7 +27307,7 @@ function renderPdpPatternPage(){
   if(!ui.activePlatformId && platforms.length) ui.activePlatformId = platforms[0].id;
   const active = platforms.find(p=>p.id===ui.activePlatformId);
   return `
-  <div class="hint" style="margin-bottom:8px">Assets Center / GD Assets / PDP Pattern</div>
+  <div class="ui-eyebrow">Assets Center / GD Assets / PDP Pattern</div>
   <h1 class="pagetitle">PDP Image Pattern &amp; Templates</h1>
   <p class="pagesub">Platform → Template → Page — จัดการ Pattern การถ่าย/ทำภาพ PDP ต่อ Platform</p>
   <div class="imgstitch-grid" style="grid-template-columns:280px 1fr">
@@ -28309,8 +28996,30 @@ function bindEvents(){
   document.getElementById('boardCategoryFilter')?.addEventListener('change', e=>{ STATE.board.category=e.target.value; render(); });
   document.getElementById('boardPlatformFilter')?.addEventListener('change', e=>{ STATE.board.platform=e.target.value; render(); });
   document.getElementById('boardClearFilters')?.addEventListener('click', ()=>{
-    Object.assign(STATE.board, {designer:'ALL', project:'ALL', requester:'ALL', category:'ALL', platform:'ALL'}); render();
+    Object.assign(STATE.board, {designer:STATE.board.defaultDesigner||'ALL', project:'ALL', requester:'ALL', category:'ALL', platform:'ALL', onlyHot:false}); render();
   });
+  // Process Board v3 quick controls
+  document.getElementById('boardViewMine')?.addEventListener('click', ()=>{ STATE.board.designer=STATE.auth.identity; render(); });
+  document.getElementById('boardViewAll')?.addEventListener('click', ()=>{ STATE.board.designer='ALL'; render(); });
+  document.getElementById('boardOnlyHot')?.addEventListener('click', ()=>{ STATE.board.onlyHot=!STATE.board.onlyHot; render(); });
+  [['pbRelease','releaseOpen'],['pbQueue','queueOpen']].forEach(([id,key])=>{
+    const el=document.getElementById(id); if(!el) return;
+    el.addEventListener('toggle', ()=>{ STATE.board[key]=el.open; const c=el.querySelector('summary .chev'); if(c) c.textContent=el.open?'ซ่อน':'แสดง'; });
+  });
+  (()=>{ const lane=document.getElementById('pbLane'), wrap=document.getElementById('pbLaneWrap'); if(!lane||!wrap) return;
+    const upd=()=>wrap.classList.toggle('has-more', lane.scrollLeft+lane.clientWidth < lane.scrollWidth-4);
+    lane.addEventListener('scroll', upd, {passive:true}); upd(); setTimeout(upd,0);
+    document.getElementById('pbMore')?.addEventListener('click', ()=>lane.scrollBy({left:lane.clientWidth*0.8, behavior:'smooth'}));
+  })();
+  document.querySelectorAll('[data-pbjump]').forEach(b=>b.addEventListener('click', ()=>{
+    const k=b.dataset.pbjump;
+    if(k==='release'){ const d=document.getElementById('pbRelease'); if(d){ d.open=true; d.scrollIntoView({behavior:'smooth',block:'start'}); } return; }
+    const col=document.getElementById('pbcol-'+k)?.closest('.col'); if(!col) return;
+    const lane=document.getElementById('pbLane');
+    if(lane && lane.scrollWidth>lane.clientWidth) lane.scrollTo({left:col.offsetLeft-lane.offsetLeft-4, behavior:'smooth'});
+    col.scrollIntoView({behavior:'smooth', block:'nearest'});
+    col.classList.remove('pb3-flash'); void col.offsetWidth; col.classList.add('pb3-flash');
+  }));
 
   // DEV REQUEST — All Work page bindings: month nav, 5 filters, search, sortable headers, chip clear,
   // Clear-filters buttons — all write into the same STATE.allWork bag renderAllWorkPage() reads.
@@ -34491,7 +35200,7 @@ function renderFrameTool(){
   ];
   return `
   <div class="ft-page">
-    <div class="hint" style="margin-bottom:8px">Tools / Frame${section==='run'?' / '+({manual:'Manual',whitebg:'White Background',csv:'Automation CSV',platform:'Platform Frame'}[ftCurrentSub()]||''):''}</div>
+    <div class="ui-eyebrow">Tools / Frame${section==='run'?' / '+({manual:'Manual',whitebg:'White Background',csv:'Automation CSV',platform:'Platform Frame'}[ftCurrentSub()]||''):''}</div>
     <div class="ft-shell">
       <div class="ft-topbar">
         <div>
