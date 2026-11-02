@@ -4064,11 +4064,11 @@ a.fwf-card.fwf-link:hover{border-color:var(--sc);background:#fff;box-shadow:0 10
 .modal textarea{min-height:84px;line-height:1.5}
 .modal input:not([type=checkbox]):not([type=radio]):focus,.modal select:focus,.modal textarea:focus{background:#fff;border-color:var(--accent);outline:none;box-shadow:0 0 0 4px rgba(99,102,241,.14)}
 /* footer: the last row of buttons sticks to the bottom as an action bar */
-.modal>div:last-child:has(> .btn){position:sticky;bottom:-20px;margin:18px -24px -20px!important;padding:14px 24px 18px;background:rgba(250,251,252,.96);
+.modal:not(.gc-modal)>div:last-child:has(> .btn){position:sticky;bottom:-20px;margin:18px -24px -20px!important;padding:14px 24px 18px;background:rgba(250,251,252,.96);
   backdrop-filter:blur(4px);border-top:1px solid #EEF0F3;border-radius:0 0 20px 20px;display:flex;gap:10px;z-index:1}
 .modal .btn{min-height:44px;border-radius:12px;font-size:14px;font-weight:800}
-.modal>div:last-child:has(> .btn)>.btn{flex:1 1 0}
-.modal>div:last-child:has(> .btn)>.btn-primary{flex:1.6 1 0}
+.modal:not(.gc-modal)>div:last-child:has(> .btn)>.btn{flex:1 1 0}
+.modal:not(.gc-modal)>div:last-child:has(> .btn)>.btn-primary{flex:1.6 1 0}
 .modal .btn-sm{min-height:34px;font-size:12.5px;border-radius:10px}
 .modal .btn-ghost{background:#fff;border:1px solid #E2E8F0;color:var(--ink-soft)}
 .modal .btn-ghost:hover{background:#F8FAFC;color:var(--ink)}
@@ -4079,7 +4079,7 @@ a.fwf-card.fwf-link:hover{border-color:var(--sc);background:#fff;box-shadow:0 10
 @media (max-width:600px){ .modal{padding:20px 18px 18px;border-radius:18px}
   .modal>h3:first-child,.modal>.modal-close:first-child+h3{margin:-20px -18px 0;padding:18px 50px 6px 18px}
   .modal>h3:first-child+.hint,.modal>.modal-close:first-child+h3+.hint{margin:0 -18px 14px!important;padding:0 18px 12px}
-  .modal>div:last-child:has(> .btn){margin:16px -18px -18px!important;padding:12px 18px 16px;bottom:-18px} }
+  .modal:not(.gc-modal)>div:last-child:has(> .btn){margin:16px -18px -18px!important;padding:12px 18px 16px;bottom:-18px} }
 
 /* ===== Deadline-extension approval panel (owner or Lead proofs) ===== */
 .ext-panel{border:2px solid #FCD34D!important;background:linear-gradient(135deg,#FFFBEB,#fff 70%)!important;padding:16px 18px!important;box-shadow:0 10px 26px -18px rgba(217,119,6,.7)}
@@ -4096,6 +4096,31 @@ a.fwf-card.fwf-link:hover{border-color:var(--sc);background:#fff;box-shadow:0 10
 .pt-group{margin-top:12px}
 .pt-gh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--lc);margin:0 0 6px 2px}
 .pt-gh span{font-size:11px;color:#fff;background:var(--lc);border-radius:999px;padding:1px 8px}
+
+/* ===== Account chooser (sign in as a Brief Owner) ===== */
+.modal.gc-modal{max-width:400px;padding:0;overflow:hidden}
+.gc-head{text-align:center;padding:26px 24px 16px;background:linear-gradient(160deg,#EEF0FF,#fff 75%)}
+.gc-logo{width:48px;height:48px;margin:0 auto 10px;border-radius:14px;background:#fff;box-shadow:0 4px 14px -6px rgba(79,70,229,.5);display:flex;align-items:center;justify-content:center}
+.gc-logo i{width:16px;height:16px;border-radius:5px;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.gc-title{font-size:19px;font-weight:800;color:var(--ink)}
+.gc-sub{font-size:13px;color:var(--ink-soft);margin-top:2px}
+.gc-list{display:flex;flex-direction:column;gap:6px;padding:6px 16px 4px;max-height:300px;overflow-y:auto}
+.gc-acc{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:1px solid #E5E7EB;border-radius:14px;background:#fff;font:inherit;text-align:left;cursor:pointer;transition:.12s}
+.gc-acc:hover{border-color:var(--accent);background:#F7F7FF;box-shadow:0 6px 16px -12px rgba(79,70,229,.8)}
+.gc-av{width:38px;height:38px;border-radius:50%;color:#fff;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;flex:none}
+.gc-txt{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.35}
+.gc-txt b{font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-txt small{font-size:12px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gc-go{font-size:20px;color:#CBD5E1;font-weight:700}
+.gc-acc:hover .gc-go{color:var(--accent)}
+.gc-empty{text-align:center;color:var(--ink-faint);font-size:13px;padding:14px}
+.gc-or{display:flex;align-items:center;gap:10px;margin:14px 16px 10px;color:var(--ink-faint);font-size:12px;font-weight:600}
+.gc-or::before,.gc-or::after{content:'';flex:1;height:1px;background:#E5E7EB}
+.gc-other{display:flex;gap:8px;padding:0 16px}
+.gc-other input{flex:1;min-width:0}
+.gc-modal .gc-other .btn{min-height:42px;white-space:nowrap;padding:0 16px;font-size:13.5px}
+.gc-cancel{display:block;margin:12px auto 16px;border:none;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--ink-soft);cursor:pointer;padding:6px 14px;border-radius:8px}
+.gc-cancel:hover{background:#F1F5F9;color:var(--ink)}
 /* =====================================================================================================
    UI v3 — SYSTEM-WIDE LAYER (Krissha: "ปรับ UI ทั้งระบบ ตามที่เพิ่งปรับไป")
    Brings every page in line with the redesigned Process Board / Content Planner. Visual only — no markup
@@ -9772,27 +9797,29 @@ function renderDesignerLoginPanel(){
 // renderLogin() above) — so it always reflects whatever Admin/User Management currently has.
 function renderGoogleChooser(){
   const activeUsers = (STATE.users||[]).filter(u=>u.status==='active' && u.role==='po').slice().sort((a,b)=>a.name.localeCompare(b.name));
+  // Account chooser v2 (Krissha: "อุบาทมาก ไม่สวย"): one-click account list (avatar · name · email) instead of a
+  // dropdown + Continue, then a single inline "use another account" row, Cancel as a quiet link.
+  const gcColor = n=>['#6366F1','#0EA5E9','#10B981','#F59E0B','#EC4899','#8B5CF6','#14B8A6','#F97316'][[...String(n||'')].reduce((h,c)=>(h*31+c.charCodeAt(0))>>>0,0)%8];
   return `<div class="modal-bg" id="googleChooserBg">
-    <div class="modal" style="max-width:360px;padding:0;overflow:hidden">
-      <div style="padding:20px 24px 14px;border-bottom:1px solid var(--line)">
-        <div style="font-weight:700;font-size:14px">Choose an account</div>
-        <div class="hint" style="margin-top:2px">to continue to GD Worldtech</div>
+    <div class="modal gc-modal">
+      <div class="gc-head">
+        <div class="gc-logo"><i></i></div>
+        <div class="gc-title">เลือกบัญชี</div>
+        <div class="gc-sub">เพื่อเข้าสู่ <b>GD Worldtech</b></div>
       </div>
-      <div style="padding:18px 24px 6px">
-        <div class="field" style="margin-bottom:10px">
-          <label>Account</label>
-          <select id="googleAccountSelect">
-            ${activeUsers.map(u=>`<option value="${u.email}">${u.name} — ${u.email}</option>`).join('')}
-          </select>
-        </div>
-        <button type="button" class="btn btn-primary btn-sm" style="width:100%" id="googleAccountGo">Continue</button>
+      <div class="gc-list">
+        ${activeUsers.length ? activeUsers.map(u=>`<button type="button" class="gc-acc" data-gcpick="${escAttr(u.email)}">
+          <span class="gc-av" style="background:${gcColor(u.name)}">${escAttr(String(u.name||u.email).trim().charAt(0).toUpperCase())}</span>
+          <span class="gc-txt"><b>${escAttr(u.name||'')}</b><small>${escAttr(u.email)}</small></span>
+          <span class="gc-go">›</span>
+        </button>`).join('') : '<div class="gc-empty">ยังไม่มีบัญชีผู้บรีฟที่ใช้งานอยู่</div>'}
       </div>
-      <div style="padding:14px 24px 20px;border-top:1px solid var(--line);margin-top:8px">
-        <div class="field" style="margin-bottom:8px"><label>Use another account</label>
-          <input type="email" id="googleOtherEmail" placeholder="name@${COMPANY_DOMAIN}"></div>
-        <button type="button" class="btn btn-ghost btn-sm" style="width:100%" id="googleOtherGo">Continue</button>
-        <button type="button" class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px" id="googleChooserCancel">Cancel</button>
+      <div class="gc-or"><span>หรือใช้บัญชีอื่น</span></div>
+      <div class="gc-other">
+        <input type="email" id="googleOtherEmail" placeholder="name@${COMPANY_DOMAIN}" autocomplete="email">
+        <button type="button" class="btn btn-primary" id="googleOtherGo">ดำเนินการต่อ</button>
       </div>
+      <button type="button" class="gc-cancel" id="googleChooserCancel">ยกเลิก</button>
     </div>
   </div>`;
 }
@@ -9995,6 +10022,8 @@ function bindLogin(){
   document.getElementById('li_google')?.addEventListener('click', ()=>{ STATE.googleChooserOpen=true; render(); });
   document.getElementById('googleChooserBg')?.addEventListener('click', (e)=>{ if(e.target.id==='googleChooserBg'){ STATE.googleChooserOpen=false; render(); } });
   document.getElementById('googleChooserCancel')?.addEventListener('click', ()=>{ STATE.googleChooserOpen=false; render(); });
+  document.querySelectorAll('[data-gcpick]').forEach(b=>b.addEventListener('click', ()=>completeLogin(b.dataset.gcpick, {viaGoogle:true})));
+  document.getElementById('googleOtherEmail')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('googleOtherGo')?.click(); } });
   document.getElementById('googleAccountGo')?.addEventListener('click', ()=>{
     const sel = document.getElementById('googleAccountSelect');
     if(sel && sel.value) completeLogin(sel.value, {viaGoogle:true});
