@@ -4080,6 +4080,22 @@ a.fwf-card.fwf-link:hover{border-color:var(--sc);background:#fff;box-shadow:0 10
   .modal>h3:first-child,.modal>.modal-close:first-child+h3{margin:-20px -18px 0;padding:18px 50px 6px 18px}
   .modal>h3:first-child+.hint,.modal>.modal-close:first-child+h3+.hint{margin:0 -18px 14px!important;padding:0 18px 12px}
   .modal>div:last-child:has(> .btn){margin:16px -18px -18px!important;padding:12px 18px 16px;bottom:-18px} }
+
+/* ===== Deadline-extension approval panel (owner or Lead proofs) ===== */
+.ext-panel{border:2px solid #FCD34D!important;background:linear-gradient(135deg,#FFFBEB,#fff 70%)!important;padding:16px 18px!important;box-shadow:0 10px 26px -18px rgba(217,119,6,.7)}
+.ext-panel .rv-panel-sub{line-height:1.6}
+.ext-panel .ext-new{color:#B45309;background:#FEF3C7;padding:1px 8px;border-radius:999px}
+.rv-panel-acts .btn.ext-ok{background:linear-gradient(135deg,#F59E0B,#D97706);color:#fff;border:none;box-shadow:0 8px 18px -8px rgba(217,119,6,.8)}
+.rv-panel-acts .btn.ext-no{background:#fff;color:#475569;border:2px solid #CBD5E1}
+.rv-panel-acts .btn.ext-no:hover{border-color:#94A3B8;background:#F8FAFC}
+.ext-wait{font-size:13px;font-weight:700;color:#92400E;background:#FEF3C7;border-radius:10px;padding:10px 12px}
+.ext-inbox{border-color:#FCD34D!important}
+
+/* Profile "สิ่งที่ต้องทำ" */
+.pt-card{border-color:#C7D2FE!important;margin-bottom:18px}
+.pt-group{margin-top:12px}
+.pt-gh{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--lc);margin:0 0 6px 2px}
+.pt-gh span{font-size:11px;color:#fff;background:var(--lc);border-radius:999px;padding:1px 8px}
 /* =====================================================================================================
    UI v3 — SYSTEM-WIDE LAYER (Krissha: "ปรับ UI ทั้งระบบ ตามที่เพิ่งปรับไป")
    Brings every page in line with the redesigned Process Board / Content Planner. Visual only — no markup
@@ -5776,12 +5792,96 @@ async function submitQueueAdjustmentRequests(assignee, dateStr){
 // Every path that would move a task's Delivery Date for someone other than the Lead — Edit Brief, Queue Adjustment
 // "เลื่อน", Capacity Override proposed date, Studio Flow write-back — now files a PENDING Extension Request instead
 // (same record/approval buttons as the Designer's own 🕒 Request Extension). Nothing moves until the Lead approves.
+// Deadline-extension approver (Krissha, 2026-11: "ขอเลื่อนวันส่งงาน ให้ เจ้าของงาน หรือ Lead เป็นคนพรูฟ"):
+// the Brief Owner (project_owner_email) OR any Lead Designer can approve / reject a PENDING request.
+// Nobody approves their own request — a Brief Owner who filed it (e.g. via Edit Brief) still needs a Lead.
+function extIsBriefOwner(t){
+  const o = String(t?.project_owner_email||'').toLowerCase(); if(!o) return false;
+  return o===String(STATE.auth.user?.email||'').toLowerCase() || o===String(STATE.auth.identity||'').toLowerCase();
+}
+function canApproveExt(t){
+  const ex = t?.deadline_extension_request; if(!ex || ex.status!=='PENDING') return false;
+  if(isLead()) return true;
+  if(!extIsBriefOwner(t)) return false;
+  const me = [STATE.auth.user?.name, STATE.auth.identity, STATE.auth.user?.email].filter(Boolean).map(x=>String(x).toLowerCase());
+  return !me.includes(String(ex.requested_by||'').toLowerCase());
+}
+// Pending extension requests waiting on ME as Brief Owner (Leads already see every request in the Lead Inbox).
+function myOwnerExtRequests(all){ return (isLead() && !all) ? [] : (STATE.tasks||[]).filter(t=>!t.cancelled && canApproveExt(t)); }
+// opts.all — show every request I can proof (Leads included); used as the "สิ่งที่ต้องทำ" list on Profile & KPI.
+function renderOwnerExtInbox(opts){
+  const list = myOwnerExtRequests(opts && opts.all); if(!list.length) return '';
+  return `<section class="wsv-sec li-card ext-inbox">
+    <div class="li-title">📅 ${opts && opts.all ? 'สิ่งที่ต้องทำ — ' : ''}รอคุณพรูฟการเลื่อนวันส่งงาน <span class="li-total">${list.length}</span></div>
+    <div class="li-list">${list.map(t=>{ const ex = t.deadline_extension_request; return `<div class="li-row" style="--lc:#F59E0B"><span class="li-ic">📅</span>
+      <div class="li-main"><div class="li-k">ขอเลื่อนวันส่ง · ${escAttr(ex.requested_by||t.assigned_user_name||'')}</div><b>${escAttr(taskDisplayName(t))}</b>
+        <span class="li-sub">${fmtDate(ex.original_date||t.prefer_delivery_date)} → <b style="color:#B45309">${fmtDate(ex.requested_date)}</b>${ex.reason?` · ${escAttr(ex.reason)}`:''}</span></div>
+      <div class="li-acts"><button type="button" class="btn btn-sm btn-ghost" data-opentask="${t.task_id}">ดูงาน</button>
+        <button type="button" class="btn btn-sm btn-ghost" data-act="rejectExt" data-id="${t.task_id}">✕ ไม่อนุมัติ</button>
+        <button type="button" class="btn btn-sm btn-primary" data-act="approveExt" data-id="${t.task_id}">✓ อนุมัติเลื่อน</button></div></div>`; }).join('')}</div>
+  </section>`;
+}
+// ===== "สิ่งที่ต้องทำ" on Profile & KPI (Krissha: "งานที่รออนุมัติ, งานที่ต้องแก้ ด้วย เอาเข้าไปในรายการที่ต้องทำหน้าโปรไฟล์")
+// One personal to-do list built for whoever is looking:
+//   ext      — deadline-extension requests I can proof (canApproveExt: Brief Owner or Lead)
+//   approve  — work waiting for MY approval: Lead → Brief approve & assign + Lead QC; Brief Owner → final approval of my brief
+//   revision — work sent back to ME (the assigned designer) to fix
+function profileTodoItems(){
+  const me = STATE.auth.identity, lead = isLead(), items = [];
+  (STATE.tasks||[]).forEach(t=>{
+    if(!t || t.cancelled) return;
+    if(canApproveExt(t)) items.push({kind:'ext', t, at:t.deadline_extension_request.requested_at||''});
+    const s = t.review_status;
+    if(lead && s==='pending_lead_approval') items.push({kind:'approve', sub:'brief', t, at:t.brief_timestamp||''});
+    else if(lead && s==='pending_review') items.push({kind:'approve', sub:'qc', t, at:t.aw_delivery_timestamp||t.designer_completed_at||''});
+    else if(s==='pending_client_review' && extIsBriefOwner(t)) items.push({kind:'approve', sub:'owner', t, at:t.aw_delivery_timestamp||t.designer_completed_at||''});
+    if(s==='revision' && STATE.auth.role==='designer' && t.assigned_user_name===me) items.push({kind:'revision', t, at:activeRevision(t)?.deadline||t.prefer_delivery_date||''});
+  });
+  return items;
+}
+function renderProfileTodo(){
+  const items = profileTodoItems(); if(!items.length) return '';
+  const G = [
+    {k:'approve', ic:'✅', l:'งานที่รออนุมัติ', c:'#4F46E5'},
+    {k:'revision', ic:'✎', l:'งานที่ต้องแก้', c:'#EA580C'},
+    {k:'ext', ic:'📅', l:'คำขอเลื่อนวันส่งงาน', c:'#D97706'},
+  ];
+  const SUB = {brief:'Brief รอ Approve & Assign', qc:'รอ Lead ตรวจ (QC)', owner:'รอคุณอนุมัติงาน'};
+  const row = (i, c)=>{ const t = i.t;
+    if(i.kind==='ext'){ const ex = t.deadline_extension_request;
+      return `<div class="li-row" style="--lc:${c}"><span class="li-ic">📅</span>
+        <div class="li-main"><div class="li-k">ขอเลื่อนวันส่ง · ${escAttr(ex.requested_by||t.assigned_user_name||'')}</div><b>${escAttr(taskDisplayName(t))}</b>
+          <span class="li-sub">${fmtDate(ex.original_date||t.prefer_delivery_date)} → <b style="color:#B45309">${fmtDate(ex.requested_date)}</b>${ex.reason?` · ${escAttr(ex.reason)}`:''}</span></div>
+        <div class="li-acts"><button type="button" class="btn btn-sm btn-ghost" data-opentask="${t.task_id}">ดูงาน</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-act="rejectExt" data-id="${t.task_id}">✕ ไม่อนุมัติ</button>
+          <button type="button" class="btn btn-sm btn-primary" data-act="approveExt" data-id="${t.task_id}">✓ อนุมัติเลื่อน</button></div></div>`; }
+    if(i.kind==='approve'){
+      const who = i.sub==='brief' ? `${escAttr(t.priority||'')} · ผู้บรีฟ ${escAttr(emailBriefOwnerName(t))}` : `ดีไซเนอร์ ${escAttr(t.assigned_user_name||'—')}`;
+      return `<div class="li-row" style="--lc:${c}"><span class="li-ic">✅</span>
+        <div class="li-main"><div class="li-k">${SUB[i.sub]}</div><b>${escAttr(taskDisplayName(t))}</b>
+          <span class="li-sub">${who}${t.prefer_delivery_date?` · ส่ง ${fmtDate(t.prefer_delivery_date)}`:''}</span></div>
+        <div class="li-acts"><button type="button" class="btn btn-sm btn-primary" data-opentask="${t.task_id}">ตรวจ / อนุมัติ →</button></div></div>`; }
+    const rv = activeRevision(t), dl = rv?.deadline || t.prefer_delivery_date || '', late = dl && dl.slice(0,10) < todayISO();
+    return `<div class="li-row" style="--lc:${c}"><span class="li-ic">✎</span>
+      <div class="li-main"><div class="li-k">ต้องแก้ไข${t.revision_count?` · รอบที่ ${t.revision_count}`:''}</div><b>${escAttr(taskDisplayName(t))}</b>
+        <span class="li-sub">${rv?.comment?escAttr(String(rv.comment).slice(0,80))+' · ':''}${dl?`<b style="color:${late?'#DC2626':'#C2410C'}">Deadline แก้ ${fmtDate(dl.slice(0,10))}${late?' (เลยกำหนด)':''}</b>`:''}</span></div>
+      <div class="li-acts"><button type="button" class="btn btn-sm btn-primary" data-opentask="${t.task_id}">เปิดงานแก้ →</button></div></div>`;
+  };
+  const groups = G.map(g=>({...g, list: items.filter(i=>i.kind===g.k).sort((a,b)=>String(a.at).localeCompare(String(b.at)))})).filter(g=>g.list.length);
+  return `<section class="wsv-sec li-card pt-card">
+    <div class="li-title">📋 สิ่งที่ต้องทำ <span class="li-total">${items.length}</span>
+      <span class="li-chips">${groups.map(g=>`<span class="li-chip" style="--lc:${g.c}">${g.ic} ${g.l} ${g.list.length}</span>`).join('')}</span></div>
+    ${groups.map(g=>`<div class="pt-group" style="--lc:${g.c}"><div class="pt-gh">${g.ic} ${g.l} <span>${g.list.length}</span></div>
+      <div class="li-list">${g.list.map(i=>row(i, g.c)).join('')}</div></div>`).join('')}
+  </section>`;
+}
 function requestLeadDateChange(t, newDate, reason, source){
   if(!t || !newDate || newDate===t.prefer_delivery_date) return false;
   const by = STATE.auth.user?.name || STATE.auth.identity || 'system', now = new Date().toISOString();
   t.deadline_extension_request = {requested_date:newDate, original_date:t.prefer_delivery_date, reason, status:'PENDING', source, requested_by:by, requested_at:now};
   (t.review_history = t.review_history||[]).push({timestamp:now, action:'REQUEST_EXTENSION',
-    comment:`${fmtDate(t.prefer_delivery_date)} → ${fmtDate(newDate)} — ${reason} (รอ Lead อนุมัติ)`, by});
+    comment:`${fmtDate(t.prefer_delivery_date)} → ${fmtDate(newDate)} — ${reason} (รอเจ้าของงาน / Lead พรูฟ)`, by});
+  if(t.project_owner_email && !extIsBriefOwner(t)) notifyUsers([t.project_owner_email], 'คำขอเลื่อนกำหนดส่ง — รอคุณพรูฟ', `${by} ขอเลื่อน "${t.task_name}" ${fmtDate(t.prefer_delivery_date)} → ${fmtDate(newDate)} — ${reason}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_REQUESTED', extra:{requestedDeadline:newDate, reason}});
   notifyLeads('คำขอเลื่อนกำหนดส่ง', `${by} ขอเลื่อน "${t.task_name}" ${fmtDate(t.prefer_delivery_date)} → ${fmtDate(newDate)} — ${reason}`, t.task_id, 'DEADLINE_EXTENSION_REQUESTED', {requestedDeadline:newDate, reason}, 'lead');
   return true;
 }
@@ -9456,7 +9556,7 @@ const EMAIL_EVENT_BODY = {
     return `Final Review ครบกำหนดแล้ว\n\nไม่มีคำขอแก้ไขภายใน ${APPROVAL_AUTO_HOURS} ชม. หลังเข้าสู่ Final Review ระบบจึงเปลี่ยน Task เป็น Completed\n\nFinal Review Started: ${fmtDateTime(t.approval_waiting_at)}\nCompleted: ${fmtDateTime(t.completed_at)}\n\nFinal Work\n${finalLink}\n\n${emailLink('ดูรายละเอียดงาน', emailTaskLink(t))}`;
   },
   DEADLINE_EXTENSION_REQUESTED(t, extra){
-    return `Designer ขอปรับ Delivery Date\n\nDesigner: ${t.assigned_user_name||'-'}\n\nกำหนดเดิม: ${fmtDate(t.prefer_delivery_date)}\n\nวันที่ร้องขอใหม่\n${fmtDate(extra.requestedDeadline)}\n\nเหตุผล\n${extra.reason||'-'}\n\n${emailLink('พิจารณาคำขอ', emailTaskLink(t))}`;
+    return `Designer ขอปรับ Delivery Date\n\nDesigner: ${t.assigned_user_name||'-'}\n\nกำหนดเดิม: ${fmtDate(t.prefer_delivery_date)}\n\nวันที่ร้องขอใหม่\n${fmtDate(extra.requestedDeadline)}\n\nเหตุผล\n${extra.reason||'-'}\n\nพรูฟได้โดย: เจ้าของงาน หรือ Lead Designer (ใครกดก่อนก็มีผล)\n\n${emailLink('พิจารณาคำขอ', emailTaskLink(t))}`;
   },
   DEADLINE_EXTENSION_APPROVED(t, extra){
     return `คำขอเลื่อนกำหนดส่งได้รับการอนุมัติ\n\nกำหนดใหม่\n${fmtDate(t.prefer_delivery_date)}\n\nระบบอัปเดต Delivery Date ของ Task เรียบร้อยแล้ว\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
@@ -12420,6 +12520,7 @@ function renderProfileSecurity(){
   return `
   <h1 class="pagetitle">Profile & KPI</h1>
   <p class="pagesub">จัดการข้อมูลบัญชี วันลา และการประเมิน KPI</p>
+  ${renderProfileTodo()}
   ${renderKpiProfileTabs()}
   <div class="pf-tabpanel" role="tabpanel">${body}</div>`;
 }
@@ -14407,7 +14508,7 @@ function renderMyTodoPage(){
       </div>
     </div>
   </div>
-  ${date===today ? renderLeadInbox() : ''}
+  ${date===today ? renderLeadInbox() + renderOwnerExtInbox() : ''}
 
   <div class="tdp-stats">
     <div class="tdp-stat">
@@ -14979,6 +15080,7 @@ function renderWorkspace(){
   </div>
 
   ${renderLeadInbox()}
+  ${renderOwnerExtInbox()}
   <section class="wsv-sec">
     <div class="wsv-title">สรุปงานวันนี้</div>
     <div class="wsv-sum">
@@ -15229,6 +15331,7 @@ function renderPOWorkspace(){
       <p class="pagesub" style="margin-bottom:0">${user?.department||''} Department</p>
     </div>
   </div>
+  ${renderProfileTodo()}
 
   <div class="ws-stats">
     <div class="ws-stat-card"><div class="lbl">Total Briefs</div><div class="num">${mine.length}</div></div>
@@ -22655,10 +22758,19 @@ function renderTaskWorkspacePage(t){
   if(canAct && isLead && s==='delivered' && t.project_owner_email){
     actionsHTML += `<button class="btn btn-sm btn-ghost" data-act="sendToOwnerProof" data-id="${t.task_id}">↩ ส่งให้ Owner พรูฟ</button>`;
   }
-  if(canAct && isLead && t.deadline_extension_request && t.deadline_extension_request.status==='PENDING'){
-    actionsHTML += `<button class="btn btn-sm btn-primary" data-act="approveExt" data-id="${t.task_id}">✓ Approve Extension</button>
-      <button class="btn btn-sm btn-ghost" data-act="rejectExt" data-id="${t.task_id}">✕ Reject Extension</button>`;
-  }
+  // Deadline extension — Brief Owner OR Lead proofs it (canApproveExt), shown as its own panel near the top.
+  let extPanelHTML = '';
+  { const ex = t.deadline_extension_request;
+    if(ex && ex.status==='PENDING'){
+      const can = canApproveExt(t);
+      extPanelHTML = `<div class="taskws-card ext-panel">
+        <div class="rv-panel-head"><span class="rv-panel-ic">📅</span><div>
+          <div class="rv-panel-title">ขอเลื่อนวันส่งงาน</div>
+          <div class="rv-panel-sub">${escAttr(ex.requested_by||t.assigned_user_name||'—')} ขอเลื่อนจาก <b>${fmtDate(ex.original_date||t.prefer_delivery_date)}</b> → <b class="ext-new">${fmtDate(ex.requested_date)}</b>${ex.reason?`<br>เหตุผล: ${escAttr(ex.reason)}`:''}</div></div></div>
+        ${can ? `<div class="rv-panel-acts"><button class="btn btn-primary ext-ok" data-act="approveExt" data-id="${t.task_id}">✓ อนุมัติเลื่อนวันส่ง</button><button class="btn btn-ghost ext-no" data-act="rejectExt" data-id="${t.task_id}">✕ ไม่อนุมัติ (คงวันเดิม)</button></div>`
+              : `<div class="ext-wait">⏳ รอเจ้าของงาน${t.project_owner_email?` (${escAttr(emailBriefOwnerName(t))})`:''} หรือ Lead Designer พรูฟ</div>`}
+      </div>`;
+    } }
   if(canAct && isLead && s==='pending_lead_approval'){
     actionsHTML += `<button class="btn btn-sm btn-primary" data-act="approveUrgent" data-id="${t.task_id}">✓ Approve & Assign</button>
       <button class="btn btn-sm btn-ghost" data-act="requestDateChange" data-id="${t.task_id}">📅 Request Date/Priority Change</button>
@@ -22728,6 +22840,7 @@ function renderTaskWorkspacePage(t){
              see reviewActionsHTML at the top of this function — so the Lead can open the link, look at the
              work, then approve/request-revision without scrolling past Task Info/Brief Content/Images/Work
              Scope to find the buttons in the Actions card below. -->
+        ${extPanelHTML}
         ${reviewActionsHTML ? `<div class="taskws-card rv-panel">
           <div class="rv-panel-head"><span class="rv-panel-ic">✅</span><div><div class="rv-panel-title">ตรวจงานนี้</div><div class="rv-panel-sub">เปิดลิงก์งานด้านบนดูก่อน แล้วเลือกผลการตรวจ</div></div></div>
           <div class="rv-panel-acts">${reviewActionsHTML}</div>
@@ -32316,16 +32429,17 @@ async function handleAction(act, id){
     if(!newDate) return;
     const reason = prompt('เหตุผล (บังคับกรอก):');
     if(!reason){ toast('ต้องระบุเหตุผล'); return; }
-    t.deadline_extension_request = {requested_date:newDate, reason, status:'PENDING'};
+    t.deadline_extension_request = {requested_date:newDate, original_date:t.prefer_delivery_date, reason, status:'PENDING', requested_by: STATE.auth.user?.name || STATE.auth.identity || '', requested_at:new Date().toISOString()};
     // §46 Global Audit Rule — the request itself (Old Value: current delivery date -> New Value: the
     // requested date) is a Workflow-affecting action and must be recorded even before Lead Designer rules
     // on it; approveExt/rejectExt below each log their own outcome on top of this.
     t.review_history.push({timestamp:new Date().toISOString(), action:'REQUEST_EXTENSION', comment:`${fmtDate(t.prefer_delivery_date)} → ${fmtDate(newDate)} — เหตุผล: ${reason}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
     notifyLeads('คำขอเลื่อนกำหนดส่ง', `${t.assigned_user_name} ขอเลื่อน "${t.task_name}" เป็น ${fmtDate(newDate)} — ${reason}`, t.task_id, 'DEADLINE_EXTENSION_REQUESTED', {requestedDeadline:newDate, reason});
-    toast('ส่งคำขอเลื่อนกำหนดส่งแล้ว รอ Lead Designer พิจารณา');
+    if(t.project_owner_email) notifyUsers([t.project_owner_email], 'คำขอเลื่อนกำหนดส่ง — รอคุณพรูฟ', `${t.assigned_user_name} ขอเลื่อน "${t.task_name}" ${fmtDate(t.prefer_delivery_date)} → ${fmtDate(newDate)} — ${reason}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_REQUESTED', extra:{requestedDeadline:newDate, reason}});
+    toast('ส่งคำขอเลื่อนกำหนดส่งแล้ว — รอเจ้าของงานหรือ Lead พรูฟ');
   }
-  else if((act==='approveExt' || act==='rejectExt') && !isLead()){
-    toast('การเลื่อนกำหนดส่งต้องให้ Lead Designer อนุมัติเท่านั้น'); return;
+  else if((act==='approveExt' || act==='rejectExt') && !canApproveExt(t)){
+    toast(t.deadline_extension_request?.status==='PENDING' ? 'การเลื่อนกำหนดส่งต้องให้เจ้าของงานหรือ Lead Designer พรูฟ (พรูฟคำขอของตัวเองไม่ได้)' : 'คำขอนี้ถูกพิจารณาไปแล้ว'); return;
   }
   else if(act==='approveExt'){
     const src = t.deadline_extension_request.source;
@@ -32335,7 +32449,11 @@ async function handleAction(act, id){
     t.prefer_delivery_date = t.deadline_extension_request.requested_date;
     t.capacity_allocation = null; // old split (if any) pointed at dates before the extension — the new date starts fresh, single-day
     t.deadline_extension_request.status='APPROVED';
-    t.review_history.push({timestamp:new Date().toISOString(), action:'APPROVE_EXTENSION', comment:`New date: ${t.prefer_delivery_date}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+    t.deadline_extension_request.approved_by = STATE.auth.user?.name || STATE.auth.identity || 'system';
+    t.deadline_extension_request.approved_role = isLead() ? 'lead' : 'owner';
+    t.deadline_extension_request.approved_at = new Date().toISOString();
+    t.review_history.push({timestamp:new Date().toISOString(), action:'APPROVE_EXTENSION', comment:`New date: ${t.prefer_delivery_date}${isLead()?'':' (เจ้าของงานพรูฟ)'}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+    if(!isLead()) notifyLeads('เจ้าของงานอนุมัติเลื่อนกำหนดส่ง', `${t.deadline_extension_request.approved_by} อนุมัติเลื่อน "${t.task_name}" เป็น ${fmtDate(t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_APPROVED');
     notify(t.assigned_user_name, 'อนุมัติเลื่อนกำหนดส่ง', `${t.task_name} — วันใหม่: ${fmtDate(t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_APPROVED');
     // DEV MASTER REQUEST §11 — Extension Approved → PO + Designer (Designer kept as-is above).
     notifyUsers([t.project_owner_email], 'อนุมัติเลื่อนกำหนดส่ง', `${t.task_name} (${t.task_id}) — วันใหม่: ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_APPROVED'});
@@ -32345,7 +32463,9 @@ async function handleAction(act, id){
     if(src==='queue_adjustment' && t.deadline_flex_request){ t.deadline_flex_request.status='kept'; delete t.deadline_flex_request.leadPending; }
     if(src==='capacity_override') delete t.capacity_override_date_pending;
     t.deadline_extension_request.status='REJECTED';
-    t.review_history.push({timestamp:new Date().toISOString(), action:'REJECT_EXTENSION', comment:'', by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+    t.deadline_extension_request.rejected_by = STATE.auth.user?.name || STATE.auth.identity || 'system';
+    t.review_history.push({timestamp:new Date().toISOString(), action:'REJECT_EXTENSION', comment:isLead()?'':'เจ้าของงานไม่อนุมัติ', by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+    if(!isLead()) notifyLeads('เจ้าของงานไม่อนุมัติเลื่อนกำหนดส่ง', `${t.deadline_extension_request.rejected_by} ไม่อนุมัติการเลื่อน "${t.task_name}" — คงวันส่งเดิม ${fmtDate(t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_REJECTED');
     notify(t.assigned_user_name, 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_REJECTED');
     // DEV MASTER REQUEST §11 — Extension Rejected → PO + Designer (Designer kept as-is above).
     notifyUsers([t.project_owner_email], 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} (${t.task_id}) — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_REJECTED'});
