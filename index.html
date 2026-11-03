@@ -2537,7 +2537,7 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 .wsa-chev{color:var(--ink-faint);display:inline-flex}
 .wsv-more-sec{background:var(--surface-solid);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:12px}
 .wsv-more-sec summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--ink-soft)}
-@media(max-width:1200px){.wsv-grid{grid-template-columns:1fr}}
+@media(max-width:1200px){.wsv-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:1000px){.wsv-sum,.wsv-stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.wsv-sum,.wsv-stages,.wsv-lines{grid-template-columns:1fr}.wsw-val{font-size:9px}.wsw-st{font-size:8.5px}.wsv-todo-btn{width:100%;justify-content:center}}
 /* MASTER REQUIREMENT §4-27 — My To-do / Daily Log (v2 layout, per Krissha's mockup): stat cards, one
@@ -4198,6 +4198,123 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):
 .chip{border-radius:999px}
 .badge{border-radius:999px}
 .back-home-bar{margin-bottom:14px}
+
+/* =====================================================================================================
+   PHONE LAYER (Krissha: "มุมมองโฟน ไม่เริ่ดเลย") — ≤640px only. Fixes the things that made the phone view
+   overflow sideways (which also made iOS Safari blow up the text size), and gives phones a compact top bar.
+   ===================================================================================================== */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.m-catbtn,.msb-top{display:none}
+@media (max-width:640px){
+  /* top bar: ☰ · brand dot · current section ▾ · alerts · avatar */
+  .topnav{padding:8px 12px;gap:6px;overflow:visible}
+  .topnav .tabbtn,#adminModeBtn,#exitAdminModeBtn{display:none}
+  .brandmark{font-size:0;padding-right:0;margin-right:0;border-right:none;gap:0}
+  .brandmark .dot{width:12px;height:12px;border-radius:4px}
+  .m-catbtn{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:52vw;border:1px solid #E0E7FF;background:#EEF2FF;color:var(--accent);
+    font:inherit;font-size:13.5px;font-weight:800;padding:7px 12px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .m-catbtn i{font-style:normal;font-size:11px}
+  .userpill{padding:3px;margin-left:4px}
+  .userpill>span{display:none}
+  .userpill .avatar{width:28px;height:28px;font-size:12px}
+  #notifBell{height:34px}
+  /* drawer: who I am + every category, then this section's pages */
+  .msb-top{display:block;margin:-6px -2px 8px;padding:0 4px 10px;border-bottom:1px solid var(--line)}
+  .msb-user{display:flex;align-items:center;gap:10px;padding:6px 6px 12px}
+  .msb-user .avatar{width:36px;height:36px;font-size:15px}
+  .msb-user b{display:block;font-size:14px;color:var(--ink)}.msb-user small{font-size:11.5px;color:var(--ink-faint)}
+  .msb-cats{display:flex;flex-wrap:wrap;gap:6px}
+  .msb-cat{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer}
+  .msb-cat.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .msb-lbl{margin:14px 6px 0;font-size:11px;font-weight:800;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em}
+  .sidebar .sidenav-btn{padding:11px 12px;font-size:14px}
+
+  /* page frame */
+  .main{padding:14px 12px 90px}
+  h1.pagetitle,.cx-title{font-size:21px}
+  .pagesub,.cx-sub{font-size:12.5px}
+  .back-home-bar{margin-bottom:8px}
+  .card,.cx-card,.wsv-sec{padding:14px}
+
+  /* wide tables scroll inside their own card instead of pushing the page sideways */
+  .admin-table,.po-briefs-table,.ss-table,.pr-table,.perf-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:nowrap}
+
+  /* My Workspace — today's work table becomes cards */
+  .wsv-title{flex-wrap:wrap;row-gap:8px}
+  .wsv-range{margin-left:0}
+  .wsf-wrap{overflow:visible}
+  .wsf-table{min-width:0;display:block}
+  .wsf-table thead{display:none}
+  .wsf-table tbody{display:flex;flex-direction:column;gap:8px}
+  .wsf-table tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .wsf-table td{display:block;padding:0!important;border:none!important}
+  .wsf-table td{order:3}
+  .wsf-table td:nth-child(1){order:0}
+  .wsf-table td:nth-child(2){order:1;flex:1 1 calc(100% - 84px);min-width:0}
+  .wsf-table td:nth-child(2) .wsf-name{white-space:normal}
+  .wsf-table td:nth-child(8){order:2;margin-left:auto}
+  .wsf-table td.wsf-rem::before{content:'เหลือ ';color:var(--ink-faint)}
+  .wsf-table td.wsf-next{flex-basis:100%;font-size:12px;color:var(--ink-soft)}
+  .wsf-dl br{display:none}
+  .wsw-days{overflow-x:auto}
+
+  /* Process Board — pipeline scrolls, columns stack one per row */
+  .pb3-steps{padding-bottom:4px}
+  .pb3 #pbLane{grid-template-columns:minmax(0,1fr)!important}
+  .pb3 #pbLane .col{max-height:none}
+  .pb3 #pbLane .col.is-empty .col-body{display:none}
+  .pb3 #pbLane .col.is-empty .col-head{min-height:0;padding:10px 12px}
+  .pb3-bar{gap:6px}
+  .pb3-seg{flex:1 1 100%}.pb3-seg button{flex:1}
+
+  /* All Work */
+  .aw-row2{flex-direction:column;align-items:stretch}
+  .aw-row2>.aw-tabs{min-width:0;max-width:100%;width:100%}
+  .aw-pills{flex-wrap:wrap;flex-shrink:1}
+  .aw-pills select.aw-pill{flex:1 1 140px}
+  .aw3-hero,.mc3-hero{padding:16px}
+  .aw3-hero-n{width:100%}
+  .aw3-row .aw-title{white-space:normal}
+  .aw3-row .aw-id{display:none}
+  .aw3-row .aw-sub{flex-wrap:wrap;white-space:normal}
+
+  /* stat strips: two per row */
+  .cx-kpis,.dash-summary,.ws-stats,.ws-stats-5{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .cx-kpis .cx-kpi-hero{grid-column:1/-1}
+  .cx-kpi-num,.cp2-stat .v,.ws-stat-card .num{font-size:21px}
+  .mc3-kpis{width:100%}.mc3-kpis>div{flex:1 1 40%}
+
+  /* misc */
+  .ft-page{max-width:100%}
+  .li-row{flex-wrap:wrap}
+  .li-acts{width:100%;justify-content:flex-end;flex-wrap:wrap}
+  .rv-panel,.ext-panel{padding:14px!important}
+  .rv-panel-acts .btn{min-height:48px}
+  /* Content Planner table → cards */
+  .cp2 .cp-table-wrap{padding:8px;overflow:visible}
+  .cp2 .cp-table{min-width:0;display:block}
+  .cp2 .cp-table thead,.cp2 .cp-table tr.cp-gap{display:none}
+  .cp2 .cp-table tbody{display:flex;flex-direction:column;gap:8px}
+  .cp2 .cp-table tr.cp-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;background:#fff;border:1px solid #E9ECF1;border-left:4px solid var(--ct);border-radius:12px;padding:10px 12px}
+  .cp2 .cp-table tr.cp-row td{display:block;border:none!important;padding:0!important;background:transparent!important;border-radius:0!important;text-align:left}
+  .cp2 .cp-table tr.cp-row td.tl{flex:1 1 100%}
+  .cp2 .cp-table tr.cp-row td.cp-sku:has(.cp-dash),.cp2 .cp-table tr.cp-row td.cp-tg:has(.cp-dash){display:none}
+  .cp2 .cp-table tr.cp-row td.cp-tg b,.cp2 .cp-table tr.cp-row td.cp-tg span{display:inline;margin-right:4px}
+  .cp2 .cp-table tr.cp-row td.cp-postcell{flex:1 1 100%;width:auto;margin-top:4px}
+  .cp2 .cp-proj-head{padding:12px}
+  /* one size scale on phones — no number jumps out, nothing too small to read */
+  .wsv-big,.tdp-stat .val,.dsum-card .dv,.ws-stat-card .num,.cx-kpi-num,.cp2-stat .v,.pb3-step .nm,.aw3-tile b,.mc3-kpis b,.cx-loadnum{font-size:20px!important;line-height:1.2}
+  .aw3-hero-n b,.cx-wl-pct{font-size:20px!important}
+  .wsw-val,.wsw-st,.badge-sm,.cp-mpill em,.cp-pt-cal i{font-size:10px!important}
+  .cx-loadnum span,.cx-kpi-num span{font-size:12px!important}
+  .ws-icon{font-size:20px}
+  #helpFab{width:38px;height:38px;right:12px;bottom:14px;font-size:15px;opacity:.9}
+  #helpPanel{right:8px;bottom:60px;width:calc(100vw - 16px)}
+  .wsv-sum,.wsv-stages{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .tdp-stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .tdp-stat{padding:12px 14px;border-right:0;border-bottom:1px solid var(--line)}
+  .toast{max-width:calc(100vw - 32px)}
+}
 </style>
 <style>
 .gd-entry-modes{display:flex;gap:6px;margin:14px 0 16px;padding:5px;background:#e9edf5;border-radius:12px;width:max-content;max-width:100%}
@@ -10631,6 +10748,7 @@ function renderTopNav(){
   <div class="topnav">
     <button type="button" class="iconbtn navhamburger" id="mobileNavToggle" aria-label="เมนู">☰</button>
     <div class="brandmark"><span class="dot"></span>GD Worldtech</div>
+    <button type="button" class="m-catbtn" id="mobileCatBtn" aria-label="เปลี่ยนเมนู">${escAttr((cats.find(c=>c.id===activeCat)||cats[0]||{}).label||'เมนู')} <i>▾</i></button>
     ${cats.map(c=>`<button class="tabbtn ${activeCat===c.id?'active':''}" data-navcat="${c.id}">${c.label}</button>`).join('')}
     <div class="spacer"></div>
     ${canToggleAdminMode ? (isAdminModeOn()
@@ -10771,6 +10889,15 @@ function renderToolsGroupHTML(){
     <button type="button" class="sidenav-btn ${STATE.tab==='workflow' && STATE.sideSection==='imagestitching'?'active':''}" data-side="imagestitching">Image Stitching</button>
     <button type="button" class="sidenav-btn ${STATE.tab==='workflow' && STATE.sideSection==='resizetool'?'active':''}" data-side="resizetool">Resize</button>`; // Studio Flow removed from the TOOLS menu (Krissha) — page code kept, just no longer reachable.
 }
+function renderMobileCats(){
+  const cats = navCategoriesList(), active = activeNavCategory();
+  const u = STATE.auth.user, name = u?.name || STATE.auth.identity || '';
+  return `<div class="msb-top">
+    <div class="msb-user"><span class="avatar">${escAttr(String(name||'?').charAt(0).toUpperCase())}</span><span><b>${escAttr(name)}</b><small>${escAttr(u?.department||u?.role||'')}</small></span></div>
+    <div class="msb-cats">${cats.map(c=>`<button type="button" class="msb-cat ${active===c.id?'on':''}" data-navcat="${c.id}">${escAttr(c.label)}</button>`).join('')}</div>
+    <div class="msb-lbl">${escAttr((cats.find(c=>c.id===active)||{}).label||'')}</div>
+  </div>`;
+}
 function renderSidebar(){
   // UX RESTRUCTURE — the sidebar now shows ONLY the items belonging to the currently active category
   // (see activeNavCategory() above the Top Nav) and never the "MY WORKSPACE"/"WORKING PROCESS"/"TOOLS"/
@@ -10792,7 +10919,7 @@ function renderSidebar(){
     else if(cat==='tools') itemsHtml = renderToolsGroupHTML();
     else if(cat==='assets') itemsHtml = renderAssetsCenterGroupHTML();
     else if(cat==='product') itemsHtml = renderProductGroupHTML();
-    return `${STATE.mobileSidebarOpen ? '<div class="sidebar-backdrop" id="sidebarBackdrop"></div>' : ''}<div class="sidebar${STATE.mobileSidebarOpen?' mobile-open':''}">${itemsHtml}</div>`;
+    return `${STATE.mobileSidebarOpen ? '<div class="sidebar-backdrop" id="sidebarBackdrop"></div>' : ''}<div class="sidebar${STATE.mobileSidebarOpen?' mobile-open':''}">${renderMobileCats()}${itemsHtml}</div>`;
   }
   // Designer/Lead/Admin keep exactly the sidebar items they always had.
   let itemsHtml = '';
@@ -10808,7 +10935,7 @@ function renderSidebar(){
   else if(cat==='admin') itemsHtml = `<div class="adm-navlbl">ภาพรวม</div>${navItemsHtml([['adminHome','🏠 หน้าแรก Admin']])}
     <div class="adm-navlbl">ผู้ใช้และทีม</div>${navItemsHtml([['users','👤 ผู้ใช้ (Users)'],['departments','🏢 แผนก'],['designers','🎨 สถานะ Designer']])}
     <div class="adm-navlbl">ระบบ</div>${navItemsHtml([['sysSettings','⚙ ตั้งค่าระบบ'],['admin','🛠 ศูนย์ควบคุม']])}`;
-  return `${STATE.mobileSidebarOpen ? '<div class="sidebar-backdrop" id="sidebarBackdrop"></div>' : ''}<div class="sidebar${STATE.mobileSidebarOpen?' mobile-open':''}">${itemsHtml}</div>`;
+  return `${STATE.mobileSidebarOpen ? '<div class="sidebar-backdrop" id="sidebarBackdrop"></div>' : ''}<div class="sidebar${STATE.mobileSidebarOpen?' mobile-open':''}">${renderMobileCats()}${itemsHtml}</div>`;
 }
 
 // Sections that are internal-only (Designer/Lead/Admin) — a Project Owner must never render these, even if
@@ -28809,6 +28936,13 @@ function bindEvents(){
   // and renderSidebar()); the dimmed backdrop behind it closes it again on tap. Both only ever exist in the
   // DOM below that breakpoint, so this is a no-op on desktop.
   document.getElementById('mobileNavToggle')?.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    STATE.mobileSidebarOpen = !STATE.mobileSidebarOpen;
+    render();
+  });
+  // Phone (Krissha: "มุมมองโฟน ไม่เริ่ด"): the category tabs don't fit a phone's top bar, so the current
+  // section is shown as one button that opens the drawer — and the drawer now lists every category on top.
+  document.getElementById('mobileCatBtn')?.addEventListener('click', (e)=>{
     e.stopPropagation();
     STATE.mobileSidebarOpen = !STATE.mobileSidebarOpen;
     render();
