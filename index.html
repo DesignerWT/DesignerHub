@@ -471,6 +471,7 @@ textarea{resize:vertical;min-height:64px}
 .pb3 .pb3-card.is-hot{box-shadow:inset 3px 0 0 var(--pc),0 1px 2px rgba(15,23,42,.05)}
 .pb3 .pb3-card.is-mine{border-color:rgba(99,102,241,.55);background:linear-gradient(180deg,rgba(99,102,241,.05),#fff 40%)}
 .pb3 .pb3-card:hover{border-color:rgba(99,102,241,.55);transform:translateY(-1px)}
+.pb3-proof{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,#6366F1,#4F46E5);border-radius:999px;padding:2px 9px;margin-bottom:5px}
 .pb3-pri{font-size:11px;font-weight:800;color:var(--pc);margin-bottom:3px;letter-spacing:.02em}
 .pb3 .pb3-card .tc2-title{font-size:14px;line-height:1.4;font-weight:700;color:var(--ink);padding-right:18px}
 .pb3-sub{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:var(--ink-soft)}
@@ -4121,6 +4122,32 @@ a.fwf-card.fwf-link:hover{border-color:var(--sc);background:#fff;box-shadow:0 10
 .gc-modal .gc-other .btn{min-height:42px;white-space:nowrap;padding:0 16px;font-size:13.5px}
 .gc-cancel{display:block;margin:12px auto 16px;border:none;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--ink-soft);cursor:pointer;padding:6px 14px;border-radius:8px}
 .gc-cancel:hover{background:#F1F5F9;color:var(--ink)}
+
+/* Content Planner — "โพสต์แล้ว" */
+.cp-posted{position:relative;display:flex;align-items:center;gap:7px;margin-top:6px;padding:5px 8px;border-radius:9px;font-size:12px;font-weight:700;color:var(--ink-soft);cursor:pointer;user-select:none;border:1px dashed #CBD5E1;background:#fff}
+.cp-posted input{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px;left:0;top:0}
+.cp-posted-box{width:16px;height:16px;border-radius:5px;border:2px solid #94A3B8;flex:none;display:inline-flex;align-items:center;justify-content:center;background:#fff}
+.cp-posted:hover{border-color:#10B981;color:#047857}
+.cp-posted.on{border:1px solid #A7F3D0;background:#ECFDF5;color:#047857}
+.cp-posted.on .cp-posted-box{background:#10B981;border-color:#10B981}
+.cp-posted.on .cp-posted-box::after{content:'✓';color:#fff;font-size:11px;font-weight:900;line-height:1}
+.cp-posted.ro{cursor:default}
+.cp-table tr.cp-row.is-posted td:not(.cp-postcell){background:#F3F4F6!important;border-color:#E5E7EB!important}
+.cp-table tr.cp-row.is-posted td:not(.cp-postcell)>*{opacity:.55}
+.cp-table tr.cp-row.is-posted td:first-child{border-left-color:#CBD5E1!important}
+.cp-table tr.cp-row.is-posted .mp-tname{text-decoration:line-through;text-decoration-color:#94A3B8}
+.cp-table tr.cp-row.is-posted .cp-pt{filter:grayscale(1);opacity:.65}
+.cp-item.is-posted{background:#F1F5F9!important;border-left-color:#CBD5E1!important;opacity:.7}
+.cp-item.is-posted .cp-item-n{color:#64748B;text-decoration:line-through}
+.cp-item-ok{display:inline-block;color:#059669;font-weight:900;margin-right:3px;text-decoration:none}
+@media (max-width:640px){ .cp2 .cp-table tr.cp-row.is-posted{background:#F3F4F6} }
+.ss-roles{display:flex;align-items:center;gap:6px}
+.ss-rolelbl{font-size:10.5px;font-weight:800;color:#fff;background:var(--accent);border-radius:6px;padding:1px 6px}
+.ss-xroles{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;align-items:center}
+.ss-xrole{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:#4338CA;background:#EEF2FF;border:1px solid #C7D2FE;border-radius:999px;padding:2px 4px 2px 9px}
+.ss-xrole button{border:none;background:transparent;color:#6366F1;cursor:pointer;font-size:11px;width:18px;height:18px;border-radius:50%}
+.ss-xrole button:hover{background:#FEE2E2;color:#DC2626}
+select.ss-xrole-add{width:auto!important;min-height:0;padding:3px 24px 3px 9px!important;font-size:11.5px;border-radius:999px!important;border:1px dashed #A5B4FC!important;color:var(--accent);background-color:#fff}
 /* =====================================================================================================
    UI v3 — SYSTEM-WIDE LAYER (Krissha: "ปรับ UI ทั้งระบบ ตามที่เพิ่งปรับไป")
    Brings every page in line with the redesigned Process Board / Content Planner. Visual only — no markup
@@ -5423,6 +5450,16 @@ function designerRoleForDept(department){
   if(department==='Product') return 'Product Designer';
   return 'Designer';
 }
+// Multiple positions per designer (Krissha: "เพิ่มโรลให้ได้มากกว่า 1 เช่น E-Commerce และ Content"):
+// PEOPLE[name].role stays the PRIMARY position (used for display / capacity defaults); extra positions live in
+// System Settings → designerExtraRoles {name:[role,…]}. designerRolesOf() is the full list.
+function designerRolesOf(name){
+  const ss = (typeof sysSettings==='function') ? sysSettings() : {};
+  const prim = (PEOPLE[name]||PEOPLE_ARCHIVE?.[name]||{}).role;
+  const extra = ((ss.designerExtraRoles||{})[name]||[]).filter(Boolean);
+  return [...new Set([prim, ...extra].filter(Boolean))];
+}
+function personHasRole(name, role){ return designerRolesOf(name).includes(role); }
 function activeLeadUsers(){ return (STATE.users||[]).filter(u=>u.role==='lead' && u.status==='active'); }
 function leadNames(){ const l = activeLeadUsers().map(u=>u.name); return l.length ? l : [LEAD]; }
 function isLeadName(name){ return !!name && (name===LEAD || activeLeadUsers().some(u=>u.name===name)); }
@@ -7298,7 +7335,7 @@ function diffBriefFields(before, after){
    Missing keys always fall back to the original built-in values, so an empty/garbled document can never
    break the app — "คืนค่าเริ่มต้น" simply deletes the key. Every change is appended to settings.log. */
 const SYS_DEFAULTS = {
-  primaryLead: '', designerRoles: {}, roleDefaults: {},
+  primaryLead: '', designerRoles: {}, designerExtraRoles: {}, roleDefaults: {},
   perms: { productManagers:['Suriya'], platformManagers:['Pongpoj'], postEditors:['Thongchai','Surachai'], sysEditors:[] },
   dailyCap: 8,
 };
@@ -7399,7 +7436,9 @@ function renderSysTeam(){
     ${dsg.map(u=>{ const role = (ss.designerRoles||{})[u.name] || (PEOPLE[u.name]||{}).role || designerRoleForDept(u.department);
       const on = u.status==='active' && u.designer_status!=='inactive';
       return `<tr class="${on?'':'off'}"><td><b>${escAttr(u.name)}</b>${u.role==='lead'?' <span class="ss-badge">Lead</span>':''}</td><td class="cx-muted">${escAttr(u.email||'')}</td>
-        <td><select data-ssrole="${escAttr(u.name)}">${roles.concat(['Designer']).map(r=>`<option ${r===role?'selected':''}>${escAttr(r)}</option>`).join('')}</select></td>
+        <td><div class="ss-roles"><span class="ss-rolelbl">หลัก</span><select data-ssrole="${escAttr(u.name)}">${roles.concat(['Designer']).map(r=>`<option ${r===role?'selected':''}>${escAttr(r)}</option>`).join('')}</select></div>
+          <div class="ss-xroles">${((ss.designerExtraRoles||{})[u.name]||[]).filter(r=>r!==role).map(r=>`<span class="ss-xrole">+ ${escAttr(r)}<button type="button" data-ssxrole-del="${escAttr(u.name)}|${escAttr(r)}" title="เอาตำแหน่งนี้ออก">✕</button></span>`).join('')}
+            ${roles.filter(r=>r!==role && !((ss.designerExtraRoles||{})[u.name]||[]).includes(r)).length ? `<select class="ss-xrole-add" data-ssxrole-add="${escAttr(u.name)}"><option value="">+ เพิ่มตำแหน่ง</option>${roles.filter(r=>r!==role && !((ss.designerExtraRoles||{})[u.name]||[]).includes(r)).map(r=>`<option>${escAttr(r)}</option>`).join('')}</select>` : ''}</div></td>
         <td>${on ? (u.designer_status==='leave'?'<span class="ss-st leave">ลาพัก</span>':'<span class="ss-st on">รับงาน</span>') : '<span class="ss-st off">ปิดใช้งาน</span>'}</td></tr>`; }).join('')}
     </tbody></table>
   </div>
@@ -7636,6 +7675,12 @@ function bindSysSettings(){
   document.querySelectorAll('[data-ssrole]').forEach(sel=>sel.addEventListener('change', async ()=>{
     const n = sel.dataset.ssrole; ss.designerRoles = Object.assign({}, ss.designerRoles||{}); const b = ss.designerRoles[n]||null; ss.designerRoles[n] = sel.value;
     await saveSysSettings('ตำแหน่งของ '+n, b, sel.value); toast('บันทึกตำแหน่งแล้ว'); render(); }));
+  document.querySelectorAll('[data-ssxrole-add]').forEach(sel=>sel.addEventListener('change', async ()=>{ if(!sel.value) return;
+    const n = sel.dataset.ssxroleAdd; ss.designerExtraRoles = Object.assign({}, ss.designerExtraRoles||{}); const b = (ss.designerExtraRoles[n]||[]).slice();
+    ss.designerExtraRoles[n] = [...new Set(b.concat([sel.value]))]; await saveSysSettings('ตำแหน่งเพิ่มของ '+n, b, ss.designerExtraRoles[n]); toast('เพิ่มตำแหน่งแล้ว'); render(); }));
+  document.querySelectorAll('[data-ssxrole-del]').forEach(btn=>btn.addEventListener('click', async ()=>{
+    const [n, r] = btn.dataset.ssxroleDel.split('|'); ss.designerExtraRoles = Object.assign({}, ss.designerExtraRoles||{}); const b = (ss.designerExtraRoles[n]||[]).slice();
+    ss.designerExtraRoles[n] = b.filter(x=>x!==r); await saveSysSettings('ตำแหน่งเพิ่มของ '+n, b, ss.designerExtraRoles[n]); toast('เอาตำแหน่งออกแล้ว'); render(); }));
   document.querySelectorAll('[data-ssroledef]').forEach(sel=>sel.addEventListener('change', async ()=>{
     const r = sel.dataset.ssroledef; ss.roleDefaults = Object.assign({}, ss.roleDefaults||{}); const b = ss.roleDefaults[r]||null;
     if(sel.value) ss.roleDefaults[r] = sel.value; else delete ss.roleDefaults[r];
@@ -20493,7 +20538,7 @@ function defaultDesignerForRole(role){
   // System Settings → ผู้รับงานตั้งต้นตามหมวด; falls back to the first active Designer with that role.
   const set = (sysSettings().roleDefaults||{})[role];
   if(set && PEOPLE_T[set]) return set;
-  const hit = Object.keys(PEOPLE_T).find(n=>PEOPLE_T[n].role===role);
+  const hit = Object.keys(PEOPLE_T).find(n=>PEOPLE_T[n].role===role) || Object.keys(PEOPLE_T).find(n=>personHasRole(n, role));
   if(hit) return hit;
   const legacy = {'E-Commerce Designer':'Krissha','Content Designer':'Pongpoj','Product Designer':'Suriya'}[role];
   return legacy && PEOPLE_T[legacy] ? legacy : null;
@@ -21025,13 +21070,22 @@ function renderBoard(){
   if(STATE.board.platform!=='ALL' && !boardPlatforms.includes(STATE.board.platform)) boardPlatforms.push(STATE.board.platform);
   if(STATE.board.requester!=='ALL' && !boardRequesters.includes(STATE.board.requester)) boardRequesters.push(STATE.board.requester);
   if(STATE.board.category!=='ALL' && !boardCategories.includes(STATE.board.category)) boardCategories.push(STATE.board.category);
+  // Krissha: "งานที่ฉันต้องพรูฟ อนุมัติ QC มันไม่มาตอนที่กรองเป็น Krissha" — when the board is filtered to MY OWN
+  // name ("งานของฉัน"), "my work" also means work waiting for ME to proof: Lead → every Brief awaiting Approve &
+  // Assign + every task awaiting Lead QC; Brief Owner → my briefs awaiting final approval; anyone → deadline
+  // extensions I can approve. Filtering to someone else's name is unchanged (their assigned work only).
+  const boardNeedsMyProof = t => (isLead() && ['pending_lead_approval','pending_review'].includes(t.review_status))
+    || (t.review_status==='pending_client_review' && extIsBriefOwner(t)) || canApproveExt(t);
   if(STATE.board.designer!=='ALL'){
+    const mine = STATE.board.designer===STATE.auth.identity;
     filtered = filtered.filter(t=>
-      t.review_status==='pending_lead_approval'
+      (t.review_status==='pending_lead_approval'
         ? t.suggested_designer===STATE.board.designer
-        : t.assigned_user_name===STATE.board.designer
+        : t.assigned_user_name===STATE.board.designer)
+      || (mine && boardNeedsMyProof(t))
     );
   }
+  STATE.board.proofMarks = STATE.board.designer===STATE.auth.identity;
   if(STATE.board.project!=='ALL') filtered = filtered.filter(t=>t.project_name===STATE.board.project);
   if(STATE.board.requester!=='ALL') filtered = filtered.filter(t=>boardRequesterName(t)===STATE.board.requester);
   if(STATE.board.category!=='ALL') filtered = filtered.filter(t=>t.task_category===STATE.board.category);
@@ -21324,6 +21378,7 @@ function taskCardHTML(t){
   const actions = linkPill || pz;
   return `<div class="taskcard pb3-card${paused?' is-paused':''}${mine?' is-mine':''}${hotPri?' is-hot':''}" data-opentask="${t.task_id}" style="--pc:${paused?'#94A3B8':priorityAccentColor(t.priority)}">
     ${canEditBriefTask(t) ? `<button type="button" class="iconbtn tc2-edit" data-editbrief="${t.task_id}" title="Edit Brief" onclick="event.stopPropagation()">✎</button>` : ''}
+    ${STATE.board?.proofMarks && t.assigned_user_name!==STATE.auth.identity && ((isLead() && ['pending_lead_approval','pending_review'].includes(t.review_status)) || (t.review_status==='pending_client_review' && extIsBriefOwner(t)) || canApproveExt(t)) ? `<div class="pb3-proof">✅ รอคุณพรูฟ</div>` : ''}
     ${hotPri ? `<div class="pb3-pri">${t.priority==='CRITICAL'?'● วิกฤต':'● ด่วน'}</div>` : ''}
     <div class="tc2-title">${escAttr(taskDisplayName(t))}</div>
     <div class="pb3-sub">${platHTML}<span class="ty">${escAttr(t.task_type||t.task_category||'')}</span>${scopeChangeChipHTML(t)}</div>
@@ -23847,14 +23902,14 @@ function renderTeamCapacityPage(){
   const days = monthDays.concat(tcMonthDays(shiftMonthStr(month, 1)));
   const focus = monthDays.includes(today) ? today : monthDays[0];
   const people = Object.keys(PEOPLE);
-  const roles = Array.from(new Set(people.map(p=>PEOPLE[p].role)));
+  const roles = Array.from(new Set(people.flatMap(p=>designerRolesOf(p))));
   const summary = getMonthlyCapacitySummary(month);
   const monthLabel = new Date(month+'-01T00:00:00').toLocaleDateString('th-TH',{month:'long',year:'numeric'});
 
   const designerList = people.filter(p=>{
     const q = tc.search.trim().toLowerCase();
     if(q && !p.toLowerCase().includes(q) && !PEOPLE[p].role.toLowerCase().includes(q)) return false;
-    if(tc.roleFilter!=='ALL' && PEOPLE[p].role!==tc.roleFilter) return false;
+    if(tc.roleFilter!=='ALL' && !personHasRole(p, tc.roleFilter)) return false;
     if(tc.statusFilter!=='ALL' && designerDayStatus(p, focus).key!==tc.statusFilter) return false;
     return true;
   });
@@ -26080,6 +26135,7 @@ function renderContentPlannerPage(){
   if(ui.issue){ const tmp = ui.issue; ui.issue = ''; const base = cpFiltered(ym); ui.issue = tmp; if(!base.some(x=>cpIssueMatch(x))) ui.issue = ''; }
   const list = cpFiltered(ym);
   const cpAnyFilter = ui.person!=='ALL' || ui.proj!=='ALL' || ui.types.length || !!(ui.q||'').trim() || !!ui.issue;
+  const postedN = list.filter(x=>x.t.cp_posted_at).length;
   const sched = list.filter(x=>cpPost(x.t)).length, early = list.filter(x=>cpPost(x.t) && x.t.prefer_delivery_date && cpPost(x.t) < x.t.prefer_delivery_date && !designerHandoff(x.t)).length;
   const done = list.filter(x=>designerHandoff(x.t)).length, pct = list.length ? Math.round(sched/list.length*100) : 0;
   return `<div class="cx-page cp-page cp2">
@@ -26108,7 +26164,7 @@ function renderContentPlannerPage(){
     <button type="button" class="cp2-stat ${early?'bad':'zero'} ${ui.issue==='early'?'on':''}" ${early?'data-cpissue="early"':''} title="วันโพสต์มาก่อน DL ส่งงาน">
       <div class="k">โพสต์ก่อนส่งงาน</div><div class="v">${early}</div><div class="s">${early?'วันโพสต์มาก่อน DL ส่งงาน':'ไม่มีปัญหา ✓'}</div></button>
     <div class="cp2-stat ${done?'ok':'zero'}">
-      <div class="k">ส่งงานแล้ว</div><div class="v">${done}<small> / ${list.length}</small></div><div class="s">ดีไซน์เสร็จพร้อมโพสต์</div></div>
+      <div class="k">ส่งงานแล้ว</div><div class="v">${done}<small> / ${list.length}</small></div><div class="s">✓ โพสต์แล้ว <b style="color:var(--ink)">${postedN}</b> / ${list.length} · ดีไซน์เสร็จพร้อมโพสต์</div></div>
   </div>
   <div class="cp2-bar">
     <div class="cp2-seg" role="tablist">
@@ -26136,6 +26192,30 @@ function renderContentPlannerPage(){
 // looked like every other field, the post date is a small calendar tile — month on top, big day number, weekday,
 // and a relative hint (วันนี้ / อีก N วัน / ผ่านมาแล้ว) — colour-coded by state. The real <input type="date"> sits
 // invisibly on top of the tile, so clicking anywhere opens the date picker (showPicker) and keyboard entry still works.
+// "โพสต์แล้ว" (Krissha: "เพิ่มช่องให้ check ว่าโพสแล้ว คอนเทนที่โพสแล้วจะเป็นแถบเทาๆ"): t.cp_posted_at / cp_posted_by.
+// Ticked by the same people who can set the post date (cpCanEdit); unticking is allowed (mis-click).
+function cpPostedCheckHTML(t, can){
+  const on = !!t.cp_posted_at;
+  if(!can) return on ? `<div class="cp-posted on ro">✓ โพสต์แล้ว${t.cp_posted_by?` · ${escAttr(t.cp_posted_by)}`:''}</div>` : '';
+  return `<label class="cp-posted${on?' on':''}" title="${on?`โพสต์แล้วเมื่อ ${escAttr(fmtDateTime(t.cp_posted_at))}${t.cp_posted_by?' โดย '+escAttr(t.cp_posted_by):''} · กดอีกครั้งเพื่อยกเลิก`:'ติ๊กเมื่อโพสต์คอนเทนต์นี้แล้ว'}" onclick="event.stopPropagation()">
+    <input type="checkbox" data-cpposted="${t.task_id}" ${on?'checked':''}><span class="cp-posted-box"></span>${on?'โพสต์แล้ว':'ติ๊กเมื่อโพสต์แล้ว'}</label>`;
+}
+// Who can tick "โพสต์แล้ว": everyone with a Content position (primary OR extra), plus the post-date editors.
+function cpIsContentPerson(){
+  const me = STATE.auth.role==='designer' ? STATE.auth.identity : null;
+  return !!me && personHasRole(me, 'Content Designer');
+}
+function cpCanTickPosted(t){ return cpCanEdit(t) || cpIsContentPerson(); }
+async function cpSetPosted(id, on){
+  const t = STATE.tasks.find(x=>x.task_id===id); if(!t) return;
+  if(!cpCanTickPosted(t)){ toast('ติ๊กโพสต์แล้วได้เฉพาะคนที่มีตำแหน่ง Content Designer / เจ้าของงาน / Lead'); render(); return; }
+  const prev = {at:t.cp_posted_at, by:t.cp_posted_by}, by = STATE.auth.user?.name || STATE.auth.identity || '';
+  if(on){ t.cp_posted_at = new Date().toISOString(); t.cp_posted_by = by; } else { delete t.cp_posted_at; delete t.cp_posted_by; }
+  (t.review_history = t.review_history||[]).push({timestamp:new Date().toISOString(), action:'CP_POSTED', comment: on ? 'ติ๊กว่าโพสต์แล้ว' : 'ยกเลิกสถานะโพสต์แล้ว', by});
+  const ok = await saveTasks();
+  if(ok===false){ if(prev.at){ t.cp_posted_at=prev.at; t.cp_posted_by=prev.by; } else { delete t.cp_posted_at; delete t.cp_posted_by; } t.review_history.pop(); toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); render(); return; }
+  toast(on ? '✓ บันทึกว่าโพสต์แล้ว' : 'ยกเลิกสถานะโพสต์แล้ว'); render();
+}
 function cpPostTileHTML(t, post, early, can, today){
   const st = !post ? 'none' : early ? 'bad' : post===today ? 'today' : post<today ? 'past' : 'set';
   let tile;
@@ -26161,7 +26241,7 @@ function renderCpTable(list){
         <thead><tr><th class="tl">งาน</th><th>ประเภทงาน</th><th>ประเภทคอนเทนต์</th><th>SKU / สินค้า</th><th>Target</th><th>สถานะ</th><th class="cp-postth">วันที่โพสต์</th></tr></thead>
         <tbody>${rows.map(t=>{ const ct = cpTypeOf(t), st = mpStatus(t), post = cpPost(t), can = cpCanEdit(t);
           const early = post && t.prefer_delivery_date && post < t.prefer_delivery_date && !designerHandoff(t);
-          return `<tr class="cp-gap"><td colspan="7"></td></tr><tr class="cp-row" style="--ct:${cpColor(ct)}" data-cphover="${t.task_id}">
+          return `<tr class="cp-gap"><td colspan="7"></td></tr><tr class="cp-row${t.cp_posted_at?' is-posted':''}" style="--ct:${cpColor(ct)}" data-cphover="${t.task_id}">
             <td class="tl" data-opentask="${t.task_id}"><span class="todo-link mp-tname">${escAttr(taskDisplayName(t))}</span>${cpNoteTag(t)}
               <div class="cx-muted">${t.mp_details?.topic?`${escAttr(t.mp_details.topic)} · `:''}${escAttr(t.assigned_user_name||'—')}</div>${cpNotePreview(t)}</td>
             <td data-opentask="${t.task_id}"><span class="cx-type">${escAttr(t.task_type||'')}</span></td>
@@ -26169,7 +26249,7 @@ function renderCpTable(list){
             <td data-opentask="${t.task_id}" class="cp-sku">${escAttr(t.mp_details?.product||'') || '<span class="cp-dash">—</span>'}</td>
             <td data-opentask="${t.task_id}" class="cp-tg">${t.mp_details?.target_main||t.mp_details?.target_sub ? `${t.mp_details?.target_main?`<b>${escAttr(t.mp_details.target_main)}</b>`:''}${t.mp_details?.target_sub?`<span>${escAttr(t.mp_details.target_sub)}</span>`:''}` : '<span class="cp-dash">—</span>'}</td>
             <td data-opentask="${t.task_id}"><span class="cx-chip ${st.c}">${st.l}</span></td>
-            <td class="cp-postcell">${cpPostTileHTML(t, post, early, can, today)}</td>
+            <td class="cp-postcell">${cpPostTileHTML(t, post, early, can, today)}${cpPostedCheckHTML(t, cpCanTickPosted(t))}</td>
           </tr>`; }).join('')}</tbody>
       </table></div>
     </div>`; }).join('');
@@ -26180,8 +26260,8 @@ function renderCpCalendar(list, ym){
   const byDay = {}; list.forEach(x=>{ const d = cpPost(x.t); if(d) (byDay[d] = byDay[d]||[]).push(x); });
   const unsched = list.filter(x=>!cpPost(x.t));
   const item = ({t,p}, small)=>{ const ct = cpTypeOf(t), can = cpCanEdit(t), early = cpPost(t) && t.prefer_delivery_date && cpPost(t) < t.prefer_delivery_date && !designerHandoff(t);
-    return `<div class="cp-item ${early?'is-bad':''} ${designerHandoff(t)?'done':''}" data-opentask="${t.task_id}" data-cphover="${t.task_id}" ${can?`draggable="true" data-cpdrag="${t.task_id}"`:''} style="--ct:${cpColor(ct)}" title="${escAttr(taskDisplayName(t))} · ${escAttr(ct||'ไม่ระบุประเภท')} · ${escAttr(p.name)} · DL ส่งงาน ${fmtDate(t.prefer_delivery_date)} · ${mpStatus(t).l}${early?' · ⚠ โพสต์ก่อน DL ส่งงาน':''}${can?' · ลากเพื่อเปลี่ยนวันโพสต์':''}">
-      <span class="cp-item-n">${cpNote(t)?'<span class="cp-item-note" title="มีโน้ต">📝</span>':''}${escAttr(taskDisplayName(t))}</span>${small?'':`<span class="cp-item-m">${escAttr(t.task_type||'')} · DL ${fmtDateShort(t.prefer_delivery_date)}</span>`}</div>`; };
+    return `<div class="cp-item ${early?'is-bad':''} ${designerHandoff(t)?'done':''} ${t.cp_posted_at?'is-posted':''}" data-opentask="${t.task_id}" data-cphover="${t.task_id}" ${can?`draggable="true" data-cpdrag="${t.task_id}"`:''} style="--ct:${cpColor(ct)}" title="${escAttr(taskDisplayName(t))} · ${escAttr(ct||'ไม่ระบุประเภท')} · ${escAttr(p.name)} · DL ส่งงาน ${fmtDate(t.prefer_delivery_date)} · ${mpStatus(t).l}${early?' · ⚠ โพสต์ก่อน DL ส่งงาน':''}${can?' · ลากเพื่อเปลี่ยนวันโพสต์':''}">
+      <span class="cp-item-n">${t.cp_posted_at?'<span class="cp-item-ok" title="โพสต์แล้ว">✓</span>':''}${cpNote(t)?'<span class="cp-item-note" title="มีโน้ต">📝</span>':''}${escAttr(taskDisplayName(t))}</span>${small?'':`<span class="cp-item-m">${escAttr(t.task_type||'')} · DL ${fmtDateShort(t.prefer_delivery_date)}</span>`}</div>`; };
   const cells = Array.from({length: weeks*7}, (_,i)=>addDaysISO(start, i));
   return `<div class="cp-calwrap">
     <div class="cx-card cpc"><div class="mpc-grid">
@@ -26257,6 +26337,7 @@ function bindContentPlanner(){
     inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); } });
     inp.addEventListener('click', e=>e.stopPropagation());
   });
+  document.querySelectorAll('[data-cpposted]').forEach(cb=>cb.addEventListener('change', e=>{ e.stopPropagation(); cpSetPosted(cb.dataset.cpposted, cb.checked); }));
   document.querySelectorAll('.cp-pt-in').forEach(inp=>inp.addEventListener('click', ()=>{ try{ inp.showPicker && inp.showPicker(); }catch(e){} }));
   document.querySelectorAll('#cpClearAll,[data-cpclearall]').forEach(b=>b.onclick=()=>{ Object.assign(ui, {person:'ALL', proj:'ALL', types:[], q:'', issue:''}); render(); });
   document.querySelectorAll('[data-cpdrag]').forEach(el=>{
@@ -26448,7 +26529,7 @@ function cpIssueMatch(x){
   if(k==='pending') return !t.cp_ok; if(k==='edited') return t.cp_ok && cpEditedAfter(t).length; return true;
 }
 // History view: every approval snapshot of the month, compared with the current state of each post.
-const CP_LOG_ACTIONS = {CP_ADD:'เพิ่มงาน', CP_REMOVE:'ลบงาน', CP_WITHDRAW:'ถอนแผน', CP_MOVE_MONTH:'ย้ายเดือน', MP_EDIT:'แก้ไขงาน', POST_DATE:'วันที่โพสต์', MP_DETAIL:'รายละเอียด', DEADLINE_MOVED:'เลื่อน DL', REQUEST_EXTENSION:'ขอเลื่อน DL', APPROVE_EXTENSION:'อนุมัติเลื่อน DL', CANCEL_TASK:'ยกเลิกงาน'};
+const CP_LOG_ACTIONS = {CP_ADD:'เพิ่มงาน', CP_REMOVE:'ลบงาน', CP_WITHDRAW:'ถอนแผน', CP_MOVE_MONTH:'ย้ายเดือน', MP_EDIT:'แก้ไขงาน', POST_DATE:'วันที่โพสต์', MP_DETAIL:'รายละเอียด', DEADLINE_MOVED:'เลื่อน DL', REQUEST_EXTENSION:'ขอเลื่อน DL', APPROVE_EXTENSION:'อนุมัติเลื่อน DL', CANCEL_TASK:'ยกเลิกงาน', CP_POSTED:'โพสต์แล้ว'};
 function cpChangeLog(ym){
   const projs = (STATE.myProjects||[]), out = [];
   (STATE.tasks||[]).filter(t=>t.task_category==='Content' && t.my_project_id).forEach(t=>{ const p = projs.find(x=>x.id===t.my_project_id); if(!p || cpProjStatus(p)!=='approved' || !p.cp_approved_at || (cpMonthOf(t,p)!==ym && p.ym!==ym)) return;
