@@ -4176,12 +4176,37 @@ select.ss-xrole-add{width:auto!important;min-height:0;padding:3px 24px 3px 9px!i
 
 /* Board colour system v2 (Krissha: "สีมีอะไรต้องปรับอีกมั้ย") — 3 families only, so the eye reads them instantly:
    ORANGE = I must act (proof)  ·  CI BLUE fill = my brief  ·  CI BLUE outline + navy tag = work I'm doing */
-.pb3 .pb3-card.tint-mine{background:#fff!important;border:2px solid #1B76FF!important;padding:10px 11px}
-.pb3 .pb3-card.tint-mine:hover{border-color:#0F5FD6!important}
-.pb3-mine{background:linear-gradient(135deg,#1B76FF,#0B4FC4)!important;display:inline-flex!important;align-items:center;gap:4px}
+.pb3 .pb3-card.tint-mine{background:linear-gradient(90deg,#F3F8FF 0%,#fff 38%)!important;border:1px solid #DCE8FB!important;
+  box-shadow:inset 3px 0 0 #1B76FF,0 6px 18px -12px rgba(27,118,255,.55)!important}
+.pb3 .pb3-card.tint-mine:hover{border-color:#A9C8F7!important;box-shadow:inset 3px 0 0 #1B76FF,0 10px 22px -12px rgba(27,118,255,.6)!important}
+.pb3-mine{background:#E8F1FF!important;color:#1B5FD1!important;display:inline-flex!important;align-items:center;gap:4px}
+.pb3-mine svg{fill:#1B76FF}
 .pb3-tags .pb3-proof,.pb3-tags .pb3-proof.k-ext,.pb3-tags .pb3-proof.k-check{background:linear-gradient(135deg,#F59E0B,#EA580C)!important;box-shadow:0 2px 6px -3px rgba(234,88,12,.7)}
 .pb3 .pb3-card.tint-proof{background:#FFF7EB!important;border-color:#FBC98A!important}
 .pb3 .pb3-card.tint-proof .pb3-due.soon,.pb3 .pb3-card.tint-proof .pb3-due:not(.late):not(.today):not(.handoff){background:#fff;box-shadow:inset 0 0 0 1px #FDE3BF}
+
+/* Urgency strip on top of each board card — separate from the card fill (who/what) so colours never clash */
+/* v2 (Krissha picked "กล่องสีอ่อนตรงชื่องาน"): the title becomes a pale urgency-coloured header, text stays dark.
+   Every card shows its title FIRST and tags underneath, so tags sit in the same place on every card. */
+.pb3 .pb3-card{--cpx:12px;display:flex;flex-direction:column}
+.pb3 #pbLane .pb3-card{--cpx:10px}
+.pb3 .pb3-card>.tc2-title{order:-2}
+.pb3 .pb3-card>.pb3-tags{order:-1;margin:6px 0 0}
+.pb3 .pb3-card>.pb3-pri{order:-1;margin:4px 0 0}
+/* v3 (Krissha: "ไม่สวย"): no hard box — a soft urgency wash that fades from the top of the card into white,
+   plus a slim bar clipped to the card's rounded top. Title text unchanged (dark, 3-line clamp intact). */
+/* Final (Krissha chose แบบ A): slim urgency bar on top, clipped to the card's rounded corners — no box, no wash. */
+.pb3 .pb3-card[class*="urg-"]{overflow:hidden;padding-top:17px}
+.pb3 .pb3-card[class*="urg-"]::before{content:'';position:absolute;left:0;right:0;top:0;height:7px;background:var(--urg);pointer-events:none}
+.pb3 .pb3-card.urg-red{--urg:#F05252}
+.pb3 .pb3-card.urg-orange{--urg:#FB8A3C}
+.pb3 .pb3-card.urg-yellow{--urg:#F5C542}
+
+/* Urgent cards: the due pill turns solid so urgency reads at a glance (with the top bar) */
+.pb3 .pb3-card.urg-red .pb3-due{background:#EF4444!important;color:#fff!important;box-shadow:0 3px 8px -3px rgba(239,68,68,.7)!important}
+.pb3 .pb3-card.urg-orange .pb3-due{background:#F97316!important;color:#fff!important;box-shadow:0 3px 8px -3px rgba(249,115,22,.7)!important}
+.pb3 .pb3-card.urg-yellow .pb3-due{background:#FACC15!important;color:#5B4300!important}
+.pb3 .pb3-card.urg-red .pb3-due::before{content:'🔥 '}
 /* =====================================================================================================
    UI v3 — SYSTEM-WIDE LAYER (Krissha: "ปรับ UI ทั้งระบบ ตามที่เพิ่งปรับไป")
    Brings every page in line with the redesigned Process Board / Content Planner. Visual only — no markup
@@ -21171,7 +21196,8 @@ function renderBoard(){
   // anything to APPROVE (Brief approve & assign, deadline-extension request) → column 1 "รออนุมัติ",
   // anything to CHECK (Lead QC, my brief's final approval) → column 4 "รอตรวจ". Other cards stay in their stage.
   const boardColOf = t=>{
-    if(!STATE.board.proofMarks) return t.review_status;
+    // Same column in EVERY view (no jumping when switching ทั้งทีม ↔ ของฉัน): a pending deadline-extension request
+    // that I can approve always sits in col 1 "รออนุมัติ", for me, whatever stage the task itself is in.
     // Only a deadline-extension request is moved (its task can sit in any stage, e.g. "Brief ใหม่"). Every other
     // card stays in its real stage so it never "jumps" between columns when you switch ทั้งทีม ↔ ของฉัน:
     // Brief approval is already col 1, Lead QC col 4, the Brief Owner's approval col 5 "รอผู้บรีฟอนุมัติ".
@@ -21278,6 +21304,10 @@ function renderColumn(status, tasks, stepNo){
         || (a.prefer_delivery_date||'').localeCompare(b.prefer_delivery_date||'')
         || (a.brief_timestamp||'').localeCompare(b.brief_timestamp||''))
     : tasks.slice().sort((a,b)=>(lastUpdateOf(b)||'').localeCompare(lastUpdateOf(a)||''));
+  // Krissha: "อยากให้เห็นแล้วรู้เลยว่าอันไหนด่วน" — urgent cards (overdue/today → 1 day → 2 days) float to the top of
+  // every column; within the same urgency the column's own order above is kept (stable sort).
+  const urgRank = t=>{ if(designerHandoff(t) || isBoardTaskTerminal(t)) return 9; const d = dueRelative(t).days; return d===null ? 9 : d<=0 ? 0 : d===1 ? 1 : d===2 ? 2 : 9; };
+  sorted.sort((a,b)=>urgRank(a)-urgRank(b));
   // DEV REQUEST — Compact Kanban Card + Column Scroll: the task list now lives in its own .col-body
   // (independently scrollable, see CSS) rather than flowing directly inside .col — .col-head stays outside
   // it so it never scrolls out of view. data-boardcol is a stable per-column key (status is unique across
@@ -21437,18 +21467,20 @@ function taskCardHTML(t){
   const who = assignee || t.suggested_designer || '';
   const countdown = autoCompleteCountdownShort(t);
   const paused = t.paused && t.review_status==='in_progress';
-  const mine = !!STATE.auth.identity && (assignee===STATE.auth.identity || !!boardProofKind(t) || !!boardRelation(t));
+  const mine = !!STATE.auth.identity && ((assignee===STATE.auth.identity && !STATE.board?.proofMarks) || !!boardProofKind(t) || !!boardRelation(t));
   const dueCls = designerHandoff(t) ? 'handoff' : due.late ? 'late' : due.days===0 ? 'today' : (due.days!==null && due.days<=2) ? 'soon' : '';
   const hotPri = ['CRITICAL','URGENT'].includes(t.priority);
   const pz = t.review_status==='in_progress' && (t.paused || pauseBtnHTML(t));
   const actions = linkPill || pz;
-  return `<div class="taskcard pb3-card${paused?' is-paused':''}${mine?' is-mine':''}${(()=>{ if(!STATE.auth.identity) return ''; if(boardProofKind(t)) return ' tint-proof'; if(assignee===STATE.auth.identity) return ' tint-mine'; const r = boardRelation(t); return (r==='owner'||r==='creator') ? ' tint-owner' : ''; })()}${hotPri?' is-hot':''}" data-opentask="${t.task_id}" style="--pc:${paused?'#94A3B8':priorityAccentColor(t.priority)}">
+  return `<div class="taskcard pb3-card${paused?' is-paused':''}${mine?' is-mine':''}${(()=>{ if(!STATE.auth.identity) return ''; if(boardProofKind(t)) return ' tint-proof'; if(assignee===STATE.auth.identity) return STATE.board?.proofMarks ? '' : ' tint-mine'; const r = boardRelation(t); return (r==='owner'||r==='creator') ? ' tint-owner' : ''; })()}${hotPri?' is-hot':''}${(()=>{ // urgency strip on top (Krissha): red = today/overdue, orange = 1 day, yellow = 2 days
+      if(designerHandoff(t) || isBoardTaskTerminal(t) || due.days===null) return '';
+      return due.days<=0 ? ' urg-red' : due.days===1 ? ' urg-orange' : due.days===2 ? ' urg-yellow' : ''; })()}" data-opentask="${t.task_id}" style="--pc:${paused?'#94A3B8':priorityAccentColor(t.priority)}">
     ${canEditBriefTask(t) ? `<button type="button" class="iconbtn tc2-edit" data-editbrief="${t.task_id}" title="Edit Brief" onclick="event.stopPropagation()">✎</button>` : ''}
     ${(k=>{ // Tags show on EVERY board view (Krissha: "ติดแท็กการ์ดว่างานไหนเป็นของฉัน จากบอร์ดรวม")
         const isMineT = !!STATE.auth.identity && t.assigned_user_name===STATE.auth.identity;
         const rel = boardRelation(t);
         const tags = [];
-        if(isMineT) tags.push(`<span class="pb3-mine"><svg viewBox="0 0 24 24" width="12" height="12" fill="#fff" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.4 4.2-7 8.5-7s7.7 2.6 8.5 7z"/></svg>งานของฉัน</span>`);
+        if(isMineT && !STATE.board?.proofMarks) tags.push(`<span class="pb3-mine"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.4 4.2-7 8.5-7s7.7 2.6 8.5 7z"/></svg>งานของฉัน</span>`);
         if(k) tags.push(`<span class="pb3-proof k-${k}">${({approve:'✅ รอคุณอนุมัติ Brief', ext:'📅 รอคุณอนุมัติเลื่อนวันส่ง', check:'🔍 รอคุณตรวจงาน', owner:'✅ รอคุณอนุมัติงาน'})[k]}</span>`);
         else if(rel && !isMineT) tags.push(`<span class="pb3-rel">${({owner:'📝 บรีฟของฉัน', creator:'📝 ฉันเป็นคนสร้าง', requester:'📨 ฉันขอเลื่อนวันส่ง'})[rel]}</span>`);
         return tags.length ? `<div class="pb3-tags">${tags.join('')}</div>` : '';
