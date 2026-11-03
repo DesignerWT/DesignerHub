@@ -4273,6 +4273,14 @@ select.ss-xrole-add{width:auto!important;min-height:0;padding:3px 24px 3px 9px!i
 .aw-compact .aw-part .awp-meta,.aw-compact .aw-part .awp-note{display:none}
 .aw-compact .awp-send input{width:240px}
 @media (max-width:760px){ .aw-compact .aw-card{flex-wrap:wrap}.aw-compact .aw-part{flex:1 1 100%}.aw-compact .awp-send{width:100%}.aw-compact .awp-send input{flex:1;width:auto} }
+.aw-rs{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--ink-soft);white-space:nowrap;margin:0}
+.aw-rs input{width:58px!important;min-height:30px!important;padding:3px 6px!important;font-size:13px;text-align:center}
+.aw-rs.ro b{color:var(--ink)}
+.aw-rs-sum{font-size:11.5px;color:var(--ink-soft)}.aw-rs-sum b{color:var(--ink)}
+.qc-aws{margin-top:12px;border:1px solid #E0E7FF;border-radius:12px;background:#F8F9FF;padding:10px 12px;max-height:220px;overflow:auto}
+.qc-aws-h{font-size:12px;color:var(--ink-soft);margin-bottom:6px;line-height:1.5}
+.qc-aw{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:5px 0;border-top:1px dashed #E5E7EB}
+.qc-aw:first-of-type{border-top:none}.qc-aw b{white-space:nowrap;color:var(--ink)}
 /* =====================================================================================================
    UI v3 — SYSTEM-WIDE LAYER (Krissha: "ปรับ UI ทั้งระบบ ตามที่เพิ่งปรับไป")
    Brings every page in line with the redesigned Process Board / Content Planner. Visual only — no markup
@@ -4467,6 +4475,11 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   .tdp-stat{padding:12px 14px;border-right:0;border-bottom:1px solid var(--line)}
   .toast{max-width:calc(100vw - 32px)}
 }
+
+/* Help (?) button sits ABOVE the hosting badge ("Powered by Netlify") pinned bottom-right */
+#helpFab{bottom:84px!important}
+#helpPanel{bottom:138px!important;max-height:min(600px,calc(100vh - 170px))!important}
+@media (max-width:640px){ #helpFab{bottom:76px!important} #helpPanel{bottom:122px!important} }
 </style>
 <style>
 .gd-entry-modes{display:flex;gap:6px;margin:14px 0 16px;padding:5px;background:#e9edf5;border-radius:12px;width:max-content;max-width:100%}
@@ -6119,6 +6132,20 @@ function boardRelation(t){
 // The normal one-link "ส่งตรวจงาน" for the whole task is unchanged; this is an extra checklist that lets the
 // designer hand in finished AWs early and the Lead / Brief Owner check them one by one.
 // Data: t.aw_parts = {"0": {status:'submitted'|'approved'|'revision', url, at, by, rv_by, rv_at, comment}, ...}
+// Hours of each AW = its Master share + its Resize/Adapt share.
+//   Master: E-Commerce + ไม่มี KV → AW01 = 3 ชม., every other AW = 1 ชม. (the existing points rule); otherwise split evenly.
+//   Resize/Adapt: the task's resize points split by each AW's own count (evenly if not split per AW yet).
+function awPartWeights(t){
+  const n = awPartsCount(t); if(!n) return [];
+  const act = Array.isArray(t?.artworks) ? t.artworks.filter(a=>a.status!=='cancelled') : [];
+  const rsTot = (()=>{ try{ return currentScopeFor(t).resize_count; }catch(e){ return 0; } })();
+  const rsPts = resizePoints(rsTot), base = Number(t.base_points)||appliedPoints(t)||0, master = Math.max(0, base - rsPts);
+  const ecomNoKv = t?.task_category==='E-Commerce' && t?.kv_status_check==='NEED_NEW_KV';
+  const mw = Array.from({length:n}, (_,i)=>ecomNoKv ? (i===0?3:1) : 1), mSum = mw.reduce((a,b)=>a+b,0)||1;
+  const rsEach = Array.from({length:n}, (_,i)=>Number(act[i]?.resize_count)||0), rsSum = rsEach.reduce((a,b)=>a+b,0);
+  return mw.map((w,i)=>master*w/mSum + (rsPts ? (rsSum ? rsPts*rsEach[i]/rsSum : rsPts/n) : 0));
+}
+function awPartHours(t, i){ return Math.round((awPartWeights(t)[i]||0)*100)/100; }
 function awPartsCount(t){
   const act = Array.isArray(t?.artworks) ? t.artworks.filter(a=>a.status!=='cancelled').length : 0;
   let n = act; try{ n = n || currentScopeFor(t).artwork_count; }catch(e){}
@@ -6158,7 +6185,7 @@ function awPartsSummaryHTML(t){
   return `<div class="awp-sumbar">
     <div class="awp-head"><div><div class="awp-title">📦 ส่งทีละ AW <span class="awp-opt">ไม่บังคับ</span></div>
       <div class="hint">ทำเสร็จบางชิ้น วางลิงก์ส่งชิ้นนั้นก่อนได้ในแต่ละแถวด้านล่าง · ถ้าเสร็จครบ ส่งทีเดียวด้วยลิงก์เดียวที่ “📤 ส่งมอบงาน” ตามปกติ</div></div>
-      <div class="awp-count"><b>${st.sub}</b>/${n} ส่งแล้ว · ผ่าน ${st.ok}</div></div>
+      <div class="awp-count"><b>${st.sub}</b>/${n} ส่งแล้ว · ผ่าน ${st.ok}${awResizeSummaryHTML(t)?`<br>${awResizeSummaryHTML(t)}`:''}</div></div>
     <div class="awp-bar"><span class="ok" style="width:${pct}%"></span><span class="sub" style="width:${pctSub-pct}%"></span></div>
     ${st.sub===n && awCanSubmit(t) && !designerHandoff(t) ? `<div class="awp-done">ส่งครบทุก AW แล้ว — กด “📤 ส่งตรวจงาน” เพื่อส่งทั้งงานเข้าขั้นตรวจตามปกติ</div>` : ''}
   </div>`;
@@ -6188,7 +6215,7 @@ function renderAwPartsPanel(t){
   return `<div class="taskws-card awp-panel">
     <div class="awp-head"><div><div class="awp-title">📦 ส่งทีละ AW <span class="awp-opt">ไม่บังคับ</span></div>
       <div class="hint">ทำเสร็จบางชิ้น ส่งชิ้นนั้นไปตรวจก่อนได้ · ถ้าเสร็จครบแล้ว ส่งทีเดียวด้วยลิงก์เดียวที่ “📤 ส่งมอบงาน” ตามปกติ</div></div>
-      <div class="awp-count"><b>${st.sub}</b>/${n} ส่งแล้ว · ผ่าน ${st.ok}</div></div>
+      <div class="awp-count"><b>${st.sub}</b>/${n} ส่งแล้ว · ผ่าน ${st.ok}${awResizeSummaryHTML(t)?`<br>${awResizeSummaryHTML(t)}`:''}</div></div>
     <div class="awp-bar"><span class="ok" style="width:${pct}%"></span><span class="sub" style="width:${pctSub-pct}%"></span></div>
     <div class="awp-list">${Array.from({length:n},(_,i)=>row(i)).join('')}</div>
     ${st.sub===n && canSub && !designerHandoff(t) ? `<div class="awp-done">ส่งครบทุก AW แล้ว — กด “📤 ส่งตรวจงาน” ด้านล่างเพื่อส่งทั้งงานเข้าขั้นตรวจตามปกติ</div>` : ''}
@@ -6227,8 +6254,39 @@ async function awAddOne(id){
   if(ok===false){ const o = JSON.parse(snap); t.scope=o.sc; t.artworks=o.aws; t.deliverables=o.d; t.base_points=o.bp; t.review_history.length=o.hl; toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); render(); return; }
   toast(`＋ เพิ่ม AW${String(n+1).padStart(2,'0')} แล้ว · Point ${appliedPoints(t).toFixed(1)}`); render();
 }
+// Resize / Adapt per AW (Krissha: "ใส่จำนวน resize และ Adapt ใน AW ได้เลยด้วยได้มั้ย"): each card keeps its own
+// aw.resize_count; changing it moves the TASK's Resize/Adapt total by the same delta through the normal Scope
+// Change engine (points + Scope History + notifications), so any not-yet-assigned remainder is preserved.
+function awResizeCellHTML(t, aw, i){
+  const v = Number(aw.resize_count)||0;
+  if(awCanAdd(t)) return `<label class="aw-rs" title="จำนวน Resize / Adapt ของ AW นี้">Resize/Adapt<input type="number" min="0" step="1" value="${v}" data-awrs="${t.task_id}|${i}"></label>`;
+  return v ? `<span class="aw-rs ro">Resize/Adapt <b>${v}</b></span>` : '';
+}
+function awResizeSummaryHTML(t){
+  const tot = currentScopeFor(t).resize_count, per = (t.artworks||[]).filter(a=>a.status!=='cancelled').reduce((n,a)=>n+(Number(a.resize_count)||0),0);
+  if(!tot && !per) return '';
+  const anySet = (t.artworks||[]).some(a=>a.status!=='cancelled' && Number(a.resize_count)>0);
+  return `<span class="aw-rs-sum">Resize/Adapt รวม <b>${anySet?per:tot}</b>${anySet?' (นับจากแต่ละ AW)':''}${anySet && tot!==per?` · <span style="color:#B45309">Scope ${tot} → จะอัปเดตเป็น ${per}</span>`:''}${!anySet && tot?' · ยังไม่ได้แบ่งตาม AW':''}</span>`;
+}
+async function awSetResize(id, idx, val){
+  const t = STATE.tasks.find(x=>x.task_id===id); if(!t || !awCanAdd(t)) return;
+  const aw = (t.artworks||[])[idx]; if(!aw) return;
+  const nv = Math.max(0, Math.floor(Number(val)||0)), ov = Number(aw.resize_count)||0; if(nv===ov) return;
+  const who = STATE.auth.user?.name || STATE.auth.identity || 'system', code = 'AW'+String(idx+1).padStart(2,'0');
+  const snap = JSON.stringify({sc:t.scope||null, aws:t.artworks||null, d:t.deliverables, rq:t.resize_quantity, bp:t.base_points, hl:(t.review_history||[]).length});
+  // Krissha: "Resize-Adapt ให้นับจากอันนี้" — once AWs carry their own numbers, the task total IS their sum.
+  const others = (t.artworks||[]).filter((a,j)=>j!==idx && a.status!=='cancelled').reduce((n,a)=>n+(Number(a.resize_count)||0),0);
+  applyScopeChange(t, 'resize', Math.max(0, others + nv), `Resize/Adapt ${code}${aw.name?` (${aw.name})`:''}: ${ov} → ${nv}`, extIsBriefOwner(t) ? 'Brief Owner' : who, who);
+  aw.resize_count = nv;
+  const ok = await saveTasks();
+  if(ok===false){ const o = JSON.parse(snap); t.scope=o.sc; t.artworks=o.aws; t.deliverables=o.d; t.resize_quantity=o.rq; t.base_points=o.bp; t.review_history.length=o.hl; toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); render(); return; }
+  toast(`${code} Resize/Adapt = ${nv} · Point ${appliedPoints(t).toFixed(1)}`); render();
+}
 function bindAwParts(){
   if(window.__awpBound) return; window.__awpBound = true;
+  document.addEventListener('change', e=>{ const el = e.target.closest && e.target.closest('[data-awrs]'); if(!el) return;
+    const [id, i] = el.dataset.awrs.split('|'); awSetResize(id, Number(i), el.value); }, true);
+  document.addEventListener('click', e=>{ if(e.target.closest && e.target.closest('.aw-rs')) e.stopPropagation(); }, true);
   document.addEventListener('click', e=>{
     const ad = e.target.closest('[data-awadd]');
     if(ad){ e.preventDefault(); e.stopPropagation(); awAddOne(ad.dataset.awadd); return; }
@@ -6251,10 +6309,28 @@ function bindAwParts(){
       if(!awCanSubmit(t)) return toast('ส่งได้เฉพาะดีไซเนอร์เจ้าของงาน');
       const url = String(document.getElementById(`awp_${id}_${i}`)?.value||'').trim();
       if(!/^https?:\/\//i.test(url)) return toast('วางลิงก์ (https://…) ของ AW นี้ก่อน');
-      awPartsSave(t, ()=>{ t.aw_parts = Object.assign({}, awParts(t), {[i]:{status:'submitted', url, at:now, by}});
+      // Log the time into today's My To-do (Krissha: "เอาไปลงเวลาที่ทำวันนี้ด้วยได้มั้ย") — asked once per AW,
+      // default = that AW's share of the task estimate; re-sending a fixed AW asks again (time spent on the fix).
+      const est = awPartHours(t, i);
+      const ans = prompt(`ใช้เวลาทำ ${lbl} วันนี้กี่ ชม.? (ลงเวลาใน My To-do วันนี้ · เว้นว่าง = ไม่ลง)`, String(est||''));
+      const hrs = ans===null ? null : Math.max(0, Math.round(Number(String(ans).trim()||0)*100)/100);
+      if(ans!==null && isNaN(hrs)) return toast('ใส่ชั่วโมงเป็นตัวเลข');
+      if(hrs>0){
+        const day = todayISO(), rid = todoRecId(STATE.auth.identity, day, t.task_id);
+        let rec = (STATE.dailyTodos||[]).find(r=>r.id===rid);
+        if(!rec){ rec = {id:rid, person:STATE.auth.identity, date:day, source:'assigned', taskId:t.task_id, taskName:taskDisplayName(t), pointsSnapshot:appliedPoints(t), deadlineSnapshot:t.prefer_delivery_date||null,
+          projectSnapshot:t.project_name||'', platformSnapshot:(t.platform||[]).join(', '), planned:'planned', priority:'Normal', estimateHours:null, actualHours:0, status:null, waitReason:'', note:'',
+          originalPlannedDate:day, carriedFromDate:null, createdAt:now, updatedAt:now, completedAt:null}; (STATE.dailyTodos=STATE.dailyTodos||[]).push(rec); }
+        rec.actualHours = Math.round(((Number(rec.actualHours)||0) + hrs)*100)/100;
+        rec.note = [rec.note, `${lbl} ${hrs} ชม.`].filter(Boolean).join(' · ');
+        rec.updatedAt = now;
+        try{ todoLogChanged(); }catch(e){}
+        saveDailyTodos(todoYM(day));
+      }
+      awPartsSave(t, ()=>{ t.aw_parts = Object.assign({}, awParts(t), {[i]:{status:'submitted', url, at:now, by, hours:hrs||0}});
         (t.review_history=t.review_history||[]).push({timestamp:now, action:'AW_PART_SUBMIT', comment:`ส่ง ${lbl} ก่อน — ${url}`, by});
         notifyUsers([...leadNames(), t.project_owner_email], 'ส่ง AW บางส่วนแล้ว', `${by} ส่ง ${lbl} ของ "${t.task_name}" ให้ตรวจก่อน (${awPartsStats(t).sub}/${awPartsCount(t)})`, t.task_id, {excludeActor:true});
-      }, `📦 ส่ง ${lbl} แล้ว`);
+      }, `📦 ส่ง ${lbl} แล้ว${hrs>0?` · ลงเวลา ${hrs} ชม. ใน My To-do วันนี้`:''}`);
     } else if(b.dataset.awpok){
       if(!awCanReview(t)) return;
       awPartsSave(t, ()=>{ const x = Object.assign({}, awParts(t)[i], {status:'approved', rv_by:by, rv_at:now}); t.aw_parts = Object.assign({}, awParts(t), {[i]:x});
@@ -9547,13 +9623,19 @@ function masterSubmitDate(t){
 function awDoneFraction(t){
   if(!t || !t.aw_parts || designerHandoff(t)) return 0;
   const n = awPartsCount(t); if(n<2) return 0;
-  let d = 0; for(let i=0;i<n;i++){ const x = t.aw_parts[i]; if(x && (x.status==='submitted'||x.status==='approved')) d++; }
-  return Math.min(1, d/n);
+  const w = awPartWeights(t), sum = w.reduce((a,b)=>a+b,0)||1;
+  let d = 0; for(let i=0;i<n;i++){ const x = t.aw_parts[i]; if(x && (x.status==='submitted'||x.status==='approved')) d += w[i]; }
+  return Math.min(1, d/sum);
 }
+// AWs handed in early count as DONE WORK on the day they were sent (same rule as a whole-task submission,
+// which moves its load onto the submit date) — the rest of the task keeps its planned days.
 function masterLoadOnDate(t, dateStr){
-  const f = (dateStr>=todayISO()) ? awDoneFraction(t) : 0;
   const v = masterLoadOnDateRaw(t, dateStr);
-  return f ? Math.round(v*(1-f)*100)/100 : v;
+  const f = awDoneFraction(t); if(!f) return v;
+  const n = awPartsCount(t), w = awPartWeights(t), sum = w.reduce((a,b)=>a+b,0)||1;
+  let onDay = 0;
+  for(let i=0;i<n;i++){ const x = t.aw_parts[i]; if(x && (x.status==='submitted'||x.status==='approved') && x.at && toLocalISODate(new Date(x.at))===dateStr) onDay += (t.base_points||0)*w[i]/sum; }
+  return Math.round((v*(1-f) + onDay)*100)/100;
 }
 function masterLoadOnDateRaw(t, dateStr){
   const total = t.base_points || 0;
@@ -22137,7 +22219,9 @@ function requireQtyCheck(t, cont){
 function openCheckQuantity(taskId, fromSubmit){
   const t = STATE.tasks.find(x=>x.task_id===taskId); if(!t) return;
   const cur = currentScopeFor(t);
-  STATE.adjustScopeUI = {taskId, artwork:cur.artwork_count, resize:cur.resize_count, reason:'', requestedBy:'Brief Owner', error:'', fromSubmit:!!fromSubmit};
+  const actAws = (t.artworks||[]).filter(a=>a.status!=='cancelled');
+  const perRs = actAws.some(a=>Number(a.resize_count)>0) ? actAws.reduce((n,a)=>n+(Number(a.resize_count)||0),0) : cur.resize_count;
+  STATE.adjustScopeUI = {taskId, artwork:Math.max(cur.artwork_count, actAws.length||0), resize:perRs, reason:'', requestedBy:'Brief Owner', error:'', fromSubmit:!!fromSubmit};
   render();
 }
 function renderAdjustScopeModal(){
@@ -22171,6 +22255,8 @@ function renderAdjustScopeModal(){
             <td style="text-align:center"><input type="number" min="0" id="as_resize" value="${escAttr(u.resize)}" style="width:72px;text-align:center"></td></tr>
         </tbody>
       </table>
+      ${cards>1 ? `<div class="qc-aws"><div class="qc-aws-h">ตรวจตามรายการ AW (ยึดจากที่กรอกในแต่ละ AW) · ถ้ามีเพิ่ม แก้ตัวเลขในช่อง "ทำจริง" ด้านบน แล้วแนบลิงก์ส่งงานชุดเดียวตามปกติ</div>
+        ${(t.artworks||[]).filter(a=>a.status!=='cancelled').map((a,i)=>`<div class="qc-aw"><span>AW${String(i+1).padStart(2,'0')}${a.name&&a.name.trim()&&a.name.trim().replace(/\s+/g,'').toUpperCase()!=='AW'+String(i+1).padStart(2,'0')?' · '+escAttr(a.name.trim()):''}</span><b>Resize/Adapt ${Number(a.resize_count)||0}</b></div>`).join('')}</div>` : ''}
       ${cards!==cur.artwork_count ? `<div style="margin-top:12px;padding:8px 10px;border-radius:10px;background:var(--pri-bg);color:var(--pri-tx);font-size:12px;font-weight:600">⚠ Scope บอก Master ${cur.artwork_count} ชิ้น แต่การ์ด Artwork มีอยู่ ${cards} ใบ — ระบบจะปรับการ์ดให้ตรงกับจำนวนที่ยืนยัน</div>` : ''}
       <div id="as_changedbox" style="${changed?'':'display:none'};margin-top:12px">
         <div class="field" style="margin-bottom:10px"><label>เหตุผลที่จำนวนเปลี่ยน *</label><textarea id="as_reason" rows="2" placeholder="เช่น ลูกค้าขอเพิ่ม Resize 2 ขนาด">${escAttr(u.reason||'')}</textarea></div>
@@ -22900,6 +22986,7 @@ function renderArtworkChecklistCard(t){
           ${px && px.status ? awPartChipHTML(px) : ''}
           ${px&&px.status==='revision'&&px.comment ? `<span class="awp-note">ต้องแก้: ${escAttr(px.comment)}</span>` : ''}
           ${px&&px.at ? `<span class="awp-meta">${px.status==='approved'&&px.rv_by?`ผ่านโดย ${escAttr(px.rv_by)} · `:''}ส่ง ${escAttr(fmtDateTime(px.at))}</span>` : ''}
+          ${awResizeCellHTML(t, aw, i)}
           <span class="awp-acts">${awPartActionsHTML(t, pIdx)}</span></div>` : ''}
       </div>`;
     }).join('')}
