@@ -4207,6 +4207,72 @@ select.ss-xrole-add{width:auto!important;min-height:0;padding:3px 24px 3px 9px!i
 .pb3 .pb3-card.urg-orange .pb3-due{background:#F97316!important;color:#fff!important;box-shadow:0 3px 8px -3px rgba(249,115,22,.7)!important}
 .pb3 .pb3-card.urg-yellow .pb3-due{background:#FACC15!important;color:#5B4300!important}
 .pb3 .pb3-card.urg-red .pb3-due::before{content:'🔥 '}
+
+/* ===== ส่งทีละ AW ===== */
+.awp-panel{border:1.5px solid #C7D2FE!important;background:linear-gradient(180deg,#F7F8FF,#fff 80px)!important}
+.awp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.awp-title{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px}
+.awp-opt{font-size:10.5px;font-weight:800;color:#4F46E5;background:#EEF2FF;border-radius:999px;padding:1px 8px}
+.awp-count{font-size:12.5px;color:var(--ink-soft);white-space:nowrap}.awp-count b{font-size:18px;color:var(--accent)}
+.awp-bar{display:flex;height:6px;border-radius:999px;background:#EEF0F4;overflow:hidden;margin-bottom:10px}
+.awp-bar .ok{background:#10B981}.awp-bar .sub{background:#F59E0B}
+.awp-list{display:flex;flex-direction:column;gap:6px}
+.awp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 10px;border:1px solid #E5E7EB;border-radius:12px;background:#fff}
+.awp-row.s-approved{background:#F3FBF7;border-color:#BBF7D0}
+.awp-row.s-revision{background:#FFF7ED;border-color:#FED7AA}
+.awp-chk{width:22px;height:22px;border-radius:7px;border:2px solid #CBD5E1;display:inline-flex;align-items:center;justify-content:center;font-weight:900;color:#fff;flex:none}
+.awp-row.s-approved .awp-chk{background:#10B981;border-color:#10B981}
+.awp-row.s-submitted .awp-chk{border-color:#F59E0B;color:#F59E0B}
+.awp-main{flex:1 1 180px;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.awp-main b{font-size:13.5px}
+.awp-chip{font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px}
+.awp-note{flex-basis:100%;font-size:12px;color:#C2410C}
+.awp-meta{flex-basis:100%;font-size:11px;color:var(--ink-faint)}
+.awp-acts{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
+.awp-send{display:inline-flex;gap:6px}.awp-send input{width:200px;min-height:32px;padding:5px 9px;font-size:12.5px}
+.awp-ok{background:#10B981!important;color:#fff!important;border:none}
+.awp-fix{background:#fff!important;color:#C2410C!important;border:1.5px solid #FB923C!important}
+.awp-done{margin-top:10px;font-size:12.5px;font-weight:700;color:#047857;background:#ECFDF5;border-radius:10px;padding:8px 10px}
+.awp-cardchip{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11.5px;font-weight:700;color:#4F46E5}
+.awp-cardchip{white-space:nowrap;flex-wrap:wrap}.awp-cardchip .ok{color:#047857}.awp-cardchip b{color:#C2410C}
+.awp-mini{width:36px;height:5px;border-radius:999px;background:#E0E7FF;overflow:hidden;flex:none}.awp-mini i{display:block;height:100%;background:#6366F1}
+@media (max-width:640px){ .awp-send{width:100%}.awp-send input{flex:1;width:auto}.awp-acts{width:100%;margin-left:0} }
+
+.awp-prog{margin-top:8px}
+.awp-pbar{display:flex;height:6px;border-radius:999px;background:#E9ECF2;overflow:hidden}
+.awp-pbar .ok{background:#10B981}.awp-pbar .wait{background:#F59E0B}.awp-pbar .fix{background:#F97316;opacity:.55}
+.awp-plg{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;font-size:11.5px;color:var(--ink-soft);font-weight:600}
+.awp-plg b{color:var(--ink)}.awp-plg .ok{color:#047857;font-weight:800}.awp-plg .wait{color:#B45309;font-weight:800}.awp-plg .fix{color:#C2410C;font-weight:800}
+.aw-rename{margin-left:8px;border:1px solid #E0E7FF;background:#F5F7FF;color:#4F46E5;font:inherit;font-size:11.5px;font-weight:700;border-radius:8px;padding:2px 8px;cursor:pointer;opacity:.75;vertical-align:1px}
+.aw-card:hover .aw-rename{opacity:1}.aw-rename:hover{background:#EEF2FF;border-color:#A5B4FC}
+.aw-addbtn{display:block;width:100%;margin-top:8px;padding:11px;border:1.5px dashed #A5B4FC;border-radius:12px;background:#F7F8FF;color:#4F46E5;font:inherit;font-size:13.5px;font-weight:800;cursor:pointer}
+.aw-addbtn:hover{background:#EEF2FF;border-color:#6366F1}
+
+/* Artworks list + ส่งทีละ AW merged */
+.awp-sumbar{margin-bottom:10px;padding:12px 14px;border:1px solid #E0E7FF;border-radius:12px;background:#F8F9FF}
+.awp-sumbar .awp-bar{margin-bottom:0}
+.aw-card{flex-wrap:wrap}
+.aw-part{flex-basis:100%;display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:8px 0 0 52px;padding-top:8px;border-top:1px dashed #E5E7EB;cursor:default}
+.aw-part .awp-chk{width:20px;height:20px}
+.aw-part .awp-chk.s-approved{background:#10B981;border-color:#10B981}
+.aw-part .awp-chk.s-submitted{border-color:#F59E0B;color:#F59E0B}
+.aw-part .awp-note{font-size:12px;color:#C2410C;font-weight:600}
+.aw-part .awp-meta{font-size:11px;color:var(--ink-faint);flex-basis:auto}
+.aw-part .awp-note{flex-basis:auto}
+.aw-part .awp-acts{margin-left:auto}
+@media (max-width:640px){ .aw-part{margin-left:0} .aw-part .awp-acts{margin-left:0;width:100%} }
+
+/* Compact rows (Krissha: "เอาแค่ชื่อกับช่องวางลิงก์"): number · name · link box on ONE line */
+.aw-compact .aw-card{flex-wrap:nowrap;padding:8px 10px;gap:10px}
+.aw-compact .aw-card-meta,.aw-compact .aw-status-chip{display:none}
+.aw-compact .aw-card-body{flex:1 1 auto;min-width:0}
+.aw-compact .aw-card-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aw-compact .aw-rename{font-size:0;padding:3px 7px}.aw-compact .aw-rename::before{content:'✎';font-size:12px}
+.aw-compact .aw-part{flex:0 0 auto;flex-basis:auto;margin:0;padding:0;border:none;gap:6px;flex-wrap:nowrap}
+.aw-compact .aw-part .awp-acts{margin-left:0;flex-wrap:nowrap}
+.aw-compact .aw-part .awp-meta,.aw-compact .aw-part .awp-note{display:none}
+.aw-compact .awp-send input{width:240px}
+@media (max-width:760px){ .aw-compact .aw-card{flex-wrap:wrap}.aw-compact .aw-part{flex:1 1 100%}.aw-compact .awp-send{width:100%}.aw-compact .awp-send input{flex:1;width:auto} }
 /* =====================================================================================================
    UI v3 — SYSTEM-WIDE LAYER (Krissha: "ปรับ UI ทั้งระบบ ตามที่เพิ่งปรับไป")
    Brings every page in line with the redesigned Process Board / Content Planner. Visual only — no markup
@@ -6049,6 +6115,162 @@ function boardRelation(t){
   return null;
 }
 // What the signed-in user still has to do on this card (null = nothing): approve | ext | check.
+// ===== ส่งทีละ AW (Krissha: "งานที่มีหลาย AW ทำไม่เสร็จทั้งหมด แต่อยากส่งที่เสร็จไปก่อน") — OPTIONAL.
+// The normal one-link "ส่งตรวจงาน" for the whole task is unchanged; this is an extra checklist that lets the
+// designer hand in finished AWs early and the Lead / Brief Owner check them one by one.
+// Data: t.aw_parts = {"0": {status:'submitted'|'approved'|'revision', url, at, by, rv_by, rv_at, comment}, ...}
+function awPartsCount(t){
+  const act = Array.isArray(t?.artworks) ? t.artworks.filter(a=>a.status!=='cancelled').length : 0;
+  let n = act; try{ n = n || currentScopeFor(t).artwork_count; }catch(e){}
+  return Math.max(0, n || Number(t?.deliverables)||0);
+}
+function awPartLabel(t, i){
+  const act = Array.isArray(t?.artworks) ? t.artworks.filter(a=>a.status!=='cancelled') : [];
+  const code = 'AW'+String(i+1).padStart(2,'0'), raw = act[i] && act[i].name ? act[i].name.trim() : '';
+  const nm = raw && raw.replace(/\s+/g,'').toUpperCase()!==code ? ' · '+raw : '';
+  return code+nm;
+}
+function awParts(t){ return (t && t.aw_parts && typeof t.aw_parts==='object') ? t.aw_parts : {}; }
+function awPartsStats(t){
+  const n = awPartsCount(t), p = awParts(t); let sub=0, ok=0, fix=0;
+  for(let i=0;i<n;i++){ const x=p[i]; if(!x) continue; if(x.status==='approved'){ok++;sub++;} else if(x.status==='submitted') sub++; else if(x.status==='revision') fix++; }
+  return {n, sub, ok, fix, waiting: sub-ok};
+}
+function awCanReview(t){ return isLead() || extIsBriefOwner(t); }
+function awCanSubmit(t){ return STATE.auth.role==='designer' && t.assigned_user_name===STATE.auth.identity; }
+function awPartsActive(t){ return !!t && awPartsCount(t)>=2 && !isBoardTaskTerminal(t) && !t.cancelled; }
+// "รอคุณตรวจ AW" — some AWs handed in early, whole task not submitted yet, and I can review.
+function awNeedsMyReview(t){ return awPartsActive(t) && !designerHandoff(t) && awCanReview(t) && t.assigned_user_name!==STATE.auth.identity && awPartsStats(t).waiting>0; }
+function awPartChipHTML(x){
+  const s2 = (x&&x.status)||'todo';
+  const chip = {todo:['ยังไม่ส่ง','#64748B','#F1F5F9'], submitted:['ส่งแล้ว · รอตรวจ','#B45309','#FEF3C7'], approved:['✓ ผ่านแล้ว','#047857','#D1FAE5'], revision:['✎ ต้องแก้','#C2410C','#FFEDD5']}[s2];
+  return `<span class="awp-chip" style="color:${chip[1]};background:${chip[2]}">${chip[0]}</span>`;
+}
+function awPartActionsHTML(t, i){
+  const x = awParts(t)[i]||{}, s2 = x.status||'todo';
+  const canSub = awCanSubmit(t) && ['new','in_progress','revision'].includes(t.review_status), canRv = awCanReview(t);
+  return `${x.url ? `<a class="btn btn-sm btn-ghost" href="${escAttr(x.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">เปิดลิงก์ ↗</a>` : ''}
+    ${canRv && s2==='submitted' ? `<button type="button" class="btn btn-sm awp-ok" data-awpok="${t.task_id}|${i}">✓ ผ่าน</button><button type="button" class="btn btn-sm awp-fix" data-awpfix="${t.task_id}|${i}">✎ ขอแก้</button>` : ''}
+    ${canSub && s2!=='approved' ? `<span class="awp-send"><input type="url" id="awp_${t.task_id}_${i}" placeholder="วางลิงก์ AW นี้" value=""><button type="button" class="btn btn-sm btn-primary" data-awpsend="${t.task_id}|${i}">${s2==='submitted'?'ส่งใหม่':s2==='revision'?'ส่งแก้':'ส่ง AW นี้'}</button></span>` : ''}`;
+}
+function awPartsSummaryHTML(t){
+  const st = awPartsStats(t), n = st.n, pct = Math.round(st.ok/n*100), pctSub = Math.round(st.sub/n*100);
+  return `<div class="awp-sumbar">
+    <div class="awp-head"><div><div class="awp-title">📦 ส่งทีละ AW <span class="awp-opt">ไม่บังคับ</span></div>
+      <div class="hint">ทำเสร็จบางชิ้น วางลิงก์ส่งชิ้นนั้นก่อนได้ในแต่ละแถวด้านล่าง · ถ้าเสร็จครบ ส่งทีเดียวด้วยลิงก์เดียวที่ “📤 ส่งมอบงาน” ตามปกติ</div></div>
+      <div class="awp-count"><b>${st.sub}</b>/${n} ส่งแล้ว · ผ่าน ${st.ok}</div></div>
+    <div class="awp-bar"><span class="ok" style="width:${pct}%"></span><span class="sub" style="width:${pctSub-pct}%"></span></div>
+    ${st.sub===n && awCanSubmit(t) && !designerHandoff(t) ? `<div class="awp-done">ส่งครบทุก AW แล้ว — กด “📤 ส่งตรวจงาน” เพื่อส่งทั้งงานเข้าขั้นตรวจตามปกติ</div>` : ''}
+  </div>`;
+}
+// Separate panel only for tasks WITHOUT an Artworks list (otherwise it's merged into that list — no duplicate).
+function awPartsMergedInList(t){ return Array.isArray(t.artworks) && t.artworks.length>1; }
+function renderAwPartsPanel(t){
+  if(awPartsMergedInList(t)) return '';
+  if(!awPartsActive(t)) return '';
+  const n = awPartsCount(t), p = awParts(t), st = awPartsStats(t);
+  const canSub = awCanSubmit(t) && ['new','in_progress','revision'].includes(t.review_status), canRv = awCanReview(t);
+  if(!st.sub && !st.fix && !canSub) return '';
+  const pct = Math.round(st.ok/n*100), pctSub = Math.round(st.sub/n*100);
+  const row = i=>{ const x = p[i]||{}, s2 = x.status||'todo';
+    const chip = {todo:['ยังไม่ส่ง','#64748B','#F1F5F9'], submitted:['ส่งแล้ว · รอตรวจ','#B45309','#FEF3C7'], approved:['✓ ผ่านแล้ว','#047857','#D1FAE5'], revision:['✎ ต้องแก้','#C2410C','#FFEDD5']}[s2];
+    return `<div class="awp-row s-${s2}">
+      <span class="awp-chk">${s2==='approved'?'✓':s2==='submitted'?'•':''}</span>
+      <div class="awp-main"><b>${escAttr(awPartLabel(t,i))}</b>
+        <span class="awp-chip" style="color:${chip[1]};background:${chip[2]}">${chip[0]}</span>
+        ${x.comment && s2==='revision' ? `<div class="awp-note">ต้องแก้: ${escAttr(x.comment)}</div>` : ''}
+        ${x.at ? `<div class="awp-meta">${s2==='approved'&&x.rv_by?`ผ่านโดย ${escAttr(x.rv_by)} · `:''}ส่งเมื่อ ${escAttr(fmtDateTime(x.at))}</div>` : ''}</div>
+      <div class="awp-acts">
+        ${x.url ? `<a class="btn btn-sm btn-ghost" href="${escAttr(x.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">เปิดลิงก์ ↗</a>` : ''}
+        ${canRv && s2==='submitted' ? `<button type="button" class="btn btn-sm awp-ok" data-awpok="${t.task_id}|${i}">✓ ผ่าน</button><button type="button" class="btn btn-sm awp-fix" data-awpfix="${t.task_id}|${i}">✎ ขอแก้</button>` : ''}
+        ${canSub && s2!=='approved' ? `<span class="awp-send"><input type="url" id="awp_${t.task_id}_${i}" placeholder="วางลิงก์ AW นี้" value="${escAttr(s2==='revision'||s2==='todo'?'':x.url||'')}"><button type="button" class="btn btn-sm btn-primary" data-awpsend="${t.task_id}|${i}">${s2==='submitted'?'ส่งใหม่':s2==='revision'?'ส่งแก้':'ส่ง AW นี้'}</button></span>` : ''}
+      </div></div>`; };
+  return `<div class="taskws-card awp-panel">
+    <div class="awp-head"><div><div class="awp-title">📦 ส่งทีละ AW <span class="awp-opt">ไม่บังคับ</span></div>
+      <div class="hint">ทำเสร็จบางชิ้น ส่งชิ้นนั้นไปตรวจก่อนได้ · ถ้าเสร็จครบแล้ว ส่งทีเดียวด้วยลิงก์เดียวที่ “📤 ส่งมอบงาน” ตามปกติ</div></div>
+      <div class="awp-count"><b>${st.sub}</b>/${n} ส่งแล้ว · ผ่าน ${st.ok}</div></div>
+    <div class="awp-bar"><span class="ok" style="width:${pct}%"></span><span class="sub" style="width:${pctSub-pct}%"></span></div>
+    <div class="awp-list">${Array.from({length:n},(_,i)=>row(i)).join('')}</div>
+    ${st.sub===n && canSub && !designerHandoff(t) ? `<div class="awp-done">ส่งครบทุก AW แล้ว — กด “📤 ส่งตรวจงาน” ด้านล่างเพื่อส่งทั้งงานเข้าขั้นตรวจตามปกติ</div>` : ''}
+  </div>`;
+}
+async function awPartsSave(t, mutate, okMsg){
+  const snap = JSON.stringify(t.aw_parts||null), hl = (t.review_history||[]).length;
+  mutate();
+  const ok = await saveTasks();
+  if(ok===false){ t.aw_parts = JSON.parse(snap)||undefined; t.review_history.length = hl; toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); render(); return; }
+  toast(okMsg); render();
+}
+// Rename an Artwork (Krissha: "อยากแก้ชื่อได้") — assigned designer, Lead, or whoever can edit the brief.
+function awCanRename(t){
+  if(!STATE.auth.loggedIn || !t || isBoardTaskTerminal(t)) return false;
+  return isLead() || (STATE.auth.role==='designer' && t.assigned_user_name===STATE.auth.identity) || (typeof canEditBriefTask==='function' && canEditBriefTask(t)) || extIsBriefOwner(t);
+}
+// "+ เพิ่ม AW" (Krissha: "เพิ่ม AW ได้เลยด้วยได้มั้ย แบบกดบวกลงมา") — goes through the same Scope Change engine as
+// Edit Quantity (points recalculated, Scope History + notifications), then names the new card.
+function awCanAdd(t){
+  if(!t || isBoardTaskTerminal(t) || t.cancelled) return false;
+  if(typeof canAdjustScope==='function' && canAdjustScope(t)) return true;
+  return (isLead() || extIsBriefOwner(t)) && !designerHandoff(t);
+}
+async function awAddOne(id){
+  const t = STATE.tasks.find(x=>x.task_id===id); if(!t || !awCanAdd(t)) return;
+  const n = currentScopeFor(t).artwork_count;
+  const name = prompt(`ชื่อ Artwork ใหม่ (AW${String(n+1).padStart(2,'0')})`, ''); if(name===null) return;
+  const reason = (prompt('เหตุผลที่เพิ่ม (เช่น ผู้บรีฟขอเพิ่ม 1 ชิ้น)', 'เพิ่ม Artwork')||'').trim(); if(!reason) return toast('ต้องระบุเหตุผล');
+  const who = STATE.auth.user?.name || STATE.auth.identity || 'system';
+  const snap = JSON.stringify({sc:t.scope||null, aws:t.artworks||null, d:t.deliverables, bp:t.base_points, hl:(t.review_history||[]).length});
+  applyScopeChange(t, 'artwork', n+1, reason, extIsBriefOwner(t) ? 'Brief Owner' : who, who);
+  const act = (t.artworks||[]).filter(a=>a.status!=='cancelled'); const nw = act[act.length-1];
+  if(nw && name.trim()) nw.name = name.trim();
+  const ok = await saveTasks();
+  if(ok===false){ const o = JSON.parse(snap); t.scope=o.sc; t.artworks=o.aws; t.deliverables=o.d; t.base_points=o.bp; t.review_history.length=o.hl; toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); render(); return; }
+  toast(`＋ เพิ่ม AW${String(n+1).padStart(2,'0')} แล้ว · Point ${appliedPoints(t).toFixed(1)}`); render();
+}
+function bindAwParts(){
+  if(window.__awpBound) return; window.__awpBound = true;
+  document.addEventListener('click', e=>{
+    const ad = e.target.closest('[data-awadd]');
+    if(ad){ e.preventDefault(); e.stopPropagation(); awAddOne(ad.dataset.awadd); return; }
+    const rn = e.target.closest('[data-awrename]');
+    if(rn){ e.preventDefault(); e.stopPropagation();
+      const [rid, ri] = rn.dataset.awrename.split('|'), idx = Number(ri), t = STATE.tasks.find(x=>x.task_id===rid); if(!t || !awCanRename(t)) return;
+      const aw = (t.artworks||[])[idx]; if(!aw) return;
+      const old = aw.name||'', nv = prompt(`ชื่อ Artwork ${String(idx+1).padStart(2,'0')}`, old); if(nv===null) return;
+      const name = nv.trim(); if(name===old.trim()) return;
+      const by = STATE.auth.user?.name || STATE.auth.identity || 'system';
+      aw.name = name; (t.review_history=t.review_history||[]).push({timestamp:new Date().toISOString(), action:'AW_RENAME', comment:`AW${String(idx+1).padStart(2,'0')}: “${old||'—'}” → “${name||'—'}”`, by});
+      saveTasks().then(ok=>{ if(ok===false){ aw.name = old; t.review_history.pop(); toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); } else toast('แก้ชื่อ Artwork แล้ว'); render(); });
+      return; }
+    const b = e.target.closest('[data-awpsend],[data-awpok],[data-awpfix]'); if(!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const [id, iStr] = (b.dataset.awpsend||b.dataset.awpok||b.dataset.awpfix).split('|'), i = Number(iStr);
+    const t = STATE.tasks.find(x=>x.task_id===id); if(!t) return;
+    const by = STATE.auth.user?.name || STATE.auth.identity || 'system', now = new Date().toISOString(), lbl = awPartLabel(t,i);
+    if(b.dataset.awpsend){
+      if(!awCanSubmit(t)) return toast('ส่งได้เฉพาะดีไซเนอร์เจ้าของงาน');
+      const url = String(document.getElementById(`awp_${id}_${i}`)?.value||'').trim();
+      if(!/^https?:\/\//i.test(url)) return toast('วางลิงก์ (https://…) ของ AW นี้ก่อน');
+      awPartsSave(t, ()=>{ t.aw_parts = Object.assign({}, awParts(t), {[i]:{status:'submitted', url, at:now, by}});
+        (t.review_history=t.review_history||[]).push({timestamp:now, action:'AW_PART_SUBMIT', comment:`ส่ง ${lbl} ก่อน — ${url}`, by});
+        notifyUsers([...leadNames(), t.project_owner_email], 'ส่ง AW บางส่วนแล้ว', `${by} ส่ง ${lbl} ของ "${t.task_name}" ให้ตรวจก่อน (${awPartsStats(t).sub}/${awPartsCount(t)})`, t.task_id, {excludeActor:true});
+      }, `📦 ส่ง ${lbl} แล้ว`);
+    } else if(b.dataset.awpok){
+      if(!awCanReview(t)) return;
+      awPartsSave(t, ()=>{ const x = Object.assign({}, awParts(t)[i], {status:'approved', rv_by:by, rv_at:now}); t.aw_parts = Object.assign({}, awParts(t), {[i]:x});
+        (t.review_history=t.review_history||[]).push({timestamp:now, action:'AW_PART_APPROVE', comment:`${lbl} ผ่าน`, by});
+        notify(t.assigned_user_name, 'AW ผ่านแล้ว', `${lbl} ของ "${t.task_name}" ผ่านแล้ว — โดย ${by}`, t.task_id);
+      }, `✓ ${lbl} ผ่านแล้ว`);
+    } else {
+      if(!awCanReview(t)) return;
+      const c = (prompt(`ต้องแก้อะไรใน ${lbl}?`)||'').trim(); if(!c) return toast('ต้องระบุสิ่งที่ต้องแก้');
+      awPartsSave(t, ()=>{ const x = Object.assign({}, awParts(t)[i], {status:'revision', rv_by:by, rv_at:now, comment:c}); t.aw_parts = Object.assign({}, awParts(t), {[i]:x});
+        (t.review_history=t.review_history||[]).push({timestamp:now, action:'AW_PART_REVISION', comment:`${lbl} ขอแก้: ${c}`, by});
+        notify(t.assigned_user_name, 'AW ต้องแก้', `${lbl} ของ "${t.task_name}" — ${c}`, t.task_id);
+      }, `✎ ส่ง ${lbl} กลับไปแก้แล้ว`);
+    }
+  }, true);
+}
 function boardProofKind(t){
   if(!t || t.cancelled) return null;
   if(t.assigned_user_name===STATE.auth.identity && !canApproveExt(t)) return null;
@@ -6056,6 +6278,7 @@ function boardProofKind(t){
   if(canApproveExt(t)) return 'ext';
   if(isLead() && t.review_status==='pending_review') return 'check';
   if(t.review_status==='pending_client_review' && extIsBriefOwner(t)) return 'owner';
+  if(awNeedsMyReview(t)) return 'aw';
   return null;
 }
 function canApproveExt(t){
@@ -6094,6 +6317,8 @@ function profileTodoItems(){
     if(lead && s==='pending_lead_approval') items.push({kind:'approve', sub:'brief', t, at:t.brief_timestamp||''});
     else if(lead && s==='pending_review') items.push({kind:'approve', sub:'qc', t, at:t.aw_delivery_timestamp||t.designer_completed_at||''});
     else if(s==='pending_client_review' && extIsBriefOwner(t)) items.push({kind:'approve', sub:'owner', t, at:t.aw_delivery_timestamp||t.designer_completed_at||''});
+    else if(awNeedsMyReview(t)) items.push({kind:'approve', sub:'aw', t, at:''});
+    if(t.assigned_user_name===me && awPartsActive(t) && awPartsStats(t).fix && s!=='revision') items.push({kind:'revision', t, at:''});
     if(s==='revision' && STATE.auth.role==='designer' && t.assigned_user_name===me) items.push({kind:'revision', t, at:activeRevision(t)?.deadline||t.prefer_delivery_date||''});
   });
   return items;
@@ -6105,7 +6330,7 @@ function renderProfileTodo(){
     {k:'revision', ic:'✎', l:'งานที่ต้องแก้', c:'#EA580C'},
     {k:'ext', ic:'📅', l:'คำขอเลื่อนวันส่งงาน', c:'#D97706'},
   ];
-  const SUB = {brief:'Brief รอ Approve & Assign', qc:'รอ Lead ตรวจ (QC)', owner:'รอคุณอนุมัติงาน'};
+  const SUB = {brief:'Brief รอ Approve & Assign', qc:'รอ Lead ตรวจ (QC)', owner:'รอคุณอนุมัติงาน', aw:'AW ส่งมาก่อน · รอคุณตรวจ'};
   const row = (i, c)=>{ const t = i.t;
     if(i.kind==='ext'){ const ex = t.deadline_extension_request;
       return `<div class="li-row" style="--lc:${c}"><span class="li-ic">📅</span>
@@ -9317,7 +9542,20 @@ function masterSubmitDate(t){
   Object.defineProperty(t, '__msd', {value:{k:key, v}, writable:true, configurable:true, enumerable:false});
   return v;
 }
+// ส่งทีละ AW (single card): AWs already handed in (submitted or approved) no longer load the designer's
+// Capacity from today on — past days stay as they were. Sent back for a fix → counts again.
+function awDoneFraction(t){
+  if(!t || !t.aw_parts || designerHandoff(t)) return 0;
+  const n = awPartsCount(t); if(n<2) return 0;
+  let d = 0; for(let i=0;i<n;i++){ const x = t.aw_parts[i]; if(x && (x.status==='submitted'||x.status==='approved')) d++; }
+  return Math.min(1, d/n);
+}
 function masterLoadOnDate(t, dateStr){
+  const f = (dateStr>=todayISO()) ? awDoneFraction(t) : 0;
+  const v = masterLoadOnDateRaw(t, dateStr);
+  return f ? Math.round(v*(1-f)*100)/100 : v;
+}
+function masterLoadOnDateRaw(t, dateStr){
   const total = t.base_points || 0;
   const sd = masterSubmitDate(t);
   if(sd) return sd===dateStr ? total : 0;
@@ -9457,7 +9695,7 @@ function taskRemainingHours(t){
     const logged=(STATE.dailyTodos||[]).filter(r=>r.source==='assigned' && r.taskId===t.task_id).reduce((a,r)=>a+(Number(r.actualHours)||0),0);
     return Math.max(0,Math.round((revisionRoundPoints(t,revision)-Math.max(0,logged-(revision.logged_hours_at_request||0)))*100)/100);
   }
-  return Math.max(0, Math.round((appliedPoints(t) - taskLoggedHours(t.task_id))*100)/100);
+  return Math.max(0, Math.round((appliedPoints(t)*(1-awDoneFraction(t)) - taskLoggedHours(t.task_id))*100)/100);
 }
 function taskRemainingRatio(t){
   // Submitted / waiting for review = nothing left for the Designer right now (it reloads automatically if
@@ -21155,7 +21393,7 @@ function renderBoard(){
   // Assign + every task awaiting Lead QC; Brief Owner → my briefs awaiting final approval; anyone → deadline
   // extensions I can approve. Filtering to someone else's name is unchanged (their assigned work only).
   const boardNeedsMyProof = t => (isLead() && ['pending_lead_approval','pending_review'].includes(t.review_status))
-    || (t.review_status==='pending_client_review' && extIsBriefOwner(t)) || canApproveExt(t);
+    || (t.review_status==='pending_client_review' && extIsBriefOwner(t)) || canApproveExt(t) || awNeedsMyReview(t);
   if(STATE.board.designer!=='ALL'){
     const mine = STATE.board.designer===STATE.auth.identity;
     filtered = filtered.filter(t=>
@@ -21481,13 +21719,16 @@ function taskCardHTML(t){
         const rel = boardRelation(t);
         const tags = [];
         if(isMineT && !STATE.board?.proofMarks) tags.push(`<span class="pb3-mine"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.4 4.2-7 8.5-7s7.7 2.6 8.5 7z"/></svg>งานของฉัน</span>`);
-        if(k) tags.push(`<span class="pb3-proof k-${k}">${({approve:'✅ รอคุณอนุมัติ Brief', ext:'📅 รอคุณอนุมัติเลื่อนวันส่ง', check:'🔍 รอคุณตรวจงาน', owner:'✅ รอคุณอนุมัติงาน'})[k]}</span>`);
+        if(k) tags.push(`<span class="pb3-proof k-${k}">${({approve:'✅ รอคุณอนุมัติ Brief', ext:'📅 รอคุณอนุมัติเลื่อนวันส่ง', check:'🔍 รอคุณตรวจงาน', owner:'✅ รอคุณอนุมัติงาน', aw:`🔍 รอคุณตรวจ AW (${awPartsStats(t).waiting})`})[k]}</span>`);
         else if(rel && !isMineT) tags.push(`<span class="pb3-rel">${({owner:'📝 บรีฟของฉัน', creator:'📝 ฉันเป็นคนสร้าง', requester:'📨 ฉันขอเลื่อนวันส่ง'})[rel]}</span>`);
         return tags.length ? `<div class="pb3-tags">${tags.join('')}</div>` : '';
       })(boardProofKind(t))}
     ${hotPri ? `<div class="pb3-pri">${t.priority==='CRITICAL'?'● วิกฤต':'● ด่วน'}</div>` : ''}
     <div class="tc2-title">${escAttr(taskDisplayName(t))}</div>
     <div class="pb3-sub">${platHTML}<span class="ty">${escAttr(t.task_type||t.task_category||'')}</span>${scopeChangeChipHTML(t)}</div>
+    ${(st=>awPartsActive(t) && (st.sub||st.fix) && !designerHandoff(t) ? `<div class="awp-prog" title="ผ่าน ${st.ok} · รอตรวจ ${st.waiting} · ต้องแก้ ${st.fix} · ยังไม่ทำ ${st.n-st.sub-st.fix}">
+      <div class="awp-pbar"><span class="ok" style="width:${st.ok/st.n*100}%"></span><span class="wait" style="width:${st.waiting/st.n*100}%"></span><span class="fix" style="width:${st.fix/st.n*100}%"></span></div>
+      <div class="awp-plg"><b>${Math.round(st.sub/st.n*100)}%</b> · ${st.sub}/${st.n} AW${st.ok?` <span class="ok">✓${st.ok}</span>`:''}${st.waiting?` <span class="wait">รอตรวจ ${st.waiting}</span>`:''}${st.fix?` <span class="fix">แก้ ${st.fix}</span>`:''}</div></div>` : '')(awPartsStats(t))}
     <div class="pb3-foot">
       <span class="pb3-due ${dueCls}" title="${escAttr(due.txt)}">${dueCls==='handoff'?'✓ ส่งตรวจแล้ว':due.txt==='—'?'ไม่มีกำหนดส่ง':due.txt}</span>${boardCardFlagsHTML(t, false, extPending)}
       <span class="pb3-who${assignee?'':' pending'}" title="${escAttr(assignee?assignee:(who?'แนะนำ: '+who:'ยังไม่ Assign'))}">
@@ -22633,8 +22874,12 @@ function renderArtworkChecklistCard(t){
   if(!arr.length) return '<div class="hint">ไม่มีข้อมูล Artwork</div>';
   const perArtwork = taskWsUsesPerArtworkCanvas(t);
   const activeIdx = perArtwork ? activeTaskWsArtworkIndex(t) : -1;
-  return `<div class="aw-list" style="margin-bottom:0">
+  const parts = awPartsActive(t) && (awPartsStats(t).sub || awPartsStats(t).fix || (awCanSubmit(t) && ['new','in_progress','revision'].includes(t.review_status)) || awCanReview(t));
+  let pi = -1;
+  return `${parts ? awPartsSummaryHTML(t) : ''}<div class="aw-list${parts?' aw-compact':''}" style="margin-bottom:0">
     ${arr.map((aw,i)=>{
+      const pIdx = aw.status==='cancelled' ? -1 : ++pi;
+      const px = pIdx>=0 ? (awParts(t)[pIdx]||null) : null;
       const complete = ARTWORK_REQUIRED_FIELDS.every(f=>aw[f.key] && String(aw[f.key]).trim());
       const meta = complete ? ARTWORK_STATUS_META.complete : ARTWORK_STATUS_META.partial;
       let metaLine = escAttr((aw.brief || aw.header || '').trim());
@@ -22647,12 +22892,18 @@ function renderArtworkChecklistCard(t){
       return `<div class="aw-card ${i===activeIdx?'active':''}" style="${perArtwork?'cursor:pointer':'cursor:default'}" ${perArtwork?`data-taskwsartwork="${i}"`:''}>
         <div class="aw-card-num">${String(i+1).padStart(2,'0')}</div>
         <div class="aw-card-body">
-          <div class="aw-card-name ${aw.name?'':'aw-noname'}">${aw.name && aw.name.trim() ? aw.name : 'ยังไม่ได้ตั้งชื่อ'}</div>
+          <div class="aw-card-name ${aw.name?'':'aw-noname'}">${aw.name && aw.name.trim() ? escAttr(aw.name) : 'ยังไม่ได้ตั้งชื่อ'}${awCanRename(t) ? `<button type="button" class="aw-rename" data-awrename="${t.task_id}|${i}" title="แก้ชื่อ Artwork">✎ แก้ชื่อ</button>` : ''}</div>
           <div class="aw-card-meta">${metaLine || '—'}</div>
         </div>
         <span class="aw-status-chip ${meta.cls}">${meta.icon} ${meta.label}</span>
+        ${parts && pIdx>=0 ? `<div class="aw-part" onclick="event.stopPropagation()">
+          ${px && px.status ? awPartChipHTML(px) : ''}
+          ${px&&px.status==='revision'&&px.comment ? `<span class="awp-note">ต้องแก้: ${escAttr(px.comment)}</span>` : ''}
+          ${px&&px.at ? `<span class="awp-meta">${px.status==='approved'&&px.rv_by?`ผ่านโดย ${escAttr(px.rv_by)} · `:''}ส่ง ${escAttr(fmtDateTime(px.at))}</span>` : ''}
+          <span class="awp-acts">${awPartActionsHTML(t, pIdx)}</span></div>` : ''}
       </div>`;
     }).join('')}
+    ${awCanAdd(t) ? `<button type="button" class="aw-addbtn" data-awadd="${t.task_id}">＋ เพิ่ม Artwork (AW${String(arr.filter(a=>a.status!=='cancelled').length+1).padStart(2,'0')})</button>` : ''}
   </div>`;
 }
 /* KEY VISUAL section (Dev Requirement §11 — currently the single biggest gap this redesign closes: KV
@@ -23158,6 +23409,7 @@ function renderTaskWorkspacePage(t){
              work, then approve/request-revision without scrolling past Task Info/Brief Content/Images/Work
              Scope to find the buttons in the Actions card below. -->
         ${extPanelHTML}
+        ${renderAwPartsPanel(t)}
         ${reviewActionsHTML ? `<div class="taskws-card rv-panel">
           <div class="rv-panel-head"><span class="rv-panel-ic">✅</span><div><div class="rv-panel-title">ตรวจงานนี้</div><div class="rv-panel-sub">เปิดลิงก์งานด้านบนดูก่อน แล้วเลือกผลการตรวจ</div></div></div>
           <div class="rv-panel-acts">${reviewActionsHTML}</div>
@@ -29105,6 +29357,7 @@ function resetLeftPageEphemeralState(){
   clearOverlay();
 }
 function bindEvents(){
+  bindAwParts();
   // Clicking the name/avatar pill just opens a small menu now (see renderUserMenuDropdown) — it used to
   // log out immediately on click, which is what Krissha reported: tapping her own name by accident (or
   // trying to get to her workspace) signed her straight out. Logging out is now its own explicit button
