@@ -471,6 +471,12 @@ textarea{resize:vertical;min-height:64px}
 .pb3 .pb3-card.is-hot{box-shadow:inset 3px 0 0 var(--pc),0 1px 2px rgba(15,23,42,.05)}
 .pb3 .pb3-card.is-mine{border-color:rgba(99,102,241,.55);background:linear-gradient(180deg,rgba(99,102,241,.05),#fff 40%)}
 .pb3 .pb3-card:hover{border-color:rgba(99,102,241,.55);transform:translateY(-1px)}
+.pb3-tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px}
+.pb3-tags .pb3-proof,.pb3-tags .pb3-rel{margin-bottom:0}
+.pb3-mine{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,#0EA5E9,#2563EB);border-radius:999px;padding:2px 9px}
+.pb3-rel{display:inline-block;font-size:11px;font-weight:800;color:#0F766E;background:#CCFBF1;border:1px solid #99F6E4;border-radius:999px;padding:1px 9px;margin-bottom:5px}
+.pb3-proof.k-ext{background:linear-gradient(135deg,#F59E0B,#D97706)}
+.pb3-proof.k-check{background:linear-gradient(135deg,#8B5CF6,#7C3AED)}
 .pb3-proof{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,#6366F1,#4F46E5);border-radius:999px;padding:2px 9px;margin-bottom:5px}
 .pb3-pri{font-size:11px;font-weight:800;color:var(--pc);margin-bottom:3px;letter-spacing:.02em}
 .pb3 .pb3-card .tc2-title{font-size:14px;line-height:1.4;font-weight:700;color:var(--ink);padding-right:18px}
@@ -4148,6 +4154,34 @@ a.fwf-card.fwf-link:hover{border-color:var(--sc);background:#fff;box-shadow:0 10
 .ss-xrole button{border:none;background:transparent;color:#6366F1;cursor:pointer;font-size:11px;width:18px;height:18px;border-radius:50%}
 .ss-xrole button:hover{background:#FEE2E2;color:#DC2626}
 select.ss-xrole-add{width:auto!important;min-height:0;padding:3px 24px 3px 9px!important;font-size:11.5px;border-radius:999px!important;border:1px dashed #A5B4FC!important;color:var(--accent);background-color:#fff}
+
+/* "งานทั้งทีม / งานของฉัน" — make the active choice unmistakable (Krissha: "ขอให้ชัดกว่านี้") */
+.pb3-seg{background:#E8EAF2;padding:4px;border-radius:12px;gap:2px}
+.pb3-seg button{padding:8px 16px;font-size:13.5px;color:#64748B;border-radius:9px;transition:background .15s,color .15s}
+.pb3-seg button:hover:not(.on){color:var(--ink);background:rgba(255,255,255,.6)}
+.pb3-seg button.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:800;box-shadow:0 6px 14px -6px rgba(79,70,229,.75)}
+.pb3-seg button.on::before{content:'✓ ';font-weight:900}
+.pb3-seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pb3-seg button:focus:not(:focus-visible){outline:none}
+
+/* Very light card tints (Krissha): my own work = pale blue, my brief done by someone else = pale green */
+.pb3 .pb3-card.tint-mine{background:#F2F8FF!important;border-color:#BFDBFE!important}
+.pb3 .pb3-card.tint-owner{background:#F0FBF4!important;border-color:#BBEFCD!important} /* CI blue #1B76FF, very pale */
+.pb3 .pb3-card.tint-proof{background:#FFF8EC!important;border-color:#FCD9A0!important}
+.pb3 .pb3-card.tint-proof:hover{border-color:#F59E0B!important}
+.pb3 .pb3-card.tint-mine:hover{border-color:#60A5FA!important}
+.pb3 .pb3-card.tint-owner:hover{border-color:#22C55E!important}
+.pb3 .pb3-card.is-paused.tint-proof,.pb3 .pb3-card.is-paused.tint-mine,.pb3 .pb3-card.is-paused.tint-owner{background:repeating-linear-gradient(135deg,#F8FAFC,#F8FAFC 8px,#F1F5F9 8px,#F1F5F9 16px)!important}
+.pb3-rel{color:#fff!important;background:linear-gradient(135deg,#22C55E,#16A34A)!important;border-color:transparent!important;padding:2px 9px!important;box-shadow:0 2px 6px -3px rgba(27,118,255,.7)}
+
+/* Board colour system v2 (Krissha: "สีมีอะไรต้องปรับอีกมั้ย") — 3 families only, so the eye reads them instantly:
+   ORANGE = I must act (proof)  ·  CI BLUE fill = my brief  ·  CI BLUE outline + navy tag = work I'm doing */
+.pb3 .pb3-card.tint-mine{background:#fff!important;border:2px solid #1B76FF!important;padding:10px 11px}
+.pb3 .pb3-card.tint-mine:hover{border-color:#0F5FD6!important}
+.pb3-mine{background:linear-gradient(135deg,#1B76FF,#0B4FC4)!important;display:inline-flex!important;align-items:center;gap:4px}
+.pb3-tags .pb3-proof,.pb3-tags .pb3-proof.k-ext,.pb3-tags .pb3-proof.k-check{background:linear-gradient(135deg,#F59E0B,#EA580C)!important;box-shadow:0 2px 6px -3px rgba(234,88,12,.7)}
+.pb3 .pb3-card.tint-proof{background:#FFF7EB!important;border-color:#FBC98A!important}
+.pb3 .pb3-card.tint-proof .pb3-due.soon,.pb3 .pb3-card.tint-proof .pb3-due:not(.late):not(.today):not(.handoff){background:#fff;box-shadow:inset 0 0 0 1px #FDE3BF}
 /* =====================================================================================================
    UI v3 — SYSTEM-WIDE LAYER (Krissha: "ปรับ UI ทั้งระบบ ตามที่เพิ่งปรับไป")
    Brings every page in line with the redesigned Process Board / Content Planner. Visual only — no markup
@@ -5977,6 +6011,27 @@ async function submitQueueAdjustmentRequests(assignee, dateStr){
 function extIsBriefOwner(t){
   const o = String(t?.project_owner_email||'').toLowerCase(); if(!o) return false;
   return o===String(STATE.auth.user?.email||'').toLowerCase() || o===String(STATE.auth.identity||'').toLowerCase();
+}
+// How a card relates to the signed-in user (for "งานของฉัน" — Krissha: "อะไรที่เกี่ยวกับตัวเองให้โชว์ให้ครบ"):
+// 'owner' = I'm the Brief Owner, 'creator' = I created/briefed it, 'requester' = I filed its pending date change.
+function boardRelation(t){
+  if(!t) return null;
+  const me = String(STATE.auth.identity||'').toLowerCase(), email = String(STATE.auth.user?.email||'').toLowerCase(), name = String(STATE.auth.user?.name||'').toLowerCase();
+  if(extIsBriefOwner(t)) return 'owner';
+  const cb = String(t.created_by_email||'').toLowerCase(); if(cb && (cb===email || cb===me)) return 'creator';
+  const rb = String(t.deadline_extension_request?.status==='PENDING' ? (t.deadline_extension_request.requested_by||'') : '').toLowerCase();
+  if(rb && (rb===me || rb===name)) return 'requester';
+  return null;
+}
+// What the signed-in user still has to do on this card (null = nothing): approve | ext | check.
+function boardProofKind(t){
+  if(!t || t.cancelled) return null;
+  if(t.assigned_user_name===STATE.auth.identity && !canApproveExt(t)) return null;
+  if(isLead() && t.review_status==='pending_lead_approval') return 'approve';
+  if(canApproveExt(t)) return 'ext';
+  if(isLead() && t.review_status==='pending_review') return 'check';
+  if(t.review_status==='pending_client_review' && extIsBriefOwner(t)) return 'owner';
+  return null;
 }
 function canApproveExt(t){
   const ex = t?.deadline_extension_request; if(!ex || ex.status!=='PENDING') return false;
@@ -21082,7 +21137,7 @@ function renderBoard(){
       (t.review_status==='pending_lead_approval'
         ? t.suggested_designer===STATE.board.designer
         : t.assigned_user_name===STATE.board.designer)
-      || (mine && boardNeedsMyProof(t))
+      || (mine && (boardNeedsMyProof(t) || boardRelation(t)))
     );
   }
   STATE.board.proofMarks = STATE.board.designer===STATE.auth.identity;
@@ -21109,11 +21164,21 @@ function renderBoard(){
   // Same data/filters/IDs/sort as before; only presentation changed.
   const nOverdue = filtered.filter(t=>!isBoardTaskTerminal(t) && dueRelative(t).late).length;
   const me = STATE.auth.identity;
-  const canMine = designers.includes(me);
+  const canMine = !!STATE.auth.loggedIn && !!me;
   const isMine = canMine && STATE.board.designer===me;
   const live = BOARD_SECTIONS[0], done = BOARD_SECTIONS[1];
-  const byStatus = st=>filtered.filter(t=>t.review_status===st);
-  const doneCount = filtered.filter(t=>done.statuses.includes(t.review_status)).length;
+  // "งานของฉัน" (Krissha): cards waiting on ME are grouped by what I have to do, not by the task's own stage —
+  // anything to APPROVE (Brief approve & assign, deadline-extension request) → column 1 "รออนุมัติ",
+  // anything to CHECK (Lead QC, my brief's final approval) → column 4 "รอตรวจ". Other cards stay in their stage.
+  const boardColOf = t=>{
+    if(!STATE.board.proofMarks) return t.review_status;
+    // Only a deadline-extension request is moved (its task can sit in any stage, e.g. "Brief ใหม่"). Every other
+    // card stays in its real stage so it never "jumps" between columns when you switch ทั้งทีม ↔ ของฉัน:
+    // Brief approval is already col 1, Lead QC col 4, the Brief Owner's approval col 5 "รอผู้บรีฟอนุมัติ".
+    return boardProofKind(t)==='ext' ? 'pending_lead_approval' : t.review_status;
+  };
+  const byStatus = st=>filtered.filter(t=>boardColOf(t)===st);
+  const doneCount = filtered.filter(t=>done.statuses.includes(boardColOf(t))).length;
   const openRel = !!STATE.board.releaseOpen;
   return `
   <div class="pb2 pb3">
@@ -21137,6 +21202,7 @@ function renderBoard(){
     <select id="boardDesignerFilter" class="pb3-sel${STATE.board.designer!=='ALL'?' set':''}" aria-label="Designer">
       <option value="ALL" ${STATE.board.designer==='ALL'?'selected':''}>Designer: ทุกคน</option>
       ${designers.map(d=>`<option value="${d}" ${STATE.board.designer===d?'selected':''}>${d}</option>`).join('')}
+      ${me && !designers.includes(me) ? `<option value="${escAttr(me)}" ${STATE.board.designer===me?'selected':''}>👤 ฉัน (${escAttr(STATE.auth.user?.name||me)})</option>` : ''}
     </select>
     <select id="boardProjectFilter" class="pb3-sel${STATE.board.project!=='ALL'?' set':''}" aria-label="Project">
       <option value="ALL" ${STATE.board.project==='ALL'?'selected':''}>โปรเจกต์: ทั้งหมด</option>
@@ -21194,8 +21260,8 @@ function renderBoard(){
 const BOARD_STATUS_COLOR = {pending_lead_approval:'#64748B', new:'var(--accent)', in_progress:'var(--std-tx)',
   pending_review:'#7C3AED', pending_client_review:'var(--pri-tx)', revision:'var(--urg-tx)',
   delivered:'var(--ok-tx)', rejected:'var(--crit-tx)', closed_max_revision:'#334155'};
-const BOARD_STATUS_SHORT = {pending_lead_approval:'รอ Lead อนุมัติ', new:'Brief ใหม่', in_progress:'กำลังทำ',
-  pending_review:'รอ Lead ตรวจ', pending_client_review:'รอผู้บรีฟอนุมัติ', revision:'แก้ไขงาน',
+const BOARD_STATUS_SHORT = {pending_lead_approval:'รออนุมัติ', new:'Brief ใหม่', in_progress:'กำลังทำ',
+  pending_review:'รอตรวจ', pending_client_review:'รอผู้บรีฟอนุมัติ', revision:'แก้ไขงาน',
   delivered:'พร้อมปล่อย', rejected:'ไม่อนุมัติ', closed_max_revision:'ปิด (แก้ครบรอบ)'};
 function renderColumn(status, tasks, stepNo){
   // §10/§11 "การ์ดใหม่ / Action ล่าสุดต้องอยู่บนสุด": every column sorts newest-workflow-activity-first,
@@ -21371,21 +21437,29 @@ function taskCardHTML(t){
   const who = assignee || t.suggested_designer || '';
   const countdown = autoCompleteCountdownShort(t);
   const paused = t.paused && t.review_status==='in_progress';
-  const mine = !!STATE.auth.identity && assignee===STATE.auth.identity;
+  const mine = !!STATE.auth.identity && (assignee===STATE.auth.identity || !!boardProofKind(t) || !!boardRelation(t));
   const dueCls = designerHandoff(t) ? 'handoff' : due.late ? 'late' : due.days===0 ? 'today' : (due.days!==null && due.days<=2) ? 'soon' : '';
   const hotPri = ['CRITICAL','URGENT'].includes(t.priority);
   const pz = t.review_status==='in_progress' && (t.paused || pauseBtnHTML(t));
   const actions = linkPill || pz;
-  return `<div class="taskcard pb3-card${paused?' is-paused':''}${mine?' is-mine':''}${hotPri?' is-hot':''}" data-opentask="${t.task_id}" style="--pc:${paused?'#94A3B8':priorityAccentColor(t.priority)}">
+  return `<div class="taskcard pb3-card${paused?' is-paused':''}${mine?' is-mine':''}${(()=>{ if(!STATE.auth.identity) return ''; if(boardProofKind(t)) return ' tint-proof'; if(assignee===STATE.auth.identity) return ' tint-mine'; const r = boardRelation(t); return (r==='owner'||r==='creator') ? ' tint-owner' : ''; })()}${hotPri?' is-hot':''}" data-opentask="${t.task_id}" style="--pc:${paused?'#94A3B8':priorityAccentColor(t.priority)}">
     ${canEditBriefTask(t) ? `<button type="button" class="iconbtn tc2-edit" data-editbrief="${t.task_id}" title="Edit Brief" onclick="event.stopPropagation()">✎</button>` : ''}
-    ${STATE.board?.proofMarks && t.assigned_user_name!==STATE.auth.identity && ((isLead() && ['pending_lead_approval','pending_review'].includes(t.review_status)) || (t.review_status==='pending_client_review' && extIsBriefOwner(t)) || canApproveExt(t)) ? `<div class="pb3-proof">✅ รอคุณพรูฟ</div>` : ''}
+    ${(k=>{ // Tags show on EVERY board view (Krissha: "ติดแท็กการ์ดว่างานไหนเป็นของฉัน จากบอร์ดรวม")
+        const isMineT = !!STATE.auth.identity && t.assigned_user_name===STATE.auth.identity;
+        const rel = boardRelation(t);
+        const tags = [];
+        if(isMineT) tags.push(`<span class="pb3-mine"><svg viewBox="0 0 24 24" width="12" height="12" fill="#fff" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.4 4.2-7 8.5-7s7.7 2.6 8.5 7z"/></svg>งานของฉัน</span>`);
+        if(k) tags.push(`<span class="pb3-proof k-${k}">${({approve:'✅ รอคุณอนุมัติ Brief', ext:'📅 รอคุณอนุมัติเลื่อนวันส่ง', check:'🔍 รอคุณตรวจงาน', owner:'✅ รอคุณอนุมัติงาน'})[k]}</span>`);
+        else if(rel && !isMineT) tags.push(`<span class="pb3-rel">${({owner:'📝 บรีฟของฉัน', creator:'📝 ฉันเป็นคนสร้าง', requester:'📨 ฉันขอเลื่อนวันส่ง'})[rel]}</span>`);
+        return tags.length ? `<div class="pb3-tags">${tags.join('')}</div>` : '';
+      })(boardProofKind(t))}
     ${hotPri ? `<div class="pb3-pri">${t.priority==='CRITICAL'?'● วิกฤต':'● ด่วน'}</div>` : ''}
     <div class="tc2-title">${escAttr(taskDisplayName(t))}</div>
     <div class="pb3-sub">${platHTML}<span class="ty">${escAttr(t.task_type||t.task_category||'')}</span>${scopeChangeChipHTML(t)}</div>
     <div class="pb3-foot">
       <span class="pb3-due ${dueCls}" title="${escAttr(due.txt)}">${dueCls==='handoff'?'✓ ส่งตรวจแล้ว':due.txt==='—'?'ไม่มีกำหนดส่ง':due.txt}</span>${boardCardFlagsHTML(t, false, extPending)}
       <span class="pb3-who${assignee?'':' pending'}" title="${escAttr(assignee?assignee:(who?'แนะนำ: '+who:'ยังไม่ Assign'))}">
-        <span class="tc2-av${who?'':' none'}">${who?escAttr(who.trim().charAt(0).toUpperCase()):'?'}</span>${mine?'<b>ฉัน</b>':escAttr(who?who.split(' ')[0]:'ยังไม่ Assign')}
+        <span class="tc2-av${who?'':' none'}">${who?escAttr(who.trim().charAt(0).toUpperCase()):'?'}</span>${(assignee && assignee===STATE.auth.identity)?'<b>ฉัน</b>':escAttr(who?who.split(' ')[0]:'ยังไม่ Assign')}
       </span>
     </div>
     ${t.cancelled ? `<div class="cxl-line">✕ ยกเลิกแล้ว · ${escAttr(t.cancelled.reason)}</div>` : ''}
