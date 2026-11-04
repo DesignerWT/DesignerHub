@@ -4281,6 +4281,12 @@ select.ss-xrole-add{width:auto!important;min-height:0;padding:3px 24px 3px 9px!i
 .qc-aws-h{font-size:12px;color:var(--ink-soft);margin-bottom:6px;line-height:1.5}
 .qc-aw{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:5px 0;border-top:1px dashed #E5E7EB}
 .qc-aw:first-of-type{border-top:none}.qc-aw b{white-space:nowrap;color:var(--ink)}
+.pb3-note.apv-due{background:#EEF2FF;color:#3730A3;border-radius:8px;padding:5px 8px;font-size:11.5px;font-weight:600;line-height:1.35}
+.pb3-note.apv-due b{font-weight:800;white-space:nowrap}
+.pb3-note.apv-hot{background:#FEF2F2;color:#B91C1C}
+.pb3-note.apv-over{background:#FEE2E2;color:#991B1B}
+.rv-panel-due{margin:8px 0 10px;font-size:13px;padding:9px 12px}
+.rv-panel-due .rv-due-sub{font-size:11.5px;font-weight:500;opacity:.85;margin-top:3px}
 /* =====================================================================================================
    UI v3 — SYSTEM-WIDE LAYER (Krissha: "ปรับ UI ทั้งระบบ ตามที่เพิ่งปรับไป")
    Brings every page in line with the redesigned Process Board / Content Planner. Visual only — no markup
@@ -6419,7 +6425,7 @@ function renderProfileTodo(){
       const who = i.sub==='brief' ? `${escAttr(t.priority||'')} · ผู้บรีฟ ${escAttr(emailBriefOwnerName(t))}` : `ดีไซเนอร์ ${escAttr(t.assigned_user_name||'—')}`;
       return `<div class="li-row" style="--lc:${c}"><span class="li-ic">✅</span>
         <div class="li-main"><div class="li-k">${SUB[i.sub]}</div><b>${escAttr(taskDisplayName(t))}</b>
-          <span class="li-sub">${who}${t.prefer_delivery_date?` · ส่ง ${fmtDate(t.prefer_delivery_date)}`:''}</span></div>
+          <span class="li-sub">${who}${(()=>{ const a = i.sub==='owner' && approvalDueInfo(t); return a ? ` · <b style="color:${a.lvl==='ok'?'#4338CA':'#B91C1C'}">⏳ ตรวจภายใน ${a.when} (${a.left})</b>` : (t.prefer_delivery_date?` · ส่ง ${fmtDate(t.prefer_delivery_date)}`:''); })()}</span></div>
         <div class="li-acts"><button type="button" class="btn btn-sm btn-primary" data-opentask="${t.task_id}">ตรวจ / อนุมัติ →</button></div></div>`; }
     const rv = activeRevision(t), dl = rv?.deadline || t.prefer_delivery_date || '', late = dl && dl.slice(0,10) < todayISO();
     return `<div class="li-row" style="--lc:${c}"><span class="li-ic">✎</span>
@@ -10222,7 +10228,7 @@ const EMAIL_EVENT_BODY = {
   FINAL_REVIEW_READY(t, extra){
     const link = emailTaskLink(t);
     const skipNote = extra.skippedQC ? `\n\nงานนี้ดำเนินการโดย Lead Designer จึงเข้าสู่ Final Review โดยไม่ต้องมี QC ซ้ำ` : '';
-    return `Artwork พร้อมสำหรับ Final Review\n\nงานผ่าน Lead QC แล้ว กรุณาตรวจ Artwork และเลือก Approve หรือ Request Revision\n\nDesigner: ${t.assigned_user_name||'-'}\n\nFinal Review Due\n${fmtDateTime(t.approval_due_at)}\n\nArtwork สำหรับตรวจ\n${emailLink('เปิดไฟล์งานบน Google Drive', t.aw_link)}\n${emailLink('เปิด Brief', link)}\n\n${emailLink('ตรวจงาน', link)}${skipNote}`;
+    return `⏰ กรุณาตรวจภายใน ${fmtDateTime(t.approval_due_at)}\n🔒 ระบบจะปิดงานอัตโนมัติ ${(()=>{ const q = bkkParts(t.approval_due_at); return `${q.dow} ${fmtDateShort(q.ds)} ${q.hm} น.`; })()} ถ้ายังไม่ได้ตรวจ — หลังปิดงานแล้วจะขอแก้ในการ์ดนี้ไม่ได้\n\nArtwork พร้อมสำหรับ Final Review\n\nงานผ่าน Lead QC แล้ว กรุณาตรวจ Artwork และเลือก Approve หรือ Request Revision\n\nDesigner: ${t.assigned_user_name||'-'}\n\nFinal Review Due\n${fmtDateTime(t.approval_due_at)}\n\nArtwork สำหรับตรวจ\n${emailLink('เปิดไฟล์งานบน Google Drive', t.aw_link)}\n${emailLink('เปิด Brief', link)}\n\n${emailLink('ตรวจงาน', link)}${skipNote}`;
   },
   QC_APPROVED(t, extra){
     return `Artwork ผ่าน Lead QC แล้ว\n\nงานถูกส่งไปยัง Brief Owner เพื่อ Final Review เรียบร้อยแล้ว\n\nFinal Review Due: ${fmtDateTime(t.approval_due_at)}\n\n${emailLink('ดูสถานะงาน', emailTaskLink(t))}`;
@@ -10238,7 +10244,7 @@ const EMAIL_EVENT_BODY = {
   },
   AUTO_COMPLETED(t, extra){
     const finalLink = t.completedWorkFolderUrl ? emailLink('เปิด Final Work', t.completedWorkFolderUrl) : emailLink('เปิด Final Work', t.aw_link);
-    return `Final Review ครบกำหนดแล้ว\n\nไม่มีคำขอแก้ไขภายใน ${APPROVAL_AUTO_HOURS} ชม. หลังเข้าสู่ Final Review ระบบจึงเปลี่ยน Task เป็น Completed\n\nFinal Review Started: ${fmtDateTime(t.approval_waiting_at)}\nCompleted: ${fmtDateTime(t.completed_at)}\n\nFinal Work\n${finalLink}\n\n${emailLink('ดูรายละเอียดงาน', emailTaskLink(t))}`;
+    return `Final Review ครบกำหนดแล้ว\n\nไม่มีคำขอแก้ไขภายใน ${approvalWindowText(t)} หลังเข้าสู่ Final Review ระบบจึงเปลี่ยน Task เป็น Completed\n\nFinal Review Started: ${fmtDateTime(t.approval_waiting_at)}\nCompleted: ${fmtDateTime(t.completed_at)}\n\nFinal Work\n${finalLink}\n\n${emailLink('ดูรายละเอียดงาน', emailTaskLink(t))}`;
   },
   DEADLINE_EXTENSION_REQUESTED(t, extra){
     return `Designer ขอปรับ Delivery Date\n\nDesigner: ${t.assigned_user_name||'-'}\n\nกำหนดเดิม: ${fmtDate(t.prefer_delivery_date)}\n\nวันที่ร้องขอใหม่\n${fmtDate(extra.requestedDeadline)}\n\nเหตุผล\n${extra.reason||'-'}\n\nพรูฟได้โดย: เจ้าของงาน หรือ Lead Designer (ใครกดก่อนก็มีผล)\n\n${emailLink('พิจารณาคำขอ', emailTaskLink(t))}`;
@@ -10260,14 +10266,22 @@ const EMAIL_EVENT_BODY = {
   },
   FINAL_REVIEW_REMINDER(t, extra){
     const link = emailTaskLink(t);
-    return `กรุณาตรวจ Artwork ก่อนระบบปิดงานอัตโนมัติ\n\nงานนี้กำลังรอ Final Review\n\nหากไม่มี Request Revision ภายใน\n${fmtDateTime(t.approval_due_at)}\n\nระบบจะเปลี่ยน Task เป็น Completed อัตโนมัติ\n\nArtwork ล่าสุด\n${emailLink('เปิด Artwork', t.aw_link)}\n\n${emailLink('ตรวจงาน', link)}`;
+    return `⏰ เหลือเวลาอีก ${approvalIsWorkHours(t)?APPROVAL_REMIND_WORK_HOURS+' ชม. ทำงาน':'ไม่ถึง 6 ชม.'} — ถ้าไม่ตรวจภายใน ${fmtDateTime(t.approval_due_at)} ระบบจะอนุมัติให้อัตโนมัติ\n\nกรุณาตรวจ Artwork ก่อนระบบปิดงานอัตโนมัติ\n\nงานนี้กำลังรอ Final Review\n\nหากไม่มี Request Revision ภายใน\n${fmtDateTime(t.approval_due_at)}\n\nระบบจะเปลี่ยน Task เป็น Completed อัตโนมัติ\n\nArtwork ล่าสุด\n${emailLink('เปิด Artwork', t.aw_link)}\n\n${emailLink('ตรวจงาน', link)}`;
   }
 };
 function buildEventEmail(eventType, t, extra, role){
   const title = EMAIL_EVENT_TITLE[eventType];
   const bodyFn = EMAIL_EVENT_BODY[eventType];
   if(!title || !bodyFn) return null;
-  const subject = `WORLDTECH | ${title} — ${taskDisplayName(t)}`;
+  let subject = `WORLDTECH | ${title} — ${taskDisplayName(t)}`;
+  // Krissha — แบบ A: the Final Review emails say the deadline right in the subject line.
+  if(t.approval_due_at && (eventType==='FINAL_REVIEW_READY' || eventType==='FINAL_REVIEW_REMINDER')){
+    const due = bkkParts(t.approval_due_at), today = bkkParts(new Date().toISOString()).ds;
+    const dayTxt = due.ds===today ? 'วันนี้' : `${due.dow} ${fmtDateShort(due.ds)}`;
+    subject = eventType==='FINAL_REVIEW_READY'
+      ? `[กรุณาตรวจภายใน ${approvalIsWorkHours(t)?'1 วันทำงาน':APPROVAL_AUTO_HOURS+' ชม.'}] ${taskDisplayName(t)} — ครบกำหนด ${dayTxt} ${due.hm} น.`
+      : `[เหลือ ${approvalIsWorkHours(t)?APPROVAL_REMIND_WORK_HOURS+' ชม.':'ไม่ถึง 6 ชม.'}] ${taskDisplayName(t)} — กรุณาตรวจก่อน ${due.hm} น. ${dayTxt}`;
+  }
   const content = bodyFn(t, extra||{}, role||'');
   const body = `${emailBoldLabel('WORLDTECH')}\nGraphic Workflow\n\n${emailTaskBlock(t)}\n\n${content}`;
   return {subject, body};
@@ -21785,6 +21799,36 @@ function boardCardPlatformHTML(t){
 // DEV MASTER CORRECTION §5 — compact "Auto complete in Xd Yh" text for the Board card (the full
 // countdown + explanation lives on Task Detail's renderAwaitingApprovalCard; this is just the terse
 // version), computed from the same real approval_due_at, never invented.
+// Krissha — "คนตรวจงานมาดูที่การ์ด จะเห็นเดทไลน์ที่ต้องตรวจมั้ย": one shared line for Board card / to-do /
+// detail: "ตรวจภายใน พฤ. 05 พ.ย. 12:00 น. · เหลือ 5 ชม. 30 น." (working hours for the 8-ชม.-ทำงาน window).
+function approvalDueInfo(t){
+  if(t.review_status!=='pending_client_review' || !t.approval_due_at) return null;
+  const ms = new Date(t.approval_due_at).getTime() - Date.now();
+  const p = bkkParts(t.approval_due_at), today = bkkParts(new Date().toISOString()).ds, tmr = addDaysISO(today,1);
+  const when = p.ds===today ? `วันนี้ ${p.hm} น.` : p.ds===tmr ? `พรุ่งนี้ ${p.hm} น.` : `${p.dow.slice(0,2)}. ${fmtDateShort(p.ds)} ${p.hm} น.`;
+  if(ms<=0) return {when, hm:p.hm, dur:'', left:'ครบกำหนดแล้ว', lvl:'over', ms};
+  const mins = approvalIsWorkHours(t) ? Math.round(workMinutesBetween(new Date().toISOString(), t.approval_due_at)) : Math.round(ms/60000);
+  const h = Math.floor(mins/60), m = mins%60;
+  const dur = [h ? h+' ชม.' : '', (m || !h) ? m+' น.' : ''].filter(Boolean).join(' ');
+  const left = 'เหลือ ' + dur;
+  return {when, hm:p.hm, dur, left, lvl: mins<=APPROVAL_REMIND_WORK_HOURS*60 ? 'hot' : 'ok', ms};
+}
+function approvalDueNoteHTML(t){
+  const i = approvalDueInfo(t); if(!i) return '';
+  // Krissha — แบบ 3 on the card: calm while there's time, louder in the last 3 working hours, locked when due.
+  const txt = i.lvl==='over' ? `🔒 ครบกำหนดแล้ว — กำลังปิดงานอัตโนมัติ`
+    : i.lvl==='hot' ? `⚠ อีก <b>${i.dur}</b> ระบบจะปิดงานอัตโนมัติ (<b>${i.hm} น.</b>)`
+    : `⏳ ตรวจภายใน <b>${i.when}</b>`;
+  return `<div class="pb3-note apv-due apv-${i.lvl}" title="ถ้าไม่ตรวจภายใน ${i.when} ระบบจะถือว่างานผ่าน และปิดงานให้อัตโนมัติ">${txt}</div>`;
+}
+// แบบ 2 on the review panel: the auto-close time + what's lost after it.
+function approvalDuePanelHTML(t){
+  const i = approvalDueInfo(t); if(!i) return '';
+  const head = i.lvl==='over' ? `🔒 ครบกำหนดแล้ว — ระบบกำลังปิดงานอัตโนมัติ`
+    : `🔒 งานนี้จะปิดอัตโนมัติ <b>${i.when}</b> <span style="font-weight:600">(${i.left}${approvalIsWorkHours(t)?' ทำงาน':''})</span>`;
+  return `<div class="pb3-note apv-due apv-${i.lvl} rv-panel-due"><div>${head}</div>
+    ${i.lvl==='over' ? '' : `<div class="rv-due-sub">ถ้าต้องการแก้ไข กรุณากด "ขอแก้" ก่อนเวลานี้ — หลังปิดงานแล้วจะขอแก้ในการ์ดนี้ไม่ได้</div>`}</div>`;
+}
 function autoCompleteCountdownShort(t){
   if(t.review_status!=='pending_client_review' || !t.approval_due_at) return '';
   const ms = new Date(t.approval_due_at).getTime() - Date.now();
@@ -21916,7 +21960,7 @@ function taskCardHTML(t){
       </span>
     </div>
     ${t.cancelled ? `<div class="cxl-line">✕ ยกเลิกแล้ว · ${escAttr(t.cancelled.reason)}</div>` : ''}
-    ${countdown ? `<div class="pb3-note">⏳ ${countdown}</div>` : ''}
+    ${countdown ? approvalDueNoteHTML(t) : ''}
     ${actions ? `<div class="pb3-act">${linkPill}${pz?`${pauseInfoHTML(t)}${pauseBtnHTML(t)}`:''}</div>` : ''}
     ${linkForm}
   </div>`;
@@ -23007,6 +23051,13 @@ function renderTaskWsInfoCard(t, hideRequesterOverlap){
     {label:'Priority', val: t.priority},
     {label:'Brief Date', val: t.brief_timestamp ? fmtDate(t.brief_timestamp) : ''},
     {label:'Deadline', val: deadline},
+    // Krissha — "น้องหาเดทไลน์แก้ไขงานไม่เจอ": the open revision round's own deadline, right under the main one.
+    ...(()=>{ const revs = taskRevisions(t).filter(r=>r.deadline && !r.legacy); const r = revs[revs.length-1]; if(!r) return [];
+      const open = !r.submitted_at, late = open && isSubmissionLate(t);
+      const v = `<span style="color:${late?'var(--crit-tx,#B91C1C)':open?'#B45309':'inherit'}">${fmtDate(r.deadline)}${r.deadline_time?` ${escAttr(r.deadline_time)} น.`:''}</span>`
+        + (open ? (late ? ' <span class="hint" style="color:var(--crit-tx,#B91C1C)">· เลยกำหนด</span>' : '') : ' <span class="hint">· ส่งแก้แล้ว</span>')
+        + (t.deadline_extension_request?.status==='PENDING' && t.deadline_extension_request.target==='revision' ? ` <span class="hint">· ขอเลื่อนเป็น ${fmtDate(t.deadline_extension_request.requested_date)} (รออนุมัติ)</span>` : '');
+      return [{label:`Deadline แก้งาน · รอบ ${r.round||revs.length}`, val:v}]; })(),
     {label:'Delivered Date', val: deliveredDate},
     // Task Data Model (Master Dev Spec §3): only shown when it meaningfully differs from Brief Owner (i.e.
     // a Designer/Lead Designer created it on someone's behalf) — unchanged from before.
@@ -23402,14 +23453,20 @@ function renderAwaitingApprovalCard(t){
   let countdown;
   if(ms<=0) countdown = 'ครบกำหนดแล้ว — รอระบบปิดงานอัตโนมัติ';
   else {
+    if(approvalIsWorkHours(t)){
+      const wm = Math.round(workMinutesBetween(new Date().toISOString(), t.approval_due_at));
+      countdown = `เหลือ ${Math.floor(wm/60)} ชม. ${wm%60} นาที (เวลาทำงาน)`;
+    } else {
     const totalH = Math.floor(ms/3600000);
     const d = Math.floor(totalH/24), h = totalH%24;
     countdown = d>0 ? `Auto complete in ${d}d ${h}h` : `Auto complete in ${h}h`;
+    }
   }
+  const ai = approvalDueInfo(t);
   return `<div class="info-box">
-    <div style="font-weight:700;margin-bottom:2px">⏳ Awaiting Approval</div>
-    <div class="hint" style="margin-bottom:4px">Auto Complete: ${fmtDateTime(t.approval_due_at)}</div>
-    <div class="hint" style="margin-bottom:6px">หากไม่มี Approve หรือ Request Revision ภายใน ${APPROVAL_AUTO_HOURS} ชม. ระบบจะพรูฟงานอัตโนมัติ</div>
+    <div style="font-weight:700;margin-bottom:2px">⏳ รอผู้บรีฟตรวจ — กรุณาตรวจภายใน <span style="color:${ai&&ai.lvl!=='ok'?'#B91C1C':'var(--accent)'}">${ai?ai.when:fmtDateTime(t.approval_due_at)}</span></div>
+    <div class="hint" style="margin-bottom:4px">ครบกำหนด (Auto Complete): ${fmtDateTime(t.approval_due_at)}</div>
+    <div class="hint" style="margin-bottom:6px">หากไม่มี Approve หรือ Request Revision ภายใน ${approvalWindowText(t)} ระบบจะพรูฟงานอัตโนมัติ</div>
     <div class="hint" style="font-weight:700;color:${ms<=0?'#991B1B':'var(--accent)'}">${countdown}</div>
   </div>`;
 }
@@ -23612,7 +23669,7 @@ function renderTaskWorkspacePage(t){
         ${extPanelHTML}
         ${renderAwPartsPanel(t)}
         ${reviewActionsHTML ? `<div class="taskws-card rv-panel">
-          <div class="rv-panel-head"><span class="rv-panel-ic">✅</span><div><div class="rv-panel-title">ตรวจงานนี้</div><div class="rv-panel-sub">เปิดลิงก์งานด้านบนดูก่อน แล้วเลือกผลการตรวจ</div></div></div>
+          <div class="rv-panel-head"><span class="rv-panel-ic">✅</span><div><div class="rv-panel-title">ตรวจงานนี้</div><div class="rv-panel-sub">เปิดลิงก์งานด้านบนดูก่อน แล้วเลือกผลการตรวจ</div></div></div>${approvalDuePanelHTML(t)}
           <div class="rv-panel-acts">${reviewActionsHTML}</div>
         </div>` : ''}
         <!-- DEV FIX (Krissha — "ลิงก์บรีฟ เอาไปไว้บนสุด ดีไซนเนอร์จะได้ไม่ต้องหา รวมถึงลิงค์เรฟด้วย" +
@@ -26407,7 +26464,7 @@ async function mpAddTasks(pid, names, override){
   if(d.state==='submitted'){
     const first = created[0];
     if(first.review_status==='pending_review') notifyUsers(leadNames(), 'มีงานรอตรวจ QC', `${created.length} งานจาก My Project “${p.name}” (ใส่ย้อนหลัง) — ${person}`, first.task_id, {excludeActor:true, eventType:'WORK_SUBMITTED_QC'});
-    else if(first.project_owner_email) notifyUsers([first.project_owner_email], 'งานพร้อมตรวจขั้นสุดท้าย', `${created.length} งานจาก My Project “${p.name}” — กรุณาตรวจภายใน ${APPROVAL_AUTO_HOURS} ชม.`, first.task_id, {excludeActor:true, eventType:'FINAL_REVIEW_READY'});
+    else if(first.project_owner_email) notifyUsers([first.project_owner_email], 'งานพร้อมตรวจขั้นสุดท้าย', `${created.length} งานจาก My Project “${p.name}” — กรุณาตรวจภายใน ${approvalWindowText(first)}`, first.task_id, {excludeActor:true, eventType:'FINAL_REVIEW_READY'});
   }
   toast(d.state==='plan' ? `+ เพิ่ม ${created.length} งานแล้ว — เข้า My To-do / Process Board ให้อัตโนมัติ` : d.state==='closed' ? `+ บันทึก ${created.length} งานที่เสร็จแล้ว (ย้อนหลัง)` : `+ บันทึก ${created.length} งานที่ส่งแล้ว — ส่งให้ผู้ตรวจแล้ว`);
   render();
@@ -32821,11 +32878,56 @@ function addBusinessDaysToTimestamp(isoString, days){
 // Krissha: "Awaiting Approval เปลี่ยนเป็น พรูฟ อัตโนมัติ ภายใน 24 ชม" — the window is now 24 clock hours (was 2
 // business days). Applies to tasks entering Awaiting Approval from now on; tasks already waiting keep the
 // approval_due_at they were given.
-const APPROVAL_AUTO_HOURS = 24;
+const APPROVAL_AUTO_HOURS = 24;          // legacy window — tasks already waiting under it keep their due time
+// Krissha — "เปลี่ยนเวลาปิดงานอัตโนมัติเป็น 8 ชม. ทำงาน": the Final Review window now runs only in office hours
+// (09:00–12:00 / 13:00–18:00 Bangkok, weekends + public holidays skipped). Reminder fires 3 working hours before.
+const APPROVAL_WORK_HOURS = 8, APPROVAL_REMIND_WORK_HOURS = 3;
+const WORK_SEGS = [[540,720],[780,1080]];
+function bkkIsWorkDay(ds){ return !isWeekend(ds) && !isPublicHoliday(ds); }
+function shiftWorkHours(iso, hours, dir){
+  const B = 7*3600e3; let t = new Date(iso).getTime() + B; // Bangkok wall clock as UTC fields
+  let need = Math.round(hours*60), guard = 0;
+  while(guard++ < 400){
+    const d = new Date(t), ds = d.toISOString().slice(0,10), m = d.getUTCHours()*60 + d.getUTCMinutes() + d.getUTCSeconds()/60;
+    const day0 = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    if(bkkIsWorkDay(ds)){
+      const segs = dir>0 ? WORK_SEGS : [...WORK_SEGS].reverse();
+      for(const [a,b] of segs){
+        if(dir>0){ if(b<=m) continue; const from = Math.max(a,m), av = b-from; if(need<=av) return new Date(day0 + (from+need)*60e3 - B).toISOString(); need -= av; }
+        else { if(a>=m) continue; const to = Math.min(b,m), av = to-a; if(need<=av) return new Date(day0 + (to-need)*60e3 - B).toISOString(); need -= av; }
+      }
+    }
+    t = dir>0 ? day0 + 864e5 : day0 - 1; // next day 00:00 / previous day 23:59:59.999
+  }
+  return new Date(new Date(iso).getTime() + dir*hours*3600e3).toISOString();
+}
+function workMinutesBetween(aIso, bIso){
+  const B = 7*3600e3; let a = new Date(aIso).getTime()+B; const b = new Date(bIso).getTime()+B; let sum = 0, g = 0;
+  while(a < b && g++ < 400){
+    const d = new Date(a), ds = d.toISOString().slice(0,10), day0 = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    if(bkkIsWorkDay(ds)) WORK_SEGS.forEach(([s0,e0])=>{ const s1 = Math.max(a, day0+s0*60e3), e1 = Math.min(b, day0+e0*60e3); if(e1>s1) sum += (e1-s1)/60e3; });
+    a = day0 + 864e5;
+  }
+  return sum;
+}
+function addWorkHours(iso, h){ return shiftWorkHours(iso, h, 1); }
+function subWorkHours(iso, h){ return shiftWorkHours(iso, h, -1); }
+function approvalIsWorkHours(t){ return !t || t.approval_window_h==='wh8'; }
+function approvalWindowText(t){ return approvalIsWorkHours(t) ? '1 วันทำงาน (8 ชม. ทำงาน)' : `${APPROVAL_AUTO_HOURS} ชม.`; }
+const TH_DOW = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+function bkkParts(iso){ const d = new Date(new Date(iso).getTime()+7*3600e3); const p = n=>String(n).padStart(2,'0');
+  return {ds:d.toISOString().slice(0,10), dow:TH_DOW[d.getUTCDay()], hm:`${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`}; }
+function approvalRemindAt(t){
+  if(!t?.approval_due_at) return null;
+  if(t.approval_remind_at) return t.approval_remind_at; // stored at start — the Apps Script reminder reads this same field
+  return approvalIsWorkHours(t) ? subWorkHours(t.approval_due_at, APPROVAL_REMIND_WORK_HOURS)
+    : new Date(new Date(t.approval_due_at).getTime() - 6*3600e3).toISOString();
+}
 function startApprovalWaitingTimer(t){
   t.approval_waiting_at = nowIso();
-  t.approval_due_at = new Date(Date.now() + APPROVAL_AUTO_HOURS*3600000).toISOString();
-  t.approval_window_h = APPROVAL_AUTO_HOURS;
+  t.approval_due_at = addWorkHours(t.approval_waiting_at, APPROVAL_WORK_HOURS);
+  t.approval_window_h = 'wh8';
+  t.approval_remind_at = subWorkHours(t.approval_due_at, APPROVAL_REMIND_WORK_HOURS);
   t.auto_completed = false;
 }
 // UI word is always "Auto Complete", never "Auto Approve" — no user actually clicked approve.
@@ -32835,7 +32937,7 @@ function processApprovalAutoCompletes(){
   // Tasks that were already waiting when the window changed from 2 business days to 24 ชม. are brought onto
   // the same rule (Krissha: "มันควรเป็นโลจิกนี้") — due = entered Awaiting Approval + 24 ชม. Done once per task.
   STATE.tasks.forEach(t=>{
-    if(t.review_status!=='pending_client_review' || !t.approval_waiting_at || t.approval_window_h===APPROVAL_AUTO_HOURS) return;
+    if(t.review_status!=='pending_client_review' || !t.approval_waiting_at || t.approval_window_h===APPROVAL_AUTO_HOURS || t.approval_window_h==='wh8') return;
     const due24 = new Date(new Date(t.approval_waiting_at).getTime() + APPROVAL_AUTO_HOURS*3600000);
     if(!t.approval_due_at || due24 < new Date(t.approval_due_at)) t.approval_due_at = due24.toISOString();
     t.approval_window_h = APPROVAL_AUTO_HOURS;
@@ -32853,7 +32955,7 @@ function processApprovalAutoCompletes(){
       // DEV MASTER CORRECTION §5 — Brief Owner and Assigned Designer both get told, each with their own
       // wording, never "Auto Approve" (nobody clicked approve — the deadline just passed).
       notifyUsers([t.project_owner_email], 'งานถูกปิดอัตโนมัติ',
-        `${t.task_name} — ไม่มีคำขอแก้ไขภายใน ${APPROVAL_AUTO_HOURS} ชม. ระบบจึงพรูฟงานอัตโนมัติ (Completed)`, t.task_id, {eventType:'AUTO_COMPLETED'});
+        `${t.task_name} — ไม่มีคำขอแก้ไขภายใน ${approvalWindowText(t)} ระบบจึงพรูฟงานอัตโนมัติ (Completed)`, t.task_id, {eventType:'AUTO_COMPLETED'});
       if(t.assigned_user_name) notifyUsers([t.assigned_user_name], 'งานถูกปิดอัตโนมัติ',
         `${t.task_name} — ครบกำหนด Final Review โดยไม่มี Revision งานถูกปิดเป็น Completed`, t.task_id, {eventType:'AUTO_COMPLETED'});
       changed = true;
@@ -32912,7 +33014,8 @@ function processDeadlineReminders(){
     // before AUTO_COMPLETED would otherwise silently take over.
     if(t.review_status==='pending_client_review' && t.approval_due_at){
       const dueAtTime = new Date(t.approval_due_at).getTime();
-      if(!isNaN(dueAtTime) && dueAtTime > now && dueAtTime - now <= 6*60*60*1000){ // last 6 ชม. of the 24 ชม. window
+      const remindAt = new Date(approvalRemindAt(t)).getTime();
+      if(!isNaN(dueAtTime) && dueAtTime > now && now >= remindAt){ // last 3 working hours (legacy 24 ชม. tasks: last 6 ชม.)
         if(t.final_review_reminder_sent_for !== t.approval_due_at){
           t.final_review_reminder_sent_for = t.approval_due_at;
           notifyUsers([t.project_owner_email], 'ใกล้ครบกำหนด Final Review',
