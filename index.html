@@ -5697,7 +5697,7 @@ const MASTER_TABLE = {
     "อื่นๆ ระบุ":{custom:true},
   }},
   "Content": { role:"Content Designer", types:{
-    "Content Single Post":{base:3.0}, "Content Album Post":{base:4.0}, "Video Content":{base:6.0},
+    "Content Single Post":{base:3.0}, "Content Album Post":{base:1.0}, "Video Content":{base:6.0},
     "Facebook Ads":{base:3.0}, "Cover FB":{base:3.0}, "Frame Live Motion":{base:1.0},
     "Banner Campaign Post":{base:3.0}, "Promotion Platform (Content)":{base:3.0},
     "Planner Content":{base:8.0}, "Apply Frame Automation (→ Product)":{base:1.0, reroute:"Product"},
@@ -6144,12 +6144,15 @@ function boardRelation(t){
 function awPartWeights(t){
   const n = awPartsCount(t); if(!n) return [];
   const act = Array.isArray(t?.artworks) ? t.artworks.filter(a=>a.status!=='cancelled') : [];
-  const rsTot = (()=>{ try{ return currentScopeFor(t).resize_count; }catch(e){ return 0; } })();
-  const rsPts = resizePoints(rsTot), base = Number(t.base_points)||appliedPoints(t)||0, master = Math.max(0, base - rsPts);
-  const ecomNoKv = t?.task_category==='E-Commerce' && t?.kv_status_check==='NEED_NEW_KV';
-  const mw = Array.from({length:n}, (_,i)=>ecomNoKv ? (i===0?3:1) : 1), mSum = mw.reduce((a,b)=>a+b,0)||1;
+  // Krissha — "01 = 3, 07 = 3.25, 11 = 1.50": exact per-AW hours = its Master hours + its own Resize/Adapt × 0.25 ชม.
+  // Master: E-Commerce + ไม่มี KV → AW01 3 ชม., others 1 ชม.; otherwise the task's master hours split evenly.
+  const base = Number(t.base_points)||appliedPoints(t)||0;
   const rsEach = Array.from({length:n}, (_,i)=>Number(act[i]?.resize_count)||0), rsSum = rsEach.reduce((a,b)=>a+b,0);
-  return mw.map((w,i)=>master*w/mSum + (rsPts ? (rsSum ? rsPts*rsEach[i]/rsSum : rsPts/n) : 0));
+  const ecomNoKv = t?.task_category==='E-Commerce' && t?.kv_status_check==='NEED_NEW_KV';
+  const masterTot = Math.max(0, base - taskResizePoints(t));
+  const mw = Array.from({length:n}, (_,i)=>ecomNoKv ? (i===0?3:1) : masterTot/n);
+  const rsTot = (()=>{ try{ return currentScopeFor(t).resize_count; }catch(e){ return 0; } })();
+  return mw.map((w,i)=>w + (rsSum ? rsEach[i]*0.25 : (rsTot ? resizePoints(rsTot)/n : 0))); // not split → total (rounded up) shared evenly
 }
 function awPartHours(t, i){ return Math.round((awPartWeights(t)[i]||0)*100)/100; }
 function awPartsCount(t){
@@ -6284,6 +6287,7 @@ async function awSetResize(id, idx, val){
   const others = (t.artworks||[]).filter((a,j)=>j!==idx && a.status!=='cancelled').reduce((n,a)=>n+(Number(a.resize_count)||0),0);
   applyScopeChange(t, 'resize', Math.max(0, others + nv), `Resize/Adapt ${code}${aw.name?` (${aw.name})`:''}: ${ov} → ${nv}`, extIsBriefOwner(t) ? 'Brief Owner' : who, who);
   aw.resize_count = nv;
+  syncScopeToLegacyFieldsAndRecalcPoints(t); // base_points now uses the per-AW pieces × 0.25
   const ok = await saveTasks();
   if(ok===false){ const o = JSON.parse(snap); t.scope=o.sc; t.artworks=o.aws; t.deliverables=o.d; t.resize_quantity=o.rq; t.base_points=o.bp; t.review_history.length=o.hl; toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); render(); return; }
   toast(`${code} Resize/Adapt = ${nv} · Point ${appliedPoints(t).toFixed(1)}`); render();
@@ -7918,7 +7922,7 @@ function renderSysPoints(){
       <div class="ss-field"><span>ผลลัพธ์</span><div class="ss-result" id="ssCalcOut">—</div></div>
     </div>
   </div>
-  <div class="ss-savebar ${dirty?'dirty':''}">${dirty ? `<span>✎ มีการแก้ไขที่ยังไม่บันทึก</span><span style="display:flex;gap:8px"><button type="button" class="btn btn-ghost btn-sm" id="ssPtCancel" style="background:#fff">ยกเลิก</button><button type="button" class="btn btn-primary btn-sm" id="ssPtSave" style="background:#fff;color:#1B76FF">บันทึกกติกา Point</button></span>` : `<span>✓ ใช้ค่าปัจจุบัน${sysSettings().pointTable||sysSettings().rates?' (ปรับแล้ว)':' (ค่าเริ่มต้น)'}</span><button type="button" class="btn btn-ghost btn-sm" id="ssPtReset" style="background:#fff">คืนค่าเริ่มต้นทั้งหมด</button>`}</div>`;
+  <div class="ss-savebar ${dirty?'dirty':''}">${dirty ? `<span>✎ มีการแก้ไขที่ยังไม่บันทึก</span><span style="display:flex;gap:8px"><button type="button" class="btn btn-ghost btn-sm" id="ssPtCancel" style="background:#fff">ยกเลิก</button><button type="button" class="btn btn-primary btn-sm" id="ssPtSave" style="background:#fff;color:#1B76FF">บันทึกกติกา Point</button></span>` : `<span>✓ ใช้ค่าปัจจุบัน${sysSettings().pointTable||sysSettings().rates?' (ปรับแล้ว)':' (ค่าเริ่มต้น)'}</span><span style="display:flex;gap:8px"><button type="button" class="btn btn-ghost btn-sm" id="ssPtRecalc" style="background:#fff;color:#1B76FF;font-weight:700" title="คำนวณชั่วโมงงานของเดือนนี้ทั้งหมด (รวมงานที่เสร็จแล้ว) และงานที่ยังไม่เสร็จ ใหม่ตามกติกาปัจจุบัน">↻ อัปเดตงานเดือนนี้ตามกติกา</button><button type="button" class="btn btn-ghost btn-sm" id="ssPtReset" style="background:#fff">คืนค่าเริ่มต้นทั้งหมด</button></span>`}</div>`;
 }
 function ssCalcPoints(){
   const out = document.getElementById('ssCalcOut'); if(!out) return;
@@ -8127,7 +8131,17 @@ function bindSysSettings(){
     document.getElementById('ssPtSave')?.addEventListener('click', async ()=>{
       const before = {table: ss.pointTable ? 'ปรับแล้ว' : 'ค่าเริ่มต้น'};
       ss.pointTable = JSON.parse(JSON.stringify(dd.table)); ss.rates = {prod:dd.prod, kvh:dd.kvh, kvp:dd.kvp, revFlat:dd.revFlat};
-      await saveSysSettings('กติกา Point', before, 'บันทึกชุดใหม่'); STATE.sysUI.ptDraft = null; toast('บันทึกกติกา Point แล้ว — มีผลกับ Brief ใหม่'); render();
+      await saveSysSettings('กติกา Point', before, 'บันทึกชุดใหม่'); STATE.sysUI.ptDraft = null;
+      const n = recalcPointsCandidates().length;
+      if(n && confirm(`บันทึกกติกา Point แล้ว\n\nอัปเดตชั่วโมงงานของเดือนนี้ทั้งหมด (รวมงานที่เสร็จแล้ว) + งานที่ยังไม่เสร็จ ${n} งาน ให้ตรงกับกติกาใหม่ด้วยไหม?\n(งานใส่ย้อนหลัง / Custom ไม่เปลี่ยน)`)) await recalcOpenTaskPoints();
+      else { toast('บันทึกกติกา Point แล้ว — มีผลกับ Brief ใหม่'); render(); }
+    });
+    document.getElementById('ssPtRecalc')?.addEventListener('click', async ()=>{
+      const list = recalcPointsCandidates();
+      if(!list.length){ toast('งานเดือนนี้ทุกงานตรงกับกติกาปัจจุบันแล้ว'); return; }
+      const sample = list.slice(0,5).map(x=>`• ${taskDisplayName(x.t)}: ${x.from} → ${x.to} ชม.`).join('\n');
+      if(!confirm(`อัปเดตชั่วโมงงานของเดือนนี้ทั้งหมด + งานที่ยังไม่เสร็จ ${list.length} งาน ให้ตรงกับกติกาปัจจุบัน?\n\n${sample}${list.length>5?`\n… และอีก ${list.length-5} งาน`:''}`)) return;
+      await recalcOpenTaskPoints();
     });
     document.getElementById('ssPtReset')?.addEventListener('click', async ()=>{
       if(!confirm('คืนค่า Point และตัวคูณทั้งหมดเป็นค่าเริ่มต้น?')) return;
@@ -9422,6 +9436,10 @@ function fmtDateShort(s){ if(!s) return "-"; const d=new Date(String(s).slice(0,
 // point from pointsForTask() below — applies to every task type/category, and is never merged into a
 // single combined formula with Deliverables (they're computed and stored separately, then summed).
 function resizePoints(qty){ return Math.ceil((Number(qty)||0)/4); }
+// Krissha — "กรอกในแต่ละ AW ให้นับแบบกรอก แต่ถ้าลิงก์เดียวไม่กรอกแยก ให้นับรวม": Resize/Adapt entered per AW →
+// exactly 0.25 ชม. per piece (no rounding up). Not split per AW → the task total, rounded up as before.
+function awResizeSum(t){ return (Array.isArray(t?.artworks) ? t.artworks : []).filter(a=>a.status!=='cancelled').reduce((n,a)=>n+(Number(a.resize_count)||0),0); }
+function taskResizePoints(t){ const s = awResizeSum(t); return s>0 ? Math.round(s*0.25*100)/100 : resizePoints(t?.resize_quantity); }
 function pointsForTask(t){
   // legacy tasks without production_type keep their old math (applyProductionRate returns as-is)
   return applyProductionRate(normalPointsForTask(t), t.production_type);
@@ -9471,7 +9489,7 @@ function normalPointsForTask(t){
 let REVISION_FLAT_RATE = 0.25; // every round = 25% of the revised pieces' points
 function pointsPerPiece(t){
   const pieces = Math.max(1, Number(t.deliverables)||1);
-  const masterOnly = Math.max(0, (t.base_points||0) - resizePoints(t.resize_quantity));
+  const masterOnly = Math.max(0, (t.base_points||0) - taskResizePoints(t));
   return masterOnly / pieces;
 }
 function revisionRoundPoints(t, r){
@@ -9528,12 +9546,43 @@ function currentScopeFor(t){
 // §07.3/§14: keeps the legacy deliverables/resize_quantity fields (every Point/Capacity/validation call
 // site) equal to the Current Scope, and recalculates base_points through the SAME engine
 // (pointsForTask/resizePoints) every other task on the board uses — never a bespoke Scope-Change formula.
+// Krissha — "ปรับให้ตรงกับการตั้งค่าจริงปัจจุบัน" (e.g. Content Album Post: from 4 ชม./เซ็ต to 1 ชม./แผ่น): points are
+// stored on each task when it's created, so a rule change only reached NEW briefs. This recalculates every task
+// that's still open with the current Point rules. Completed / Backdated / Custom (Lead-set) tasks stay as they are.
+function recalcPointsCandidates(){
+  // Krissha — "ปรับของเดือนนี้ทั้งหมด": every task of THIS month (delivery date, or brief date, in the current
+  // month) incl. completed ones, plus anything still open from earlier. Backdated records / Custom stay as they are.
+  const out = [], ym = todayISO().slice(0,7);
+  (STATE.tasks||[]).forEach(t=>{
+    if(t.cancelled || t.is_backdated) return;
+    const thisMonth = String(t.prefer_delivery_date||'').slice(0,7)===ym || bkkDayOf(t.brief_timestamp||'').slice(0,7)===ym;
+    const open = !['delivered','rejected','closed_max_revision'].includes(t.review_status);
+    if(!thisMonth && !open) return;
+    const cat = MASTER_TABLE[t.task_category], def = cat ? cat.types[t.task_type] : null;
+    if(!def || def.custom) return;
+    const from = Number(t.base_points)||0;
+    const to = Math.round(((pointsForTask(t)) + taskResizePoints(t))*100)/100;
+    if(Math.abs(to-from) > 0.004) out.push({t, from, to});
+  });
+  return out;
+}
+async function recalcOpenTaskPoints(){
+  const list = recalcPointsCandidates(); if(!list.length){ render(); return 0; }
+  const who = STATE.auth.user?.name || STATE.auth.identity || 'system', at = new Date().toISOString();
+  list.forEach(({t, from, to})=>{
+    t.base_points = to;
+    (t.review_history = t.review_history||[]).push({timestamp:at, action:'POINTS_RECALCULATED', comment:`อัปเดตชั่วโมงตามกติกา Point ปัจจุบัน: ${from} → ${to} ชม.`, by:who});
+  });
+  await saveTasks();
+  toast(`✓ อัปเดตชั่วโมงงานเดือนนี้แล้ว ${list.length} งาน`); render();
+  return list.length;
+}
 function syncScopeToLegacyFieldsAndRecalcPoints(t){
   const cur = currentScopeFor(t);
   t.deliverables = cur.artwork_count || 1;
   t.resize_quantity = cur.resize_count || 0;
   const cat = MASTER_TABLE[t.task_category]; const def = cat ? cat.types[t.task_type] : null;
-  const newBase = (def && def.custom ? applyProductionRate(Number(t.customPoints)||0, t.production_type) : pointsForTask(t)) + resizePoints(t.resize_quantity);
+  const newBase = (def && def.custom ? applyProductionRate(Number(t.customPoints)||0, t.production_type) : pointsForTask(t)) + taskResizePoints(t);
   t.base_points = Math.round(newBase*100)/100;
 }
 // BUG FIX (Krissha — นับ AW ที่เพิ่มไม่ตรง): Brief Edit / Edit Quantity write t.deliverables/resize_quantity
@@ -9629,7 +9678,7 @@ function masterSubmitDate(t){
 function awDoneFraction(t){
   if(!t || !t.aw_parts || designerHandoff(t)) return 0;
   const n = awPartsCount(t); if(n<2) return 0;
-  const w = awPartWeights(t), sum = w.reduce((a,b)=>a+b,0)||1;
+  const w = awPartWeights(t), base = Number(t.base_points)||0, sum = base>0 ? base : (w.reduce((a,b)=>a+b,0)||1);
   let d = 0; for(let i=0;i<n;i++){ const x = t.aw_parts[i]; if(x && (x.status==='submitted'||x.status==='approved')) d += w[i]; }
   return Math.min(1, d/sum);
 }
@@ -9649,7 +9698,7 @@ function masterLoadOnDate(t, dateStr){
 function awDonePlan(t, n, w, sum){
   const base = Number(t.base_points)||0;
   const ev = [];
-  for(let i=0;i<n;i++){ const x = t.aw_parts[i]; if(x && (x.status==='submitted'||x.status==='approved') && x.at) ev.push({d:toLocalISODate(new Date(x.at)), at:x.at, h:base*w[i]/sum}); }
+  for(let i=0;i<n;i++){ const x = t.aw_parts[i]; if(x && (x.status==='submitted'||x.status==='approved') && x.at) ev.push({d:toLocalISODate(new Date(x.at)), at:x.at, h:w[i]}); }
   // Krissha — "นับแค่วันนั้น ที่ส่งงานไป": each AW handed in counts ONLY on the day its link was sent.
   { const o = {}; ev.forEach(e=>o[e.d]=Math.round(((o[e.d]||0)+e.h)*100)/100); return o; }
   const key = ev.map(e=>e.at+':'+e.h.toFixed(3)).join(',')+'|'+(t.started_at||'')+'|'+DAILY_CAP+'|'+AW_DP_EPOCH;
@@ -9712,7 +9761,25 @@ function masterLoadOnDateRaw(t, dateStr){
 let AUTO_PLAN_CACHE = null, AUTO_PLAN_BUILD = false;
 let AW_DP_EPOCH = 0, AW_DP_BUILD = false;
 function autoPlanInvalidate(){ AUTO_PLAN_CACHE = null; AW_DP_EPOCH++; }
-function autoPlanEff(t){ return (1-awDoneFraction(t)) * Math.max(0, Math.min(1, taskRemainingRatio(t))); }
+function autoPlanEff(t){ return Math.max(0, Math.min(1, taskRemainingRatio(t))); } // ratio already excludes AWs handed in
+// Krissha — "นับ capacity ตามที่ส่ง ยัดเข้าไปในวัน … แต่ถ้าคำนวณเวลาว่าง ให้คำนวณตามว่างของ GD เหมือนเดิม":
+// AWs handed in on a day are DONE hours — counted in full on that day, never shrunk by the remaining ratio.
+// Only the still-to-do part of the plan is scaled by what's left (remaining ÷ the not-yet-handed-in hours).
+function awDoneOnDate(t, dateStr){
+  if(!awDoneFraction(t)) return 0;
+  const n = awPartsCount(t), w = awPartWeights(t);
+  return (awDonePlan(t, n, w, 0)[dateStr]) || 0;
+}
+function planRemainingFactor(t){
+  const f = awDoneFraction(t), r = Math.max(0, Math.min(1, taskRemainingRatio(t)));
+  if(!f) return r;
+  return f>=1 ? 0 : Math.max(0, Math.min(1, r/(1-f)));
+}
+function effectiveLoadOnDate(t, dateStr, fromToday){
+  const all = taskLoadOnDate(t, dateStr); if(!fromToday) return all;
+  const done = activeRevision(t) ? 0 : awDoneOnDate(t, dateStr);
+  return Math.max(0, all - done) * planRemainingFactor(t) + done;
+}
 function autoPlanCandidate(t){
   if(!t || !t.prefer_delivery_date || !t.assigned_user_name || !((Number(t.base_points)||0)>0) || t.is_backdated) return false;
   if(Array.isArray(t.capacity_allocation) && t.capacity_allocation.length) return false;
@@ -9734,8 +9801,12 @@ function autoPlanAll(){
       const days = [], free = {};
       for(let d=today, g=0; d<=horizon && g<120; d=addDaysISO(d,1), g++){
         if(!capIsWorkDay(person, d)) continue;
-        const {taskLoad, cap} = dayLoadFor(person, d);
-        days.push(d); free[d] = Math.max(0, cap - taskLoad);
+        const L = dayLoadFor(person, d);
+        // Krissha — "เหลือ 8 AW ยกมาวันนี้ = 8 · จบวันนับตามส่งจริง ที่เหลือยกไปวันถัดไป": today is planned as a
+        // FULL working day (not just the office hours left right now); tomorrow the past day shows only what
+        // was actually handed in, and whatever wasn't done is re-planned from the new today.
+        const capFull = d===today ? Math.max(0, DAILY_CAP - (L.leaveDeduct||0)) : L.cap; // AWs handed in today use up today's 8 ชม.
+        days.push(d); free[d] = Math.max(0, capFull - L.taskLoad);
       }
       list.forEach(t=>{
         const total = Number(t.base_points)||0, eff = autoPlanEff(t), dl = t.prefer_delivery_date;
@@ -9807,7 +9878,7 @@ function dayLoadFor(person, dateStr, excludeId){
   const scheduledLoad = STATE.tasks
     .filter(t=>t.assigned_user_name===person && t.task_id!==excludeId
       && !["rejected","closed_max_revision","delivered"].includes(t.review_status))
-    .reduce((s,t)=>s+taskLoadOnDate(t,dateStr)*(fromToday ? taskRemainingRatio(t) : 1),0);
+    .reduce((s,t)=>s+effectiveLoadOnDate(t,dateStr,fromToday),0);
   // MASTER REQUIREMENT §2 — Overdue Rollover: on TODAY only, every still-open task's points that were
   // scheduled on a day that has already passed land here too (Effective Workload Date = MAX(Deadline,
   // Today)). Nothing is written back — prefer_delivery_date/capacity_allocation stay the original plan, so
@@ -9831,11 +9902,24 @@ function dayLoadFor(person, dateStr, excludeId){
   // productionLoad (points only) and productionCap (hours left for production after Leave + Internal Work)
   // are reported on their own for the surfaces that must show them side by side and never as one number.
   const r2 = n=>Math.round(n*100)/100;
-  const capAfterLeave = r2(Math.min(DAILY_CAP - leaveDeduct, dateStr===todayISO() ? remainingOfficeHours(dateStr) : DAILY_CAP));
-  return {taskLoad: r2(taskLoad + internalDeduct), leaveDeduct, internalDeduct,
-    cap: capAfterLeave,
+  // AWs handed in TODAY are work already done in today's elapsed hours (or before) — they show in the day's
+  // total, but must not eat the office hours still left today, so today's ceiling grows by the same amount
+  // (free time today = office hours left − what's still planned today, same as before).
+  const doneToday = dateStr===todayISO() ? STATE.tasks.filter(t=>t.assigned_user_name===person && t.task_id!==excludeId
+      && !["rejected","closed_max_revision","delivered"].includes(t.review_status) && !activeRevision(t)).reduce((s,t)=>s+awDoneOnDate(t,dateStr),0) : 0;
+  const capAfterLeave = r2(Math.min(DAILY_CAP - leaveDeduct, dateStr===todayISO() ? remainingOfficeHours(dateStr) : DAILY_CAP) + doneToday);
+  // Today's ceiling also stretches to fit what the auto-plan put on today (a full day's work), so planned work
+  // reads "Full", not "over" — extra room for NEW work is still limited to the office hours left.
+  let capOut = capAfterLeave;
+  if(dateStr===todayISO() && !AUTO_PLAN_BUILD){
+    const autoToday = STATE.tasks.filter(t=>t.assigned_user_name===person && t.task_id!==excludeId && autoPlanCandidate(t))
+      .reduce((s,t)=>s+Math.max(0, effectiveLoadOnDate(t,dateStr,true) - awDoneOnDate(t,dateStr)),0);
+    capOut = r2(Math.max(capAfterLeave, Math.min(DAILY_CAP - leaveDeduct, autoToday + doneToday)));
+  }
+  return {taskLoad: r2(taskLoad + internalDeduct), leaveDeduct, internalDeduct, doneToday,
+    cap: capOut,
     productionLoad: r2(taskLoad), overdueLoad: r2(overdueLoad),
-    productionCap: Math.max(0, r2(capAfterLeave - internalDeduct)),
+    productionCap: Math.max(0, r2(capOut - internalDeduct)),
     isFullLeave: leave && leave.type==="full", isAllDayInternal};
 }
 // MASTER REQUIREMENT §1 — one definition of "still the Designer's job": not Completed/terminal and not
@@ -9881,7 +9965,12 @@ function taskRemainingHours(t){
     const logged=(STATE.dailyTodos||[]).filter(r=>r.source==='assigned' && r.taskId===t.task_id).reduce((a,r)=>a+(Number(r.actualHours)||0),0);
     return Math.max(0,Math.round((revisionRoundPoints(t,revision)-Math.max(0,logged-(revision.logged_hours_at_request||0)))*100)/100);
   }
-  return Math.max(0, Math.round((appliedPoints(t)*(1-awDoneFraction(t)) - taskLoggedHours(t.task_id))*100)/100);
+  // Krissha — "เหลือ 8 AW ยกมาวันนี้ = 8": hours logged in My To-do when an AW was handed in are the SAME hours as
+  // that AW's own share — subtracting both counted the work twice (e.g. 15.75 − 7.75 done − 6.4 logged = 1.6).
+  // Remaining = total − whichever is larger: hours of AWs handed in, or hours logged.
+  const total = appliedPoints(t), f = awDoneFraction(t);
+  const doneH = f ? f * (Number(t.base_points)||total) : 0;
+  return Math.max(0, Math.round((total - Math.max(doneH, taskLoggedHours(t.task_id)))*100)/100);
 }
 function taskRemainingRatio(t){
   // Submitted / waiting for review = nothing left for the Designer right now (it reloads automatically if
@@ -14760,7 +14849,7 @@ function dlWorkloadFor(person, ds){
     } else if(capIsActivePlan(t)){
       // Started work (Start / Continue moved its capacity onto today → next days): count the hours planned for
       // `ds` even though the Deadline is later — "กำลังทำ" counts today.
-      production += masterLoadOnDate(t, ds) * Math.max(0, Math.min(1, taskRemainingRatio(t)));
+      production += (Math.max(0, masterLoadOnDate(t, ds) - awDoneOnDate(t, ds)) * planRemainingFactor(t) + awDoneOnDate(t, ds));
     }
   });
   const r2 = n=>Math.round(n*100)/100;
@@ -23172,7 +23261,8 @@ function renderKeyVisualCard(t){
     ${prodType ? `<div style="margin-bottom:12px"><div class="hint">Production Type</div><strong>${PRODUCTION_TYPE_LABEL[prodType]||prodType}</strong></div>` : ''}
     ${hasStatus ? `<div style="${hasLink?'margin-bottom:12px':''}"><div class="hint">KV Status</div><strong>${KV_STATUS_LABEL[t.kv_status_check]||t.kv_status_check}</strong></div>` : ''}
     ${hasLink ? `<div><div class="hint" style="margin-bottom:4px">KV Reference / Mood &amp; Tone Link</div>
-      <a href="${t.kv_asset_link}" target="_blank" rel="noopener" class="drivebtn">🔗 ${detectLinkSource(t.kv_asset_link)}</a>
+      ${isLikelyValidUrl(t.kv_asset_link.trim()) ? `<a href="${escAttr(t.kv_asset_link.trim())}" target="_blank" rel="noopener" class="drivebtn">🔗 ${detectLinkSource(t.kv_asset_link)}</a>`
+        : `<div style="color:#B91C1C;font-weight:600">⚠ ไม่ใช่ลิงก์ — KV ต้องเป็นลิงก์เท่านั้น</div><div class="hint">ที่กรอกไว้: ${escAttr(t.kv_asset_link)}</div>`}
     </div>` : ''}
   `;
 }
@@ -24741,10 +24831,20 @@ function renderDesignerWorkloadInline(person, drawerDate){
     && !['delivered','rejected','closed_max_revision'].includes(t.review_status))
     .sort((a,b)=>a.prefer_delivery_date.localeCompare(b.prefer_delivery_date)).slice(0,6);
   const typeChip = t => (t.task_type||t.task_category) ? `<span class="cx-type">${escAttr(t.task_type||t.task_category)}</span>` : '';
-  const taskRow = (t,h) => `<div class="cx-trow">
-      <div class="cx-tname">${taskDisplayName(t)} ${typeChip(t)}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}</div>
-      <span class="cx-hrs">${cxFmtH(h)} ชม.</span>
-    </div>`;
+  // Krissha — "ทำไมยังเหมือนเดิม": each row now shows the SAME number the day cell uses, plus where it comes from
+  // (AWs handed in that day vs. planned remaining) so a figure that looks off can be traced on the spot.
+  const awDoneLine = (t)=>{ const n = awPartsCount(t), w = awPartWeights(t), out = [];
+    for(let i=0;i<n;i++){ const x = t.aw_parts?.[i]; if(x && (x.status==='submitted'||x.status==='approved') && x.at && toLocalISODate(new Date(x.at))===drawerDate) out.push(`AW${String(i+1).padStart(2,'0')} ${Math.round(w[i]*100)/100}`); }
+    return out; };
+  const taskRow = (t,h) => { const fromToday = drawerDate>=todayISO();
+    const eff = h===undefined ? 0 : (fromToday ? Math.max(0, effectiveLoadOnDate(t, drawerDate, true) - revisionLoadOnDate(t, drawerDate)) : h);
+    const done = awDoneLine(t), doneH = awDoneOnDate(t, drawerDate), plan = Math.max(0, Math.round((eff - doneH)*100)/100);
+    const why = (done.length ? `ส่งแล้ว ${done.join(' · ')}` : '') + (done.length && plan>0.004 ? ' + ' : '') + (plan>0.004 ? `${fromToday?'งานที่เหลือวางไว้':'ตามแผน'} ${plan}` : '');
+    return `<div class="cx-trow">
+      <div class="cx-tname">${taskDisplayName(t)} ${typeChip(t)}${t.capacity_allocation?.length>1?' <span class="split-tag">split</span>':''}
+        ${why ? `<div class="hint" style="font-size:11px;margin-top:2px">${why} ชม. · ทั้งการ์ด ${Math.round((Number(t.base_points)||0)*100)/100} ชม.</div>` : ''}</div>
+      <span class="cx-hrs">${Math.round(eff*100)/100} ชม.</span>
+    </div>`; };
   return `<div class="cx-card cx-detail" id="tcInlineBreakdown">
     <div class="cx-detail-head">
       <div class="cx-who"><span class="cx-av cx-av-lg">${person[0]}</span><div><strong>${person}</strong><div class="cx-role">${PEOPLE[person].role}</div></div></div>
@@ -24772,7 +24872,7 @@ function renderDesignerWorkloadInline(person, drawerDate){
           <div class="cx-eyebrow">งานวันที่ ${fmtDate(drawerDate)} <span class="cx-count">${bd.tasks.length}</span></div>
           ${bd.tasks.length ? `
             ${bd.master.length ? `<div class="cx-grp">Master</div>${bd.master.map(t=>taskRow(t, masterLoadOnDate(t,drawerDate))).join('')}` : ''}
-            ${bd.revision.length ? `<div class="cx-grp">Revision</div>${bd.revision.map(t=>taskRow(t, revisionLoadOnDate(t,drawerDate))).join('')}` : ''}
+            ${bd.revision.length ? `<div class="cx-grp">Revision</div>${bd.revision.map(t=>`<div class="cx-trow"><div class="cx-tname">${taskDisplayName(t)} ${typeChip(t)}</div><span class="cx-hrs">${cxFmtH(revisionLoadOnDate(t,drawerDate))} ชม.</span></div>`).join('')}` : ''}
           ` : `<div class="cx-muted">ไม่มีงานในวันนี้</div>`}
         </div>
         <div class="cx-sec">
@@ -31477,9 +31577,11 @@ function refreshBriefForm(){
         <div class="refquickadd-row">
           <input type="url" class="refquickadd-input" id="f_kvlink_input" ${kvLinkRequired?'required':''} value="${escAttr(BRIEF_DRAFT.kvAssetLink||'')}" placeholder="${kvLinkRequired?'Google Drive / Figma / Canva / Working File':'Google Drive / Figma / Canva / Working File (ไม่บังคับ)'}">
           <button type="button" class="refquickadd-save" id="saveKvLinkBtn" ${(BRIEF_DRAFT.kvAssetLink||'').trim()?'':'disabled'}>บันทึกลิงก์</button>
-        </div>`;
+        </div>
+        <div class="hint" id="f_kvlink_err" style="color:#B91C1C;font-weight:600;margin-top:4px;${(BRIEF_DRAFT.kvAssetLink||'').trim() && !isLikelyValidUrl((BRIEF_DRAFT.kvAssetLink||'').trim())?'':'display:none'}">⚠ KV ต้องเป็นลิงก์เท่านั้น (ขึ้นต้นด้วย https://) เช่น Google Drive / Figma / Canva</div>`;
       document.getElementById('f_kvlink_input').addEventListener('input', e=>{
         BRIEF_DRAFT.kvAssetLink = e.target.value; updateBriefReadiness();
+        { const v = e.target.value.trim(), er = document.getElementById('f_kvlink_err'); if(er) er.style.display = (v && !isLikelyValidUrl(v)) ? '' : 'none'; }
         const saveBtn = document.getElementById('saveKvLinkBtn');
         if(saveBtn) saveBtn.disabled = !e.target.value.trim();
       });
@@ -31697,7 +31799,9 @@ function computeFinalCheckState(){
   const kvSection = document.getElementById('kvSection');
   const kvSectionVisible = kvSection && kvSection.style.display!=='none';
   const kvOk = !kvSectionVisible ? true : !!BRIEF_DRAFT.kv;
-  const kvLinkOk = !kvSectionVisible ? true : (BRIEF_DRAFT.kv==='HAS_WORKING_FILE' ? !!(BRIEF_DRAFT.kvAssetLink ?? document.getElementById('f_kvlink_input')?.value ?? '').trim() : true);
+  // Krissha — "KV ต้องเป็นลิงก์เท่านั้น": required for "มี KV", and whatever is typed (even when optional) must be a real http(s) link.
+  const kvLinkVal = String(BRIEF_DRAFT.kvAssetLink ?? document.getElementById('f_kvlink_input')?.value ?? '').trim();
+  const kvLinkOk = !kvSectionVisible ? true : (kvLinkVal ? isLikelyValidUrl(kvLinkVal) : BRIEF_DRAFT.kv!=='HAS_WORKING_FILE');
 
   const priority = BRIEF_DRAFT.priority;
   const needsApproval = PRIORITY_NEEDS_APPROVAL[priority];
@@ -31737,7 +31841,7 @@ function computeFinalCheckState(){
   if(kvSectionVisible) fields.push({ok:kvOk, label:'KV Status', target:'#f_kv'});
   const prodSec = document.getElementById('prodTypeSection');
   if(prodSec && prodSec.style.display!=='none') fields.push({ok:!!BRIEF_DRAFT.productionType, label:'Production Type', target:'#f_prod'});
-  if(kvSectionVisible && kvOk) fields.push({ok:kvLinkOk, label:'KV Asset Link', target:'#f_kvlink_input'});
+  if(kvSectionVisible && kvOk) fields.push({ok:kvLinkOk, label: kvLinkVal && !kvLinkOk ? 'KV Asset Link (ต้องเป็นลิงก์ https://…)' : 'KV Asset Link', target:'#f_kvlink_input'});
   fields.push({ok:!!dateVal, label:'Delivery Date', target:'#briefCalendar'});
   if(dateVal) fields.push({ok:dateAllowed, label:'Requested Delivery Date (วันที่เลือกไม่ผ่านเงื่อนไข)', target:'#briefCalendar'});
   if(needsApproval) fields.push({ok:!!urgencyOk, label:'เหตุผลที่ขอเร่งงาน', target:'#f_urgencyreason'});
