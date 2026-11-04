@@ -8704,7 +8704,7 @@ async function saveKey(key, val){
 // copy, so a concurrent blind refresh here could only ever cause a harmless flicker at best, or step on
 // the save's own merge at worst.
 let TASKS_SAVE_INFLIGHT = 0;
-async function saveTasks(deletedIds){
+async function saveTasks(deletedIds){ autoPlanInvalidate();
   TASKS_SAVE_INFLIGHT++;
   try{
     // PHASE 2 CUTOVER (§14) — once on, EVERY call to saveTasks() from anywhere in the app (all ~20
@@ -9633,9 +9633,48 @@ function masterLoadOnDate(t, dateStr){
   const v = masterLoadOnDateRaw(t, dateStr);
   const f = awDoneFraction(t); if(!f) return v;
   const n = awPartsCount(t), w = awPartWeights(t), sum = w.reduce((a,b)=>a+b,0)||1;
-  let onDay = 0;
-  for(let i=0;i<n;i++){ const x = t.aw_parts[i]; if(x && (x.status==='submitted'||x.status==='approved') && x.at && toLocalISODate(new Date(x.at))===dateStr) onDay += (t.base_points||0)*w[i]/sum; }
+  const onDay = (awDonePlan(t, n, w, sum)[dateStr]) || 0;
   return Math.round((v*(1-f) + onDay)*100)/100;
+}
+// Krissha — "งานการ์ดเดียวกัน แต่ที่ส่งลิงก์ไปก่อน หมายถึงที่ทำงานข้ามวัน": hours of AWs handed in are no
+// longer piled onto the submit day. Each submit's hours are laid BACKWARDS from that day over the working
+// days since the task was started, into each day's FREE hours (8 ชม. minus that day's other tasks/leave;
+// days already used by an earlier submit are filled first-come). Anything that doesn't fit stays on the earliest day.
+function awDonePlan(t, n, w, sum){
+  const base = Number(t.base_points)||0;
+  const ev = [];
+  for(let i=0;i<n;i++){ const x = t.aw_parts[i]; if(x && (x.status==='submitted'||x.status==='approved') && x.at) ev.push({d:toLocalISODate(new Date(x.at)), at:x.at, h:base*w[i]/sum}); }
+  // Krissha — "นับแค่วันนั้น ที่ส่งงานไป": each AW handed in counts ONLY on the day its link was sent.
+  { const o = {}; ev.forEach(e=>o[e.d]=Math.round(((o[e.d]||0)+e.h)*100)/100); return o; }
+  const key = ev.map(e=>e.at+':'+e.h.toFixed(3)).join(',')+'|'+(t.started_at||'')+'|'+DAILY_CAP+'|'+AW_DP_EPOCH;
+  if(t.__awdp && t.__awdp.k===key) return t.__awdp.v;
+  ev.sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  const startSrc = t.started_at || t.capacity_active_from || t.brief_timestamp || '';
+  let start = startSrc ? (String(startSrc).length>10 ? toLocalISODate(new Date(startSrc)) : String(startSrc).slice(0,10)) : '';
+  const person = t.assigned_user_name, out = {}, freeOf = {};
+  ev.forEach(e=>{
+    const from = (start && start<=e.d) ? start : e.d;
+    let need = e.h, d = e.d, g = 0, last = e.d;
+    while(need>0.005 && d>=from && g<60){
+      g++;
+      if(d===e.d || !person || capIsWorkDay(person, d)){
+        if(!(d in freeOf)){
+          let f = DAILY_CAP;
+          if(person){ AW_DP_BUILD = true; try{ const L = dayLoadFor(person, d, t.task_id); f = Math.max(0, L.cap - L.taskLoad); } finally { AW_DP_BUILD = false; } }
+          freeOf[d] = f;
+        }
+        const room = Math.max(0, freeOf[d] - (out[d]||0));
+        const h = Math.min(need, room);
+        if(h>0.005){ out[d] = (out[d]||0) + h; need -= h; }
+        last = d;
+      }
+      d = addDaysISO(d,-1);
+    }
+    if(need>0.005) out[last] = (out[last]||0) + need;
+  });
+  Object.keys(out).forEach(k=>out[k]=Math.round(out[k]*100)/100);
+  Object.defineProperty(t, '__awdp', {value:{k:key, v:out}, writable:true, configurable:true, enumerable:false});
+  return out;
 }
 function masterLoadOnDateRaw(t, dateStr){
   const total = t.base_points || 0;
@@ -9652,7 +9691,64 @@ function masterLoadOnDateRaw(t, dateStr){
     if(allocTotal<=0) return 0;
     return Math.round(total * (entry.pt/allocTotal) * 100)/100;
   }
+  // Auto-plan (Krissha — "ทำไมมันไม่แบ่ง เวลาทำงาน" / "ทำไมงานวันนี้มีแค่ 1.5 แล้วยังต้องทำอีก 8 ชิ้น"):
+  // a task with no saved split used to drop ALL its hours on the deadline day. Now what's left of it is laid
+  // FORWARD from today into the designer's free hours (today = office hours left, then 8 ชม./working day,
+  // shared with every other task of that person, earliest deadline first) up to its deadline; anything that
+  // still doesn't fit stays on the deadline (shows as over capacity). Display-only — nothing is saved.
+  if(autoPlanCandidate(t)){
+    if(AUTO_PLAN_BUILD) return 0;
+    const plan = autoPlanAll().get(t.task_id);
+    if(plan){ const e = plan.find(a=>a.date===dateStr); return e ? e.pt : 0; }
+  }
   return t.prefer_delivery_date===dateStr ? total : 0;
+}
+let AUTO_PLAN_CACHE = null, AUTO_PLAN_BUILD = false;
+let AW_DP_EPOCH = 0, AW_DP_BUILD = false;
+function autoPlanInvalidate(){ AUTO_PLAN_CACHE = null; AW_DP_EPOCH++; }
+function autoPlanEff(t){ return (1-awDoneFraction(t)) * Math.max(0, Math.min(1, taskRemainingRatio(t))); }
+function autoPlanCandidate(t){
+  if(!t || !t.prefer_delivery_date || !t.assigned_user_name || !((Number(t.base_points)||0)>0) || t.is_backdated) return false;
+  if(Array.isArray(t.capacity_allocation) && t.capacity_allocation.length) return false;
+  if(masterSubmitDate(t) || activeRevision(t) || !isTaskOpenForDesigner(t)) return false;
+  return t.prefer_delivery_date >= todayISO();
+}
+function autoPlanAll(){
+  const slot = todayISO()+'|'+Math.floor(Date.now()/600000);
+  if(AUTO_PLAN_CACHE && AUTO_PLAN_CACHE.k===slot) return AUTO_PLAN_CACHE.v;
+  const res = new Map(); const today = todayISO();
+  AUTO_PLAN_BUILD = true;
+  try{
+    const byP = {};
+    (STATE.tasks||[]).forEach(t=>{ if(autoPlanCandidate(t) && autoPlanEff(t)>0) (byP[t.assigned_user_name]=byP[t.assigned_user_name]||[]).push(t); });
+    const prio = t=>({URGENT:0,HIGH:1}[String(t.priority||'').toUpperCase()] ?? 2);
+    Object.entries(byP).forEach(([person, list])=>{
+      list.sort((x,y)=>x.prefer_delivery_date.localeCompare(y.prefer_delivery_date) || prio(x)-prio(y) || String(x.brief_timestamp||'').localeCompare(String(y.brief_timestamp||'')));
+      const horizon = list[list.length-1].prefer_delivery_date;
+      const days = [], free = {};
+      for(let d=today, g=0; d<=horizon && g<120; d=addDaysISO(d,1), g++){
+        if(!capIsWorkDay(person, d)) continue;
+        const {taskLoad, cap} = dayLoadFor(person, d);
+        days.push(d); free[d] = Math.max(0, cap - taskLoad);
+      }
+      list.forEach(t=>{
+        const total = Number(t.base_points)||0, eff = autoPlanEff(t), dl = t.prefer_delivery_date;
+        let needH = total*eff; const out = [];
+        for(const d of days){
+          if(d>dl || needH<=0.005) break;
+          const h = Math.min(needH, free[d]);
+          if(h>0.005){ out.push({date:d, pt:h/eff}); free[d]-=h; needH-=h; }
+        }
+        if(needH>0.005){ const e = out.find(a=>a.date===dl); if(e) e.pt += needH/eff; else out.push({date:dl, pt:needH/eff}); }
+        out.forEach(a=>a.pt=Math.round(a.pt*100)/100);
+        const diff = Math.round((total - out.reduce((s,a)=>s+a.pt,0))*100)/100;
+        if(out.length && diff) out[out.length-1].pt = Math.round((out[out.length-1].pt+diff)*100)/100;
+        res.set(t.task_id, out);
+      });
+    });
+  } finally { AUTO_PLAN_BUILD = false; }
+  AUTO_PLAN_CACHE = {k:slot, v:res};
+  return res;
 }
 // Revision rounds load on the day they were requested (see REVISION POINT RULE above appliedPoints).
 function revisionLoadOnDate(t, dateStr){
@@ -9674,7 +9770,9 @@ function remainingOfficeHours(dateStr, now=new Date(), deadlineTime='18:00'){
   return [[540,720],[780,1080]].reduce((sum,[a,b])=>sum+Math.max(0,Math.min(b,end)-Math.max(a,minute))/60,0);
 }
 function designerHandoff(t){ return ['pending_review','pending_client_review','delivered'].includes(t.review_status); }
-function activeRevision(t){ return [...taskRevisions(t)].reverse().find(r=>r.deadline && !r.submitted_at && !r.legacy); }
+// Only the LATEST revision round can be open — an older round left without submitted_at (e.g. handed in
+// through another path) is superseded and must never drag the deadline back to its old date.
+function activeRevision(t){ const l = taskRevisions(t).filter(r=>r.deadline && !r.legacy); const r = l[l.length-1]; return r && !r.submitted_at ? r : undefined; }
 function designerDeadline(t){ return activeRevision(t)?.deadline || t.prefer_delivery_date || ''; }
 function markDesignerSubmitted(t, at){
   t.designer_completed_at=at;
@@ -9757,7 +9855,7 @@ function overdueLoadFor(person, today, excludeId){
 // Hours logged against a Production Task in My To-do (Actual, every day loaded), optionally only BEFORE a
 // date. Cached; invalidated whenever the daily log changes (see todoLogChanged()).
 let TODO_LOGGED_CACHE = null;
-function todoLogChanged(){ TODO_LOGGED_CACHE = null; }
+function todoLogChanged(){ TODO_LOGGED_CACHE = null; autoPlanInvalidate(); }
 function taskLoggedHours(taskId, beforeDate){
   if(beforeDate){
     return (STATE.dailyTodos||[]).filter(r=>r.source==='assigned' && r.taskId===taskId && r.date<beforeDate)
@@ -10768,7 +10866,7 @@ function renderConnectionSafetyBanner(){
     ⚠ ขณะนี้ระบบยังเชื่อมต่อ Server ไม่สำเร็จ — กรุณาอย่าปิดหน้านี้จนกว่าการบันทึกจะสำเร็จ (ข้อมูลที่กรอกในฟอร์มยังอยู่ ระบบจะไม่ลบให้)
   </div>`;
 }
-function render(){
+function render(){ autoPlanInvalidate();
   // Profile & KPI restructure — Leave Calendar now lives inside Profile & KPI (Tab 02). The 'leave'
   // sideSection id is kept (never deleted) and normalized here, BEFORE the sidebar renders, so every
   // existing entry point (Quick Actions, saved nav state, any data-side="leave") opens the Leave tab.
@@ -22025,8 +22123,22 @@ function openRevisionModal(t){
   const isOwner=String(t.project_owner_email||'').toLowerCase()===String(STATE.auth.user?.email||me||'').toLowerCase();
   const total=Math.max(1,Number(t.deliverables)||1);
   STATE.revUI={taskId:t.task_id, requester: isAssignee ? 'owner' : isOwner ? 'owner' : (t.review_status==='pending_review' ? 'lead' : 'owner'),
-    source: isAssignee ? 'image' : 'system', evidence:'', comment:'', pieces:total, deadline:todayISO(), time:'18:00', error:''};
+    source: isAssignee ? 'image' : 'system', evidence:'', comment:'', pieces:total, deadline:revisionDefaultDeadline(t), time:'18:00', error:''};
   render();
+}
+// Krissha — "ถ้าเดทไลน์หลักยังไม่ถึง ไม่ให้ขึ้นว่าภายในวัน": main deadline still ahead → the revision is due on the
+// MAIN deadline. Main deadline already passed → today 18:00, or the next working day once it's past 18:00.
+function revisionDefaultDeadline(t){
+  const today = todayISO(), main = String(t.prefer_delivery_date||'').slice(0,10);
+  if(main && main>=today) return main;
+  const person = t.assigned_user_name;
+  const late = remainingOfficeHours(today) <= 0 || (person && !capIsWorkDay(person, today));
+  return late ? (person ? capNextWorkDay(person, addDaysISO(today,1)) : addDaysISO(today,1)) : today;
+}
+function revisionDeadlineHint(t, d){
+  const main = String(t.prefer_delivery_date||'').slice(0,10);
+  if(d && main && main>=todayISO() && d<main) return `⚠ เร็วกว่า Deadline หลัก (${fmtDate(main)}) — ดีไซน์เนอร์ต้องส่งแก้ภายในวันที่เลือกนี้`;
+  return '';
 }
 function revisionCalc(t, ui){
   const pieces=Number(ui.pieces)||0;
@@ -22065,6 +22177,7 @@ function renderRevisionModal(){
         <div class="field"><label>Deadline แก้ *</label><input type="date" id="rv_deadline" min="${todayISO()}" value="${escAttr(ui.deadline)}"></div>
         <div class="field"><label>เวลา</label><input type="time" id="rv_time" value="${escAttr(ui.time)}"></div>
       </div>
+      <div class="hint" id="rv_dlhint" style="color:#B45309;font-weight:600;margin:-4px 0 8px">${revisionDeadlineHint(t, ui.deadline)}</div>
       <div class="rv-calc ${c.ok?'ok':'bad'}" id="rv_calc">${revisionCalcText(c)}</div>
       ${ui.error?`<div class="field-error" style="display:block;margin:8px 0">${escAttr(ui.error)}</div>`:''}
       <div style="display:flex;gap:8px;margin-top:12px">
@@ -22091,6 +22204,7 @@ function bindRevisionModal(){
       if(['pieces','deadline','time'].includes(key)){
         const t=STATE.tasks.find(x=>x.task_id===STATE.revUI.taskId); const box=document.getElementById('rv_calc');
         if(t && box){ const c=revisionCalc(t, STATE.revUI); box.innerHTML=revisionCalcText(c); box.className='rv-calc '+(c.ok?'ok':'bad'); }
+        const hb=document.getElementById('rv_dlhint'); if(t && hb) hb.textContent=revisionDeadlineHint(t, STATE.revUI.deadline);
       }
     };
     el.addEventListener('input', upd); el.addEventListener('change', upd);
@@ -25350,6 +25464,29 @@ function capIsActivePlan(t){
   return t.review_status==='in_progress' && !t.paused && !!t.capacity_moved_at && Array.isArray(t.capacity_allocation) && t.capacity_allocation.length>0 && !activeRevision(t);
 }
 let __capMigrated = '';
+// Krissha — "WT-SM50 เดทไลน์เดิมมัน 6": revisions requested BEFORE the new rule got the old default deadline
+// (the day they were requested, 18:00) even though the main deadline was still ahead. Open rounds like that
+// are moved onto the main deadline once (logged in history). Rounds whose date was picked as something else stay.
+let __revDlMigrated = '';
+function revMigrateDefaultDeadline(){
+  try{
+    const key = (STATE.auth?.identity||'') + '|' + todayISO();
+    if(__revDlMigrated===key || !STATE.auth?.loggedIn || window.__storageOffline || !(STATE.tasks||[]).length) return;
+    __revDlMigrated = key;
+    let n = 0;
+    STATE.tasks.forEach(t=>{
+      const r = activeRevision(t), main = String(t.prefer_delivery_date||'').slice(0,10);
+      if(!r || r.dl_migrated || !main || !r.at || !(r.deadline < main)) return;
+      if(r.deadline !== bkkDayOf(r.at) || (r.deadline_time||'18:00')!=='18:00') return; // not the old default
+      const old = r.deadline;
+      r.deadline = main; r.date = main; r.dl_migrated = true;
+      (t.review_history = t.review_history||[]).push({timestamp:new Date().toISOString(), action:'REVISION_DEADLINE_ALIGNED',
+        comment:`Deadline แก้งาน รอบ ${r.round}: ${fmtDate(old)} → ${fmtDate(main)} (ตาม Deadline หลักที่ยังไม่ถึง)`, by:'system'});
+      n++;
+    });
+    if(n){ saveTasks(); render(); }
+  }catch(e){ console.warn('revMigrateDefaultDeadline', e); }
+}
 function capMigrateStarted(){
   try{
     const key = (STATE.auth?.identity||'') + '|' + todayISO();
@@ -29445,6 +29582,7 @@ function resetLeftPageEphemeralState(){
 }
 function bindEvents(){
   bindAwParts();
+  revMigrateDefaultDeadline();
   // Clicking the name/avatar pill just opens a small menu now (see renderUserMenuDropdown) — it used to
   // log out immediately on click, which is what Krissha reported: tapping her own name by accident (or
   // trying to get to her workspace) signed her straight out. Logging out is now its own explicit button
@@ -32867,7 +33005,9 @@ function renderLateReasonModal(){
     <div class="modal" style="max-width:460px">
       <h3>ส่งงานหลัง Deadline — กรุณาระบุเหตุผล</h3>
       <p class="hint" style="margin-bottom:10px">Task: <strong>${escAttr(taskDisplayName(t))}</strong><br>
-        Deadline เดิม <strong>${fmtDate(t.prefer_delivery_date)}</strong> · ส่งช้า <strong style="color:var(--crit-tx)">${lateDays} วัน</strong> — Deadline จะไม่ถูกแก้ไข</p>
+        ${(()=>{ const r = activeRevision(t); return r
+          ? `Deadline แก้งาน รอบ ${r.round||''} <strong>${fmtDate(r.deadline)}${r.deadline_time?` ${r.deadline_time} น.`:''}</strong>${t.prefer_delivery_date && t.prefer_delivery_date!==r.deadline ? ` <span style="opacity:.75">(Deadline งานหลัก ${fmtDate(t.prefer_delivery_date)})</span>` : ''}`
+          : `Deadline เดิม <strong>${fmtDate(t.prefer_delivery_date)}</strong>`; })()} · ส่งช้า <strong style="color:var(--crit-tx)">${lateDays} วัน</strong> — Deadline จะไม่ถูกแก้ไข</p>
       <div class="field"><label>Late Reason Category *</label>
         <select id="lr_category"><option value="">— เลือกเหตุผล —</option>
           ${LATE_REASON_CATEGORIES.map(c=>`<option value="${escAttr(c)}" ${ui.category===c?'selected':''}>${escAttr(c)}</option>`).join('')}
@@ -33115,11 +33255,21 @@ async function handleAction(act, id){
     toast('↺ ย้อนกลับไป "งานใหม่" แล้ว — เวลาที่นับไว้ถูกล้าง');
   }
   else if(act==='requestExt'){
-    const newDate = prompt('วันที่ต้องการเลื่อนไป (YYYY-MM-DD):', t.prefer_delivery_date);
+    const rv = activeRevision(t);
+    const fromDate = rv ? rv.deadline : t.prefer_delivery_date;
+    const newDate = prompt(rv ? `เลื่อน Deadline แก้งาน รอบ ${rv.round} ไปวันที่ (YYYY-MM-DD):` : 'วันที่ต้องการเลื่อนไป (YYYY-MM-DD):', fromDate);
     if(!newDate) return;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(newDate) || newDate<todayISO()){ toast('วันที่ไม่ถูกต้อง (YYYY-MM-DD และไม่ย้อนหลัง)'); return; }
     const reason = prompt('เหตุผล (บังคับกรอก):');
     if(!reason){ toast('ต้องระบุเหตุผล'); return; }
-    t.deadline_extension_request = {requested_date:newDate, original_date:t.prefer_delivery_date, reason, status:'PENDING', requested_by: STATE.auth.user?.name || STATE.auth.identity || '', requested_at:new Date().toISOString()};
+    t.deadline_extension_request = {requested_date:newDate, original_date:fromDate, reason, status:'PENDING', requested_by: STATE.auth.user?.name || STATE.auth.identity || '', requested_at:new Date().toISOString(), ...(rv?{target:'revision', round:rv.round}:{})};
+    if(rv){
+      const lbl = `แก้งาน รอบ ${rv.round}`;
+      t.review_history.push({timestamp:new Date().toISOString(), action:'REQUEST_EXTENSION', comment:`${lbl}: ${fmtDate(fromDate)} → ${fmtDate(newDate)} — เหตุผล: ${reason}`, by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
+      notifyLeads('คำขอเลื่อน Deadline แก้งาน', `${t.assigned_user_name} ขอเลื่อน "${t.task_name}" (${lbl}) เป็น ${fmtDate(newDate)} — ${reason}`, t.task_id, 'DEADLINE_EXTENSION_REQUESTED', {requestedDeadline:newDate, reason});
+      if(t.project_owner_email) notifyUsers([t.project_owner_email], 'คำขอเลื่อน Deadline แก้งาน — รอคุณพรูฟ', `${t.assigned_user_name} ขอเลื่อน "${t.task_name}" (${lbl}) ${fmtDate(fromDate)} → ${fmtDate(newDate)} — ${reason}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_REQUESTED', extra:{requestedDeadline:newDate, reason}});
+      toast('ส่งคำขอเลื่อน Deadline แก้งานแล้ว — รอเจ้าของงานหรือ Lead พรูฟ');
+    } else {
     // §46 Global Audit Rule — the request itself (Old Value: current delivery date -> New Value: the
     // requested date) is a Workflow-affecting action and must be recorded even before Lead Designer rules
     // on it; approveExt/rejectExt below each log their own outcome on top of this.
@@ -33127,9 +33277,21 @@ async function handleAction(act, id){
     notifyLeads('คำขอเลื่อนกำหนดส่ง', `${t.assigned_user_name} ขอเลื่อน "${t.task_name}" เป็น ${fmtDate(newDate)} — ${reason}`, t.task_id, 'DEADLINE_EXTENSION_REQUESTED', {requestedDeadline:newDate, reason});
     if(t.project_owner_email) notifyUsers([t.project_owner_email], 'คำขอเลื่อนกำหนดส่ง — รอคุณพรูฟ', `${t.assigned_user_name} ขอเลื่อน "${t.task_name}" ${fmtDate(t.prefer_delivery_date)} → ${fmtDate(newDate)} — ${reason}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_REQUESTED', extra:{requestedDeadline:newDate, reason}});
     toast('ส่งคำขอเลื่อนกำหนดส่งแล้ว — รอเจ้าของงานหรือ Lead พรูฟ');
+    }
   }
   else if((act==='approveExt' || act==='rejectExt') && !canApproveExt(t)){
     toast(t.deadline_extension_request?.status==='PENDING' ? 'การเลื่อนกำหนดส่งต้องให้เจ้าของงานหรือ Lead Designer พรูฟ (พรูฟคำขอของตัวเองไม่ได้)' : 'คำขอนี้ถูกพิจารณาไปแล้ว'); return;
+  }
+  else if(act==='approveExt' && t.deadline_extension_request?.target==='revision'){
+    const ex = t.deadline_extension_request, by = STATE.auth.user?.name || STATE.auth.identity || 'system';
+    const rv = taskRevisions(t).find(r=>r.round===ex.round && !r.submitted_at);
+    if(rv){ rv.deadline = ex.requested_date; rv.date = ex.requested_date; }
+    ex.status='APPROVED'; ex.approved_by=by; ex.approved_role = isLead() ? 'lead' : 'owner'; ex.approved_at=new Date().toISOString();
+    const lbl = `แก้งาน รอบ ${ex.round}`;
+    t.review_history.push({timestamp:ex.approved_at, action:'APPROVE_EXTENSION', comment:`${lbl} — New date: ${ex.requested_date}${isLead()?'':' (เจ้าของงานพรูฟ)'}`, by});
+    if(!isLead()) notifyLeads('เจ้าของงานอนุมัติเลื่อน Deadline แก้งาน', `${by} อนุมัติเลื่อน "${t.task_name}" (${lbl}) เป็น ${fmtDate(ex.requested_date)}`, t.task_id, 'DEADLINE_EXTENSION_APPROVED');
+    notify(t.assigned_user_name, 'อนุมัติเลื่อน Deadline แก้งาน', `${t.task_name} (${lbl}) — วันใหม่: ${fmtDate(ex.requested_date)}`, t.task_id, 'DEADLINE_EXTENSION_APPROVED');
+    notifyUsers([t.project_owner_email], 'อนุมัติเลื่อน Deadline แก้งาน', `${t.task_name} (${lbl}) — วันใหม่: ${fmtDate(ex.requested_date)}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_APPROVED'});
   }
   else if(act==='approveExt'){
     const src = t.deadline_extension_request.source;
@@ -33155,10 +33317,10 @@ async function handleAction(act, id){
     t.deadline_extension_request.status='REJECTED';
     t.deadline_extension_request.rejected_by = STATE.auth.user?.name || STATE.auth.identity || 'system';
     t.review_history.push({timestamp:new Date().toISOString(), action:'REJECT_EXTENSION', comment:isLead()?'':'เจ้าของงานไม่อนุมัติ', by: STATE.auth.user?.name || STATE.auth.identity || 'system'});
-    if(!isLead()) notifyLeads('เจ้าของงานไม่อนุมัติเลื่อนกำหนดส่ง', `${t.deadline_extension_request.rejected_by} ไม่อนุมัติการเลื่อน "${t.task_name}" — คงวันส่งเดิม ${fmtDate(t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_REJECTED');
-    notify(t.assigned_user_name, 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_REJECTED');
+    if(!isLead()) notifyLeads('เจ้าของงานไม่อนุมัติเลื่อนกำหนดส่ง', `${t.deadline_extension_request.rejected_by} ไม่อนุมัติการเลื่อน "${t.task_name}" — คงวันส่งเดิม ${fmtDate(t.deadline_extension_request.original_date||t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_REJECTED');
+    notify(t.assigned_user_name, 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.deadline_extension_request.original_date||t.prefer_delivery_date)}`, t.task_id, 'DEADLINE_EXTENSION_REJECTED');
     // DEV MASTER REQUEST §11 — Extension Rejected → PO + Designer (Designer kept as-is above).
-    notifyUsers([t.project_owner_email], 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} (${t.task_id}) — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.prefer_delivery_date)}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_REJECTED'});
+    notifyUsers([t.project_owner_email], 'ปฏิเสธคำขอเลื่อนกำหนดส่ง', `${t.task_name} (${t.task_id}) — กำหนดส่งเดิมยังคงอยู่ ${fmtDate(t.deadline_extension_request.original_date||t.prefer_delivery_date)}`, t.task_id, {excludeActor:true, eventType:'DEADLINE_EXTENSION_REJECTED'});
   }
   else if(act==='approveUrgent'){
     t.review_status='new';
