@@ -6148,7 +6148,11 @@ function awPartWeights(t){
   // Master: E-Commerce + ไม่มี KV → AW01 3 ชม., others 1 ชม.; otherwise the task's master hours split evenly.
   const base = Number(t.base_points)||appliedPoints(t)||0;
   const rsEach = Array.from({length:n}, (_,i)=>Number(act[i]?.resize_count)||0), rsSum = rsEach.reduce((a,b)=>a+b,0);
-  const ecomNoKv = t?.task_category==='E-Commerce' && t?.kv_status_check==='NEED_NEW_KV';
+  // Krissha — "KV ต้องเป็นลิงก์เท่านั้น": an E-Commerce card counts as "มี KV" only when a real KV link is attached.
+  // No link (incl. "อื่นๆ ระบุ" types that never ask the KV question) → AW01 = 3 ชม., the rest 1 ชม. Revise stays even.
+  const kvLinked = isLikelyValidUrl(String(t?.kv_asset_link||'').trim());
+  const isRevise = /^REVISE/.test(String(t?.kv_status_check||'')) || /^REVISE/.test(String(t?.production_type||''));
+  const ecomNoKv = t?.task_category==='E-Commerce' && !isRevise && (t?.kv_status_check==='NEED_NEW_KV' || !kvLinked);
   const masterTot = Math.max(0, base - taskResizePoints(t));
   const mw = Array.from({length:n}, (_,i)=>ecomNoKv ? (i===0?3:1) : masterTot/n);
   const rsTot = (()=>{ try{ return currentScopeFor(t).resize_count; }catch(e){ return 0; } })();
