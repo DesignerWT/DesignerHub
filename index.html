@@ -6414,6 +6414,7 @@ function profileTodoItems(){
   (STATE.tasks||[]).forEach(t=>{
     if(!t || t.cancelled) return;
     if(canApproveExt(t)) items.push({kind:'ext', t, at:t.deadline_extension_request.requested_at||''});
+    if(lead && activeRevision(t)?.capacity_approval?.status==='PENDING') items.push({kind:'ext', sub:'revcap', t, at:activeRevision(t).capacity_approval.at||''});
     const s = t.review_status;
     if(lead && s==='pending_lead_approval') items.push({kind:'approve', sub:'brief', t, at:t.brief_timestamp||''});
     else if(lead && s==='pending_review') items.push({kind:'approve', sub:'qc', t, at:t.aw_delivery_timestamp||t.designer_completed_at||''});
@@ -6429,10 +6430,17 @@ function renderProfileTodo(){
   const G = [
     {k:'approve', ic:'✅', l:'งานที่รออนุมัติ', c:'#4F46E5'},
     {k:'revision', ic:'✎', l:'งานที่ต้องแก้', c:'#EA580C'},
-    {k:'ext', ic:'📅', l:'คำขอเลื่อนวันส่งงาน', c:'#D97706'},
+    {k:'ext', ic:'📅', l:'คำขอเลื่อนวัน / Capacity', c:'#D97706'},
   ];
   const SUB = {brief:'Brief รอ Approve & Assign', qc:'รอ Lead ตรวจ (QC)', owner:'รอคุณอนุมัติงาน', aw:'AW ส่งมาก่อน · รอคุณตรวจ'};
   const row = (i, c)=>{ const t = i.t;
+    if(i.kind==='ext' && i.sub==='revcap'){ const r = activeRevision(t), ca = r.capacity_approval;
+      return `<div class="li-row" style="--lc:${c}"><span class="li-ic">⚠</span>
+        <div class="li-main"><div class="li-k">Revision เกิน Capacity · รอบ ${r.round} · ${escAttr(t.assigned_user_name||'')}</div><b>${escAttr(taskDisplayName(t))}</b>
+          <span class="li-sub">Deadline แก้ <b style="color:#B45309">${fmtDate(r.deadline)} ${escAttr(r.deadline_time||'')}</b> · ต้องใช้ ${Number(ca.hours||0).toFixed(2)} ชม. ว่าง ${Number(ca.available||0).toFixed(2)} ชม. · ขอโดย ${escAttr(ca.by||'')}</span></div>
+        <div class="li-acts"><button type="button" class="btn btn-sm btn-ghost" data-opentask="${t.task_id}">ดูงาน</button>
+          <button type="button" class="btn btn-sm btn-ghost" data-act="revCapMove" data-id="${t.task_id}">📅 เลื่อน Deadline</button>
+          <button type="button" class="btn btn-sm btn-primary" data-act="revCapApprove" data-id="${t.task_id}">✓ อนุมัติ</button></div></div>`; }
     if(i.kind==='ext'){ const ex = t.deadline_extension_request;
       return `<div class="li-row" style="--lc:${c}"><span class="li-ic">📅</span>
         <div class="li-main"><div class="li-k">ขอเลื่อนวันส่ง · ${escAttr(ex.requested_by||t.assigned_user_name||'')}</div><b>${escAttr(taskDisplayName(t))}</b>
@@ -22375,6 +22383,11 @@ function revisionDeadlineHint(t, d){
   if(d && main && main>=todayISO() && d<main) return `⚠ เร็วกว่า Deadline หลัก (${fmtDate(main)}) — ดีไซน์เนอร์ต้องส่งแก้ภายในวันที่เลือกนี้`;
   return '';
 }
+// Krissha — "ถ้า Capacity เต็มให้เป็น ขอรีเควส Lead พรูฟ แทน": not enough free hours on the chosen deadline no
+// longer blocks the revision — it's recorded and sent to Lead to approve (or move the deadline). A Lead recording
+// it approves it on the spot. Holiday / leave days still have to be changed.
+function revCapNeedsLead(c){ return !c.ok && !c.blocked; }
+function revConfirmLabel(t, c){ return revCapNeedsLead(c) ? (isLead() ? '✓ บันทึก (Lead อนุมัติเกิน Capacity)' : '📨 บันทึก + ขอ Lead อนุมัติ (Capacity เต็ม)') : '✓ บันทึก Revision'; }
 function revisionCalc(t, ui){
   const pieces=Number(ui.pieces)||0;
   const hours=Math.round(pointsPerPiece(t)*Math.max(0,pieces)*0.25*100)/100;
@@ -22417,7 +22430,7 @@ function renderRevisionModal(){
       ${ui.error?`<div class="field-error" style="display:block;margin:8px 0">${escAttr(ui.error)}</div>`:''}
       <div style="display:flex;gap:8px;margin-top:12px">
         <button type="button" class="btn btn-ghost" style="flex:1" id="revCancel">ยกเลิก</button>
-        <button type="button" class="btn btn-primary" style="flex:2" id="revConfirm">✓ บันทึก Revision</button>
+        <button type="button" class="btn btn-primary" style="flex:2" id="revConfirm">${revConfirmLabel(t, c)}</button>
       </div>
     </div>
   </div>`;
@@ -22440,6 +22453,8 @@ function bindRevisionModal(){
         const t=STATE.tasks.find(x=>x.task_id===STATE.revUI.taskId); const box=document.getElementById('rv_calc');
         if(t && box){ const c=revisionCalc(t, STATE.revUI); box.innerHTML=revisionCalcText(c); box.className='rv-calc '+(c.ok?'ok':'bad'); }
         const hb=document.getElementById('rv_dlhint'); if(t && hb) hb.textContent=revisionDeadlineHint(t, STATE.revUI.deadline);
+        const cb=document.getElementById('revConfirm'); if(t && cb) cb.textContent=revConfirmLabel(t, revisionCalc(t, STATE.revUI));
+        if(STATE.revUI.error){ STATE.revUI.error=''; document.querySelectorAll('#revBg .field-error').forEach(x=>x.remove()); }
       }
     };
     el.addEventListener('input', upd); el.addEventListener('change', upd);
@@ -22457,11 +22472,23 @@ function bindRevisionModal(){
     if(!/^\d{4}-\d{2}-\d{2}$/.test(deadline)||isNaN(Date.parse(deadline))||deadline<todayISO()) return fail('เลือก Deadline ตั้งแต่วันนี้เป็นต้นไป');
     if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(deadlineTime)) return fail('เวลาไม่ถูกต้อง');
     const c=revisionCalc(t, ui);
-    if(!c.ok) return fail(c.blocked ? `${c.blocked} — เลือก Deadline ใหม่` : `Capacity ไม่พอ: ต้องใช้ ${c.hours.toFixed(2)} ชม. ว่าง ${c.available.toFixed(2)} ชม. — เลือก Deadline ใหม่ หรือให้ลีดจัดคิว`);
+    if(c.blocked) return fail(`${c.blocked} — เลือก Deadline ใหม่`);
+    const capOver = revCapNeedsLead(c);
     const evidence=String(ui.evidence||'').trim();
     if(evidence && !/^https?:\/\//i.test(evidence)) return fail('ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://');
     applyRevisionRequest(t, {comment, pieces, totalPieces:total, deadline, deadlineTime, hours:c.hours, requester:ui.requester, source:ui.source, evidence});
+    if(capOver){
+      const r = activeRevision(t), by = STATE.auth.user?.name || STATE.auth.identity || 'system', at = nowIso();
+      if(r){
+        r.capacity_approval = isLead() ? {status:'APPROVED', hours:c.hours, available:c.available, by, at, approved_by:by, approved_at:at}
+          : {status:'PENDING', hours:c.hours, available:c.available, by, at};
+        t.review_history.push({timestamp:at, action:isLead()?'REVISION_CAPACITY_APPROVED':'REVISION_CAPACITY_REQUESTED',
+          comment:`Revision รอบ ${r.round}: ต้องใช้ ${c.hours.toFixed(2)} ชม. ว่าง ${c.available.toFixed(2)} ชม. (${fmtDate(deadline)})${isLead()?' — Lead อนุมัติเกิน Capacity':' — รอ Lead อนุมัติ'}`, by});
+        if(!isLead()) notifyLeads('Revision เกิน Capacity — รออนุมัติ', `${taskDisplayName(t)} · รอบ ${r.round} · ${t.assigned_user_name} ต้องใช้ ${c.hours.toFixed(2)} ชม. วันที่ ${fmtDate(deadline)} (ว่าง ${c.available.toFixed(2)} ชม.) — อนุมัติ หรือเลื่อน Deadline`, t.task_id, 'REVISION_CAPACITY_REQUESTED');
+      }
+    }
     STATE.revUI=null;
+    if(capOver && !isLead()) toast('บันทึก Revision แล้ว — ส่งให้ Lead อนุมัติ (Capacity เต็ม)');
     await saveTasks();
     render();
   });
@@ -23247,6 +23274,7 @@ function renderTaskWsInfoCard(t, hideRequesterOverlap){
       const open = !r.submitted_at, late = open && isSubmissionLate(t);
       const v = `<span style="color:${late?'var(--crit-tx,#B91C1C)':open?'#B45309':'inherit'}">${fmtDate(r.deadline)}${r.deadline_time?` ${escAttr(r.deadline_time)} น.`:''}</span>`
         + (open ? (late ? ' <span class="hint" style="color:var(--crit-tx,#B91C1C)">· เลยกำหนด</span>' : '') : ' <span class="hint">· ส่งแก้แล้ว</span>')
+        + (open && r.capacity_approval?.status==='PENDING' ? ' <span class="hint" style="color:#B45309">· เกิน Capacity — รอ Lead อนุมัติ</span>' : '')
         + (t.deadline_extension_request?.status==='PENDING' && t.deadline_extension_request.target==='revision' ? ` <span class="hint">· ขอเลื่อนเป็น ${fmtDate(t.deadline_extension_request.requested_date)} (รออนุมัติ)</span>` : '');
       return [{label:`Deadline แก้งาน · รอบ ${r.round||revs.length}`, val:v}]; })(),
     {label:'Delivered Date', val: deliveredDate},
@@ -33590,6 +33618,26 @@ async function handleAction(act, id){
   }
   else if((act==='approveExt' || act==='rejectExt') && !canApproveExt(t)){
     toast(t.deadline_extension_request?.status==='PENDING' ? 'การเลื่อนกำหนดส่งต้องให้เจ้าของงานหรือ Lead Designer พรูฟ (พรูฟคำขอของตัวเองไม่ได้)' : 'คำขอนี้ถูกพิจารณาไปแล้ว'); return;
+  }
+  else if(act==='revCapApprove' || act==='revCapMove'){
+    const r = activeRevision(t), ca = r?.capacity_approval;
+    if(!isLead() || !ca || ca.status!=='PENDING'){ toast('คำขอนี้ถูกพิจารณาไปแล้ว'); return; }
+    const by = STATE.auth.user?.name || STATE.auth.identity || 'system', at = nowIso();
+    if(act==='revCapMove'){
+      const nd = prompt(`เลื่อน Deadline แก้งาน รอบ ${r.round} เป็นวันที่ (YYYY-MM-DD):`, addDaysISO(r.deadline,1));
+      if(!nd) return;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(nd) || nd<todayISO()){ toast('วันที่ไม่ถูกต้อง'); return; }
+      const old = r.deadline; r.deadline = nd; r.date = nd;
+      Object.assign(ca, {status:'MOVED', approved_by:by, approved_at:at, moved_from:old, moved_to:nd});
+      t.review_history.push({timestamp:at, action:'REVISION_CAPACITY_MOVED', comment:`Revision รอบ ${r.round}: Lead เลื่อน Deadline ${fmtDate(old)} → ${fmtDate(nd)} (Capacity เต็ม)`, by});
+      notify(t.assigned_user_name, 'Lead เลื่อน Deadline แก้งาน', `${taskDisplayName(t)} · รอบ ${r.round} — วันใหม่ ${fmtDate(nd)}`, t.task_id, 'REVISION_CAPACITY_MOVED');
+      toast(`เลื่อน Deadline แก้งานเป็น ${fmtDate(nd)} แล้ว`);
+    } else {
+      Object.assign(ca, {status:'APPROVED', approved_by:by, approved_at:at});
+      t.review_history.push({timestamp:at, action:'REVISION_CAPACITY_APPROVED', comment:`Revision รอบ ${r.round}: Lead อนุมัติเกิน Capacity (${fmtDate(r.deadline)})`, by});
+      notify(t.assigned_user_name, 'Lead อนุมัติ Revision เกิน Capacity', `${taskDisplayName(t)} · รอบ ${r.round} — Deadline ${fmtDate(r.deadline)} คงเดิม`, t.task_id, 'REVISION_CAPACITY_APPROVED');
+      toast('อนุมัติแล้ว');
+    }
   }
   else if(act==='approveExt' && t.deadline_extension_request?.target==='revision'){
     const ex = t.deadline_extension_request, by = STATE.auth.user?.name || STATE.auth.identity || 'system';
