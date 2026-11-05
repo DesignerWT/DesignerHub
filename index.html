@@ -21977,6 +21977,7 @@ function boardCardFlagsHTML(t, late, extPending){
   if(t.needsApproval) flags.push(['🔒','รอ Lead Designer Approval']);
   if(late) flags.push(['⏰','เลยกำหนดส่ง']);
   if(extPending) flags.push(['📨','ขอเลื่อนกำหนดส่ง (รออนุมัติ)']);
+  if(activeRevision(t)?.capacity_approval?.status==='PENDING') flags.push(['⚠','Revision เกิน Capacity — รอ Lead อนุมัติ']);
   if(t.edit_revision>1) flags.push(['✎',`Brief Updated (Rev ${t.edit_revision})`]);
   if(t.is_backdated) flags.push(['⏱','Backdated Task']);
   if(!flags.length) return '';
@@ -23544,6 +23545,20 @@ function renderAwLinkCards(t, descSuffix){
       <span class="awl-num">${i+1}</span><span class="awl-ic">${si.i}</span><span class="awl-txt"><span class="awl-lbl">${escAttr(awLinkLabel(l,i,links.length))}</span><span class="awl-url">${escAttr(src)} · ${escAttr(String(l.url).replace(/^https?:\/\//,'').slice(0,48))}${String(l.url).length>56?'…':''}</span></span><span class="awl-src">เปิดลิงก์ ↗</span></a>`; }).join('')}
   </div>`;
 }
+// Krissha — "Lead ต้องอนุมัติตรงไหน": the pending "Revision เกิน Capacity" request shows right at the top of the
+// task page — Lead gets the two buttons, everyone else sees it's waiting.
+function revCapPanelHTML(t){
+  const r = activeRevision(t), ca = r?.capacity_approval; if(!ca || ca.status!=='PENDING') return '';
+  const lead = isLead();
+  return `<div class="rv-panel" style="border-color:#F59E0B;background:linear-gradient(180deg,#FFFBEB,#fff);margin-bottom:14px">
+    <div class="rv-panel-head"><span class="rv-panel-ic">⚠</span><div><div class="rv-panel-title">Revision รอบ ${r.round} เกิน Capacity — ${lead?'รอคุณอนุมัติ':'รอ Lead อนุมัติ'}</div>
+      <div class="rv-panel-sub">Deadline แก้ <b>${fmtDate(r.deadline)} ${escAttr(r.deadline_time||'')}</b> · ต้องใช้ ${Number(ca.hours||0).toFixed(2)} ชม. · ${escAttr(t.assigned_user_name||'')} ว่างวันนั้น ${Number(ca.available||0).toFixed(2)} ชม. · ขอโดย ${escAttr(ca.by||'')}</div></div></div>
+    ${lead ? `<div class="rv-actions" style="display:flex;gap:10px;margin-top:10px">
+      <button type="button" class="btn btn-primary" style="flex:1" data-act="revCapApprove" data-id="${t.task_id}">✓ อนุมัติ (คง Deadline เดิม)</button>
+      <button type="button" class="btn btn-ghost" style="flex:1;border:1.5px solid #F59E0B;color:#B45309" data-act="revCapMove" data-id="${t.task_id}">📅 เลื่อน Deadline แก้งาน</button></div>`
+      : `<div class="hint" style="margin-top:8px">ดีไซน์เนอร์เริ่มแก้ได้เลย — Lead จะอนุมัติหรือเลื่อน Deadline ให้</div>`}
+  </div>`;
+}
 function renderArtworkLinkHeroCard(t){
   if(t.review_status==='delivered') return '';
   const url = t.aw_link||'';
@@ -23880,6 +23895,7 @@ function renderTaskWorkspacePage(t){
         <!-- Artwork Link hero (DEV SPEC point 7): "ต้องเด่นและอยู่บนสุด" — the single primary link a
              Reviewer must open goes above Brief Links / Brief / Reference Links / Images. Hidden
              once delivered, where the Final Work Folder card above takes its place at the top instead. -->
+        ${revCapPanelHTML(t)}
         ${renderArtworkLinkHeroCard(t)}
         <!-- DEV FIX (Krissha — "สำหรับตรวจงาน เอาปุ่มพรูฟ ไว้บนๆได้มั้ย มันหายากอ่ะ อาจเอาไว้ใต้ลิงก์ ส่งงาน"):
              Approve QC / ลูกค้าอนุมัติแล้ว (+ Request Revision) right under the Artwork Link Hero above —
