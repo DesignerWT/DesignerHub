@@ -475,7 +475,7 @@ textarea{resize:vertical;min-height:64px}
 .pb3-tags .pb3-proof,.pb3-tags .pb3-rel{margin-bottom:0}
 .pb3-mine{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,#0EA5E9,#2563EB);border-radius:999px;padding:2px 9px}
 .pb3-rel{display:inline-block;font-size:11px;font-weight:800;color:#0F766E;background:#CCFBF1;border:1px solid #99F6E4;border-radius:999px;padding:1px 9px;margin-bottom:5px}
-.pb3-proof.k-ext{background:linear-gradient(135deg,#F59E0B,#D97706)}
+.pb3-proof.k-ext,.pb3-proof.k-revcap{background:linear-gradient(135deg,#F59E0B,#D97706)}
 .pb3-proof.k-check{background:linear-gradient(135deg,#8B5CF6,#7C3AED)}
 .pb3-proof{display:inline-block;font-size:11px;font-weight:800;color:#fff;background:linear-gradient(135deg,#6366F1,#4F46E5);border-radius:999px;padding:2px 9px;margin-bottom:5px}
 .pb3-pri{font-size:11px;font-weight:800;color:var(--pc);margin-bottom:3px;letter-spacing:.02em}
@@ -6374,9 +6374,11 @@ function bindAwParts(){
 }
 function boardProofKind(t){
   if(!t || t.cancelled) return null;
-  if(t.assigned_user_name===STATE.auth.identity && !canApproveExt(t)) return null;
+  const revCapPending = isLead() && activeRevision(t)?.capacity_approval?.status==='PENDING';
+  if(t.assigned_user_name===STATE.auth.identity && !canApproveExt(t) && !revCapPending) return null;
   if(isLead() && t.review_status==='pending_lead_approval') return 'approve';
   if(canApproveExt(t)) return 'ext';
+  if(isLead() && activeRevision(t)?.capacity_approval?.status==='PENDING') return 'revcap'; // Revision เกิน Capacity → Lead approves
   if(isLead() && t.review_status==='pending_review') return 'check';
   if(t.review_status==='pending_client_review' && extIsBriefOwner(t)) return 'owner';
   if(awNeedsMyReview(t)) return 'aw';
@@ -21832,7 +21834,8 @@ function renderBoard(){
     // Only a deadline-extension request is moved (its task can sit in any stage, e.g. "Brief ใหม่"). Every other
     // card stays in its real stage so it never "jumps" between columns when you switch ทั้งทีม ↔ ของฉัน:
     // Brief approval is already col 1, Lead QC col 4, the Brief Owner's approval col 5 "รอผู้บรีฟอนุมัติ".
-    return boardProofKind(t)==='ext' ? 'pending_lead_approval' : t.review_status;
+    const k = boardProofKind(t);
+    return (k==='ext' || k==='revcap') ? 'pending_lead_approval' : t.review_status; // Krissha: "ไม่ขึ้นที่หน้าการ์ด อนุมัติ" → col 1 รออนุมัติ
   };
   const byStatus = st=>filtered.filter(t=>boardColOf(t)===st);
   const doneCount = filtered.filter(t=>done.statuses.includes(boardColOf(t))).length;
@@ -22143,7 +22146,7 @@ function taskCardHTML(t){
         const rel = boardRelation(t);
         const tags = [];
         if(isMineT && !STATE.board?.proofMarks) tags.push(`<span class="pb3-mine"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.5 21c.8-4.4 4.2-7 8.5-7s7.7 2.6 8.5 7z"/></svg>งานของฉัน</span>`);
-        if(k) tags.push(`<span class="pb3-proof k-${k}">${({approve:'✅ รอคุณอนุมัติ Brief', ext:'📅 รอคุณอนุมัติเลื่อนวันส่ง', check:'🔍 รอคุณตรวจงาน', owner:'✅ รอคุณอนุมัติงาน', aw:`🔍 รอคุณตรวจ AW (${awPartsStats(t).waiting})`})[k]}</span>`);
+        if(k) tags.push(`<span class="pb3-proof k-${k}">${({approve:'✅ รอคุณอนุมัติ Brief', ext:'📅 รอคุณอนุมัติเลื่อนวันส่ง', revcap:'⚠ รอคุณอนุมัติ Revision เกิน Capacity', check:'🔍 รอคุณตรวจงาน', owner:'✅ รอคุณอนุมัติงาน', aw:`🔍 รอคุณตรวจ AW (${awPartsStats(t).waiting})`})[k]}</span>`);
         else if(rel && !isMineT) tags.push(`<span class="pb3-rel">${({owner:'📝 บรีฟของฉัน', creator:'📝 ฉันเป็นคนสร้าง', requester:'📨 ฉันขอเลื่อนวันส่ง'})[rel]}</span>`);
         return tags.length ? `<div class="pb3-tags">${tags.join('')}</div>` : '';
       })(boardProofKind(t))}
