@@ -8052,6 +8052,36 @@ function renderSysHandoff(){
       <div class="ss-addrow" style="justify-content:flex-end"><button type="button" class="btn btn-primary" id="ssHoGo" ${to&&chosen.length?'':'disabled'}>ส่งต่อ ${chosen.length} งาน → ${escAttr(to||'…')}</button></div>`
       : '<div class="cx-muted" style="margin-top:10px">✓ ไม่มีงานค้าง</div>') : ''}
     <div class="ss-hint2">หลังส่งต่องานแล้ว ถ้าคนนั้นลาออก: ปิดบัญชี (Inactive) ที่ User Management และเช็กผู้รับงานตั้งต้น/สิทธิ์พิเศษในแท็บ ทีมและสิทธิ์</div>
+  </div>
+  ${renderSysBriefOwnerHandoff()}`;
+}
+// ---- Krissha — "Ecommerce คนเก่าลาออก แต่บรีฟงานไว้ จะโอนไปให้คนใหม่ยังไง": move the BRIEF OWNER of every
+// unfinished brief of one person to another (approve/QC-review, emails, 3-hour reminder all follow the new owner).
+// Completed briefs keep the original owner so history/reports don't change.
+function boOpenBriefs(email){ const e = String(email||'').trim().toLowerCase(); return (STATE.tasks||[]).filter(t=>String(t.project_owner_email||'').trim().toLowerCase()===e && !HANDOFF_DONE.includes(t.review_status) && !t.cancelled && !t.deleted); }
+function renderSysBriefOwnerHandoff(){
+  const ui = STATE.sysUI, from = ui.boFrom||'', to = ui.boTo||'';
+  const owners = new Map();
+  (STATE.tasks||[]).forEach(t=>{ const e = String(t.project_owner_email||'').trim().toLowerCase(); if(e && !HANDOFF_DONE.includes(t.review_status) && !t.cancelled && !t.deleted) owners.set(e, (owners.get(e)||0)+1); });
+  const label = e=>{ const u = findUserByEmail(e); return u ? `${u.name}${u.department?' · '+u.department:''}${u.status!=='active'?' (Inactive)':''}` : e; };
+  const fromOpts = [...owners.entries()].sort((a,b)=>label(a[0]).localeCompare(label(b[0])));
+  const toUsers = (STATE.users||[]).filter(u=>u.status==='active' && u.email && String(u.email).toLowerCase()!==from).sort((a,b)=>a.name.localeCompare(b.name));
+  const list = from ? boOpenBriefs(from) : [];
+  const pick = ui.boPick || {};
+  const chosen = list.filter(t=>pick[t.task_id]!==false);
+  const toU = to ? findUserByEmail(to) : null;
+  return `<div class="ss-card"><div class="ss-ch"><b>โอนบรีฟ (เจ้าของบรีฟ) ของคนที่ลาออก / ย้ายแผนก</b><span>เปลี่ยนเจ้าของบรีฟของงานที่ยังไม่เสร็จไปให้คนใหม่ · คนใหม่ตรวจ/อนุมัติงาน รับอีเมลและรีมายด์แทน · งานที่เสร็จแล้วยังเป็นชื่อคนเดิม</span></div>
+    <div class="ss-grid">
+      <label class="ss-field">เจ้าของบรีฟเดิม<select id="ssBoFrom"><option value="">— เลือกคน —</option>${fromOpts.map(([e,n])=>`<option ${e===from?'selected':''} value="${escAttr(e)}">${escAttr(label(e))} · ${n} บรีฟค้าง</option>`).join('')}</select></label>
+      <label class="ss-field">โอนให้<select id="ssBoTo"><option value="">— เลือกคน —</option>${toUsers.map(u=>`<option ${String(u.email).toLowerCase()===to?'selected':''} value="${escAttr(String(u.email).toLowerCase())}">${escAttr(u.name)}${u.department?' · '+escAttr(u.department):''}</option>`).join('')}</select></label>
+      <label class="ss-field">เหตุผล<input id="ssBoReason" value="${escAttr(ui.boReason||'โอนบรีฟจากผู้ลาออก')}"></label>
+    </div>
+    ${from ? (list.length ? `<table class="ss-table" style="margin-top:10px"><thead><tr><th style="width:30px"><input type="checkbox" id="ssBoAll" ${chosen.length===list.length?'checked':''} style="width:auto"></th><th>งาน</th><th>สถานะ</th><th>Designer</th><th>กำหนดส่ง</th></tr></thead><tbody>
+        ${list.map(t=>`<tr><td><input type="checkbox" data-ssbo="${escAttr(t.task_id)}" ${pick[t.task_id]!==false?'checked':''} style="width:auto"></td><td><b>${escAttr(taskDisplayName(t))}</b> <span class="cx-muted">${escAttr(t.task_id)}</span></td><td>${escAttr(STATUS_LABEL[t.review_status]||t.review_status||'')}</td><td>${escAttr(t.assigned_user_name||'—')}</td><td>${t.prefer_delivery_date?fmtDate(t.prefer_delivery_date):'—'}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="ss-addrow" style="justify-content:flex-end"><button type="button" class="btn btn-primary" id="ssBoGo" ${to&&chosen.length?'':'disabled'}>โอน ${chosen.length} บรีฟ → ${escAttr(toU?.name||'…')}</button></div>`
+      : '<div class="cx-muted" style="margin-top:10px">✓ ไม่มีบรีฟค้าง</div>') : ''}
+    <div class="ss-hint2">ถ้าคนเดิมลาออก: หลังโอนแล้วปิดบัญชี (Inactive) ที่ User Management</div>
   </div>`;
 }
 function renderSysLog(){
@@ -8179,6 +8209,33 @@ function bindSysSettings(){
     await saveTasks();
     await saveSysSettings('ส่งต่องาน '+from+' → '+to, list.length+' งาน', list.map(t=>t.task_id).join(', ').slice(0,300));
     ui.hoPick = {}; toast(`ส่งต่อ ${list.length} งานให้ ${to} แล้ว`); render();
+  });
+  // ---- brief-owner handoff ----
+  document.getElementById('ssBoFrom')?.addEventListener('change', e=>{ STATE.sysUI.boFrom = e.target.value; STATE.sysUI.boPick = {}; if(STATE.sysUI.boTo===e.target.value) STATE.sysUI.boTo=''; render(); });
+  document.getElementById('ssBoTo')?.addEventListener('change', e=>{ STATE.sysUI.boTo = e.target.value; render(); });
+  document.getElementById('ssBoReason')?.addEventListener('input', e=>{ STATE.sysUI.boReason = e.target.value; });
+  document.querySelectorAll('[data-ssbo]').forEach(cb=>cb.addEventListener('change', ()=>{ STATE.sysUI.boPick = Object.assign({}, STATE.sysUI.boPick, {[cb.dataset.ssbo]: cb.checked}); render(); }));
+  document.getElementById('ssBoAll')?.addEventListener('change', e=>{ const p = {}; boOpenBriefs(STATE.sysUI.boFrom).forEach(t=>p[t.task_id]=e.target.checked); STATE.sysUI.boPick = p; render(); });
+  document.getElementById('ssBoGo')?.addEventListener('click', async ()=>{
+    const ui = STATE.sysUI, from = ui.boFrom, to = ui.boTo, reason = (ui.boReason||'โอนบรีฟจากผู้ลาออก').trim();
+    const list = boOpenBriefs(from).filter(t=>(ui.boPick||{})[t.task_id]!==false);
+    const toU = findUserByEmail(to), fromName = findUserByEmail(from)?.name || from;
+    if(!from || !toU || !list.length) return;
+    if(!confirm(`โอนเจ้าของบรีฟ ${list.length} งาน จาก ${fromName} ไปให้ ${toU.name}?`)) return;
+    const by = STATE.auth.user?.name || STATE.auth.identity || 'system', at = nowIso();
+    list.forEach(t=>{
+      (t.owner_history = t.owner_history||[]).push({timestamp:at, from:t.project_owner_email, to:toU.email, by, reason});
+      if(!t.original_owner_email) t.original_owner_email = t.project_owner_email;
+      t.project_owner_email = toU.email;
+      if(toU.department) t.department = toU.department;
+      (t.review_history=t.review_history||[]).push({timestamp:at, action:'BRIEF_OWNER_CHANGED', comment:`เจ้าของบรีฟ ${fromName} → ${toU.name} — เหตุผล: ${reason}`, by});
+    });
+    notifyUsers([toU.email], 'คุณได้รับโอนบรีฟ', `${list.length} บรีฟจาก ${fromName} — ตอนนี้คุณเป็นเจ้าของบรีฟ (ตรวจ/อนุมัติงาน) — ${reason}`, null, {eventType:'BRIEF_OWNER_CHANGED'});
+    const byDesigner = {}; list.forEach(t=>{ if(t.assigned_user_name) (byDesigner[t.assigned_user_name]=byDesigner[t.assigned_user_name]||[]).push(t); });
+    Object.entries(byDesigner).forEach(([d, ts])=>notify(d, 'เจ้าของบรีฟเปลี่ยน', `${ts.length} งานของคุณ (${ts.slice(0,3).map(t=>taskDisplayName(t)).join(', ')}${ts.length>3?'…':''}) ผู้ตรวจ/อนุมัติคนใหม่คือ ${toU.name}`, ts[0].task_id, 'BRIEF_OWNER_CHANGED'));
+    await saveTasks();
+    await saveSysSettings('โอนบรีฟ '+fromName+' → '+toU.name, list.length+' บรีฟ', list.map(t=>t.task_id).join(', ').slice(0,300));
+    ui.boPick = {}; ui.boFrom = ''; toast(`โอน ${list.length} บรีฟให้ ${toU.name} แล้ว`); render();
   });
   // ---- capacity / kpi ----
   document.querySelectorAll('[data-ssval]').forEach(inp=>inp.addEventListener('change', async ()=>{
@@ -9739,6 +9796,13 @@ function masterLoadOnDateRaw(t, dateStr){
   const total = t.base_points || 0;
   const sd = masterSubmitDate(t);
   if(sd) return sd===dateStr ? total : 0;
+  if(autoPlanCandidate(t)){
+    if(AUTO_PLAN_BUILD) return 0;
+    if(dateStr < todayISO()) return 0; // past days: only AWs actually handed in count (added by masterLoadOnDate)
+    const plan = autoPlanAll().get(t.task_id);
+    if(plan){ const e = plan.find(a=>a.date===dateStr); return e ? e.pt : 0; }
+    return 0;
+  }
   if(Array.isArray(t.capacity_allocation) && t.capacity_allocation.length){
     const entry = t.capacity_allocation.find(a=>a.date===dateStr);
     if(!entry) return 0;
@@ -9786,9 +9850,12 @@ function effectiveLoadOnDate(t, dateStr, fromToday){
 }
 function autoPlanCandidate(t){
   if(!t || !t.prefer_delivery_date || !t.assigned_user_name || !((Number(t.base_points)||0)>0) || t.is_backdated) return false;
-  if(Array.isArray(t.capacity_allocation) && t.capacity_allocation.length) return false;
+  // Krissha — "ปริมาณงานวันนี้ ทำไมนับไม่ตรงกับที่กำลังทำ": the split Start/Continue saved automatically
+  // (capacity_moved_at) and overdue tasks now go through the same live plan, so every open card's remaining
+  // hours are on today → its deadline (overdue = today). Only a split someone set by hand is kept as-is.
+  if(Array.isArray(t.capacity_allocation) && t.capacity_allocation.length && !t.capacity_moved_at) return false;
   if(masterSubmitDate(t) || activeRevision(t) || !isTaskOpenForDesigner(t)) return false;
-  return t.prefer_delivery_date >= todayISO();
+  return true;
 }
 function autoPlanAll(){
   const slot = todayISO()+'|'+Math.floor(Date.now()/600000);
@@ -9800,8 +9867,9 @@ function autoPlanAll(){
     (STATE.tasks||[]).forEach(t=>{ if(autoPlanCandidate(t) && autoPlanEff(t)>0) (byP[t.assigned_user_name]=byP[t.assigned_user_name]||[]).push(t); });
     const prio = t=>({URGENT:0,HIGH:1}[String(t.priority||'').toUpperCase()] ?? 2);
     Object.entries(byP).forEach(([person, list])=>{
-      list.sort((x,y)=>x.prefer_delivery_date.localeCompare(y.prefer_delivery_date) || prio(x)-prio(y) || String(x.brief_timestamp||'').localeCompare(String(y.brief_timestamp||'')));
-      const horizon = list[list.length-1].prefer_delivery_date;
+      const edl = t=>t.prefer_delivery_date<today ? today : t.prefer_delivery_date; // overdue → due today
+      list.sort((x,y)=>edl(x).localeCompare(edl(y)) || prio(x)-prio(y) || String(x.brief_timestamp||'').localeCompare(String(y.brief_timestamp||'')));
+      const horizon = edl(list[list.length-1]);
       const days = [], free = {};
       for(let d=today, g=0; d<=horizon && g<120; d=addDaysISO(d,1), g++){
         if(!capIsWorkDay(person, d)) continue;
@@ -9813,7 +9881,7 @@ function autoPlanAll(){
         days.push(d); free[d] = Math.max(0, capFull - L.taskLoad);
       }
       list.forEach(t=>{
-        const total = Number(t.base_points)||0, eff = autoPlanEff(t), dl = t.prefer_delivery_date;
+        const total = Number(t.base_points)||0, eff = autoPlanEff(t), dl = edl(t);
         let needH = total*eff; const out = [];
         for(const d of days){
           if(d>dl || needH<=0.005) break;
@@ -9934,6 +10002,7 @@ function isTaskOpenForDesigner(t){ return isTaskStillInWorkQueue(t); }
 function overdueCarryLoadFor(t, today){
   const r=activeRevision(t); if(r) return r.deadline<today ? revisionRoundPoints(t,r) : 0;
   if(masterSubmitDate(t)) return taskRevisions(t).filter(r=>r.date<today).reduce((s,r)=>s+revisionRoundPoints(t,r),0); // Master already handed in — nothing of it to carry
+  if(autoPlanCandidate(t)) return taskRevisions(t).filter(r=>r.date<today).reduce((s,r)=>s+revisionRoundPoints(t,r),0); // Master: the live plan already puts what's left on today
   if(Array.isArray(t.capacity_allocation) && t.capacity_allocation.length){
     return t.capacity_allocation.filter(a=>a.date<today).reduce((s,a)=>s+masterLoadOnDate(t,a.date),0)
       + taskRevisions(t).filter(r=>r.date<today).reduce((s,r)=>s+revisionRoundPoints(t,r),0);
@@ -9974,7 +10043,10 @@ function taskRemainingHours(t){
   // Remaining = total − whichever is larger: hours of AWs handed in, or hours logged.
   const total = appliedPoints(t), f = awDoneFraction(t);
   const doneH = f ? f * (Number(t.base_points)||total) : 0;
-  return Math.max(0, Math.round((total - Math.max(doneH, taskLoggedHours(t.task_id)))*100)/100);
+  // AWs handed in one by one → progress IS the AWs sent; logged time is effort, not progress, so it no longer
+  // eats the AWs still to do (that's what dropped today's 11.11 DDAY to 0).
+  if(f) return Math.max(0, Math.round((total - doneH)*100)/100);
+  return Math.max(0, Math.round((total - taskLoggedHours(t.task_id))*100)/100);
 }
 function taskRemainingRatio(t){
   // Submitted / waiting for review = nothing left for the Designer right now (it reloads automatically if
@@ -14840,6 +14912,11 @@ function todoTaskGroup(t, person, today){
 function dlWorkloadFor(person, ds){
   const today = todayISO();
   const base = dayLoadFor(person, ds);
+  // Krissha — "ทำไมงานวันนี้ถึงขึ้น 0" / 10 พ.ย. 24 ชม.: this strip used its own older rule (whole remaining on the
+  // deadline day, minus every logged hour). It now reads the SAME day load as Team Capacity (auto-plan from today,
+  // AWs handed in on their day, overdue rolled onto today) so both screens always show one number.
+  if(true) return {production: base.productionLoad, overdue: base.overdueLoad||0, internal: base.internalDeduct, total: base.taskLoad,
+    cap: base.cap, productionCap: base.productionCap, isFullLeave: base.isFullLeave};
   if(ds < today) return {production: base.productionLoad, overdue: 0, internal: base.internalDeduct, total: base.taskLoad,
     cap: base.cap, productionCap: base.productionCap, isFullLeave: base.isFullLeave};
   let production = 0, overdue = 0;
