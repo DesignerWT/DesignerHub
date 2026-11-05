@@ -6200,7 +6200,7 @@ function awPartsSummaryHTML(t){
       <div class="hint">ทำเสร็จบางชิ้น วางลิงก์ส่งชิ้นนั้นก่อนได้ในแต่ละแถวด้านล่าง · ถ้าเสร็จครบ ส่งทีเดียวด้วยลิงก์เดียวที่ “📤 ส่งมอบงาน” ตามปกติ</div></div>
       <div class="awp-count"><b>${st.sub}</b>/${n} ส่งแล้ว · ผ่าน ${st.ok}${awResizeSummaryHTML(t)?`<br>${awResizeSummaryHTML(t)}`:''}</div></div>
     <div class="awp-bar"><span class="ok" style="width:${pct}%"></span><span class="sub" style="width:${pctSub-pct}%"></span></div>
-    ${st.sub===n && awCanSubmit(t) && !designerHandoff(t) ? `<div class="awp-done">ส่งครบทุก AW แล้ว — กด “📤 ส่งตรวจงาน” เพื่อส่งทั้งงานเข้าขั้นตรวจตามปกติ</div>` : ''}
+    ${st.sub===n && awCanSubmit(t) && !designerHandoff(t) ? `<div class="awp-done" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>ส่งครบทุก AW แล้ว — กดปุ่มนี้เพื่อส่งทั้งงานเข้าขั้นตรวจ (ใช้ลิงก์ AW ที่ส่งไว้ ไม่ต้องวางลิงก์ใหม่)</span><button type="button" class="btn btn-primary btn-sm awp-submitall" data-awpsubmitall="${t.task_id}">📤 ส่งตรวจทั้งงานเลย</button></div>` : ''}
   </div>`;
 }
 // Separate panel only for tasks WITHOUT an Artworks list (otherwise it's merged into that list — no duplicate).
@@ -6231,7 +6231,7 @@ function renderAwPartsPanel(t){
       <div class="awp-count"><b>${st.sub}</b>/${n} ส่งแล้ว · ผ่าน ${st.ok}${awResizeSummaryHTML(t)?`<br>${awResizeSummaryHTML(t)}`:''}</div></div>
     <div class="awp-bar"><span class="ok" style="width:${pct}%"></span><span class="sub" style="width:${pctSub-pct}%"></span></div>
     <div class="awp-list">${Array.from({length:n},(_,i)=>row(i)).join('')}</div>
-    ${st.sub===n && canSub && !designerHandoff(t) ? `<div class="awp-done">ส่งครบทุก AW แล้ว — กด “📤 ส่งตรวจงาน” ด้านล่างเพื่อส่งทั้งงานเข้าขั้นตรวจตามปกติ</div>` : ''}
+    ${st.sub===n && canSub && !designerHandoff(t) ? `<div class="awp-done" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>ส่งครบทุก AW แล้ว — กดปุ่มนี้เพื่อส่งทั้งงานเข้าขั้นตรวจ (ใช้ลิงก์ AW ที่ส่งไว้ ไม่ต้องวางลิงก์ใหม่)</span><button type="button" class="btn btn-primary btn-sm awp-submitall" data-awpsubmitall="${t.task_id}">📤 ส่งตรวจทั้งงานเลย</button></div>` : ''}
   </div>`;
 }
 async function awPartsSave(t, mutate, okMsg){
@@ -6296,8 +6296,19 @@ async function awSetResize(id, idx, val){
   if(ok===false){ const o = JSON.parse(snap); t.scope=o.sc; t.artworks=o.aws; t.deliverables=o.d; t.resize_quantity=o.rq; t.base_points=o.bp; t.review_history.length=o.hl; toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); render(); return; }
   toast(`${code} Resize/Adapt = ${nv} · Point ${appliedPoints(t).toFixed(1)}`); render();
 }
+// Krissha — "อัปลิงก์ครบแล้ว มันจะเปลี่ยนสเตตัสได้ยังไง เหมือนส่งงาน": one click hands the whole task in, using the
+// links already sent per AW (AW01, AW02 …) — same path as "📤 ส่งตรวจงาน" (late reason, qty check, QC / owner notify).
+async function awSubmitAll(id){
+  const t = STATE.tasks.find(x=>x.task_id===id); if(!t || !awCanSubmit(t) || designerHandoff(t)) return;
+  const n = awPartsCount(t), p = awParts(t), links = [];
+  for(let i=0;i<n;i++){ const x = p[i]; if(!x || !(x.status==='submitted'||x.status==='approved') || !x.url){ toast('ยังส่งไม่ครบทุก AW'); return; } links.push({url:x.url, label:awPartLabel(t,i)}); }
+  const uniq = []; links.forEach(l=>{ if(!uniq.some(u=>u.url===l.url)) uniq.push(l); });
+  if(!confirm(`ส่งตรวจทั้งงาน "${taskDisplayName(t)}"?\nใช้ลิงก์ AW ที่ส่งไว้ ${uniq.length} ลิงก์`)) return;
+  await submitDeliveryLink(id, uniq);
+}
 function bindAwParts(){
   if(window.__awpBound) return; window.__awpBound = true;
+  document.addEventListener('click', e=>{ const b = e.target.closest('[data-awpsubmitall]'); if(!b) return; e.preventDefault(); e.stopPropagation(); awSubmitAll(b.dataset.awpsubmitall); }, true);
   document.addEventListener('change', e=>{ const el = e.target.closest && e.target.closest('[data-awrs]'); if(!el) return;
     const [id, i] = el.dataset.awrs.split('|'); awSetResize(id, Number(i), el.value); }, true);
   document.addEventListener('click', e=>{ if(e.target.closest && e.target.closest('.aw-rs')) e.stopPropagation(); }, true);
@@ -9746,6 +9757,16 @@ function awDoneFraction(t){
 // AWs handed in early count as DONE WORK on the day they were sent (same rule as a whole-task submission,
 // which moves its load onto the submit date) — the rest of the task keeps its planned days.
 function masterLoadOnDate(t, dateStr){
+  // Whole task handed in after AWs were sent one by one → each AW stays on the day it was sent (not all moved
+  // onto the final hand-in day); only hours not covered by any AW land on the hand-in day.
+  if(t && t.aw_parts && masterSubmitDate(t) && awPartsCount(t)>=2){
+    const n = awPartsCount(t), w = awPartWeights(t), plan = awDonePlan(t, n, w, 0);
+    const sumParts = Object.values(plan).reduce((a,b)=>a+b,0);
+    if(sumParts>0){
+      const rest = Math.max(0, (Number(t.base_points)||0) - sumParts);
+      return Math.round(((plan[dateStr]||0) + (masterSubmitDate(t)===dateStr ? rest : 0))*100)/100;
+    }
+  }
   const v = masterLoadOnDateRaw(t, dateStr);
   const f = awDoneFraction(t); if(!f) return v;
   const n = awPartsCount(t), w = awPartWeights(t), sum = w.reduce((a,b)=>a+b,0)||1;
