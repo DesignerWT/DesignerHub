@@ -6187,9 +6187,12 @@ function awPartChipHTML(x){
   const chip = {todo:['ยังไม่ส่ง','#64748B','#F1F5F9'], submitted:['ส่งแล้ว · รอตรวจ','#B45309','#FEF3C7'], approved:['✓ ผ่านแล้ว','#047857','#D1FAE5'], revision:['✎ ต้องแก้','#C2410C','#FFEDD5']}[s2];
   return `<span class="awp-chip" style="color:${chip[1]};background:${chip[2]}">${chip[0]}</span>`;
 }
+// Krissha — "โดนสั่งแก้ แล้วจะส่งงานยังไง": an AW sent back with "ขอแก้" after the whole task was handed in can be
+// re-sent on its own row (the rest of the task stays in review).
+function awRowCanSend(t, s2){ return awCanSubmit(t) && (['new','in_progress','revision'].includes(t.review_status) || (s2==='revision' && designerHandoff(t))); }
 function awPartActionsHTML(t, i){
   const x = awParts(t)[i]||{}, s2 = x.status||'todo';
-  const canSub = awCanSubmit(t) && ['new','in_progress','revision'].includes(t.review_status), canRv = awCanReview(t);
+  const canSub = awRowCanSend(t, s2), canRv = awCanReview(t);
   return `${x.url ? `<a class="btn btn-sm btn-ghost" href="${escAttr(x.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">เปิดลิงก์ ↗</a>` : ''}
     ${canRv && s2==='submitted' ? `<button type="button" class="btn btn-sm awp-ok" data-awpok="${t.task_id}|${i}">✓ ผ่าน</button><button type="button" class="btn btn-sm awp-fix" data-awpfix="${t.task_id}|${i}">✎ ขอแก้</button>` : ''}
     ${canSub && s2!=='approved' ? `<span class="awp-send"><input type="url" id="awp_${t.task_id}_${i}" placeholder="วางลิงก์ AW นี้" value=""><button type="button" class="btn btn-sm btn-primary" data-awpsend="${t.task_id}|${i}">${s2==='submitted'?'ส่งใหม่':s2==='revision'?'ส่งแก้':'ส่ง AW นี้'}</button></span>` : ''}`;
@@ -6211,6 +6214,7 @@ function renderAwPartsPanel(t){
   if(!awPartsActive(t)) return '';
   const n = awPartsCount(t), p = awParts(t), st = awPartsStats(t);
   const canSub = awCanSubmit(t) && ['new','in_progress','revision'].includes(t.review_status), canRv = awCanReview(t);
+  const canSubRow = s2x=>canSub || awRowCanSend(t, s2x);
   if(!st.sub && !st.fix && !canSub) return '';
   const pct = Math.round(st.ok/n*100), pctSub = Math.round(st.sub/n*100);
   const row = i=>{ const x = p[i]||{}, s2 = x.status||'todo';
@@ -6224,7 +6228,7 @@ function renderAwPartsPanel(t){
       <div class="awp-acts">
         ${x.url ? `<a class="btn btn-sm btn-ghost" href="${escAttr(x.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">เปิดลิงก์ ↗</a>` : ''}
         ${canRv && s2==='submitted' ? `<button type="button" class="btn btn-sm awp-ok" data-awpok="${t.task_id}|${i}">✓ ผ่าน</button><button type="button" class="btn btn-sm awp-fix" data-awpfix="${t.task_id}|${i}">✎ ขอแก้</button>` : ''}
-        ${canSub && s2!=='approved' ? `<span class="awp-send"><input type="url" id="awp_${t.task_id}_${i}" placeholder="วางลิงก์ AW นี้" value="${escAttr(s2==='revision'||s2==='todo'?'':x.url||'')}"><button type="button" class="btn btn-sm btn-primary" data-awpsend="${t.task_id}|${i}">${s2==='submitted'?'ส่งใหม่':s2==='revision'?'ส่งแก้':'ส่ง AW นี้'}</button></span>` : ''}
+        ${canSubRow(s2) && s2!=='approved' ? `<span class="awp-send"><input type="url" id="awp_${t.task_id}_${i}" placeholder="วางลิงก์ AW นี้" value="${escAttr(s2==='revision'||s2==='todo'?'':x.url||'')}"><button type="button" class="btn btn-sm btn-primary" data-awpsend="${t.task_id}|${i}">${s2==='submitted'?'ส่งใหม่':s2==='revision'?'ส่งแก้':'ส่ง AW นี้'}</button></span>` : ''}
       </div></div>`; };
   return `<div class="taskws-card awp-panel">
     <div class="awp-head"><div><div class="awp-title">📦 ส่งทีละ AW <span class="awp-opt">ไม่บังคับ</span></div>
@@ -6384,8 +6388,18 @@ function bindAwParts(){
         try{ todoLogChanged(); }catch(e){}
         saveDailyTodos(todoYM(day));
       }
-      awPartsSave(t, ()=>{ t.aw_parts = Object.assign({}, awParts(t), {[i]:{status:'submitted', url, at:now, by, hours:hrs||0}});
-        (t.review_history=t.review_history||[]).push({timestamp:now, action:'AW_PART_SUBMIT', comment:`ส่ง ${lbl} ก่อน — ${url}`, by});
+      const wasFix = awParts(t)[i]?.status==='revision', inReview = designerHandoff(t);
+      awPartsSave(t, ()=>{ t.aw_parts = Object.assign({}, awParts(t), {[i]:{status:'submitted', url, at:now, by, hours:hrs||0, fixed:wasFix||undefined}});
+        if(inReview){
+          // whole task already in review → swap this AW's link in the hand-in list, and give the reviewer a fresh window
+          const lk = Array.isArray(t.aw_links) ? t.aw_links.slice() : (t.aw_link ? [{url:t.aw_link, label:''}] : []);
+          const k = lk.findIndex(l=>String(l.label||'').startsWith(lbl.split(' ')[0]));
+          if(k>=0) lk[k] = {url, label:lk[k].label||lbl}; else lk.push({url, label:lbl});
+          t.aw_links = lk; t.aw_link = lk[0]?.url || url;
+          try{ recordAwLink(t, url); }catch(e){}
+          if(t.review_status==='pending_client_review') startApprovalWaitingTimer(t);
+        }
+        (t.review_history=t.review_history||[]).push({timestamp:now, action:'AW_PART_SUBMIT', comment:`${wasFix?'ส่งแก้':'ส่ง'} ${lbl}${inReview?' (ระหว่างรอตรวจ)':' ก่อน'} — ${url}`, by});
         notifyUsers([...leadNames(), t.project_owner_email], 'ส่ง AW บางส่วนแล้ว', `${by} ส่ง ${lbl} ของ "${t.task_name}" ให้ตรวจก่อน (${awPartsStats(t).sub}/${awPartsCount(t)})`, t.task_id, {excludeActor:true});
       }, `📦 ส่ง ${lbl} แล้ว${hrs>0?` · ลงเวลา ${hrs} ชม. ใน My To-do วันนี้`:''}`);
     } else if(b.dataset.awpok){
@@ -10248,7 +10262,7 @@ function toast(msg){
 function notificationsAreOn(){ return STATE.gdriveConfig?.notificationsEnabled !== false; }
 function notify(to, title, message, taskId, eventType, extra, role){
   if(!notificationsAreOn()) return; // test-mode: no in-app notification AND no email leg below — see caller
-  STATE.notifications.push({id:'n_'+Math.random().toString(36).slice(2,9), to, title, message, timestamp:new Date().toISOString(), read:false, taskId: taskId||null});
+  STATE.notifications.push({id:'n_'+Math.random().toString(36).slice(2,9), to, title, message, timestamp:new Date().toISOString(), read:false, taskId: taskId||null, ev: eventType||null});
   saveNotifs();
   // Email Notifications — Krissha's Email Master Spec (eventType → Email Template): Email used to mirror
   // the In-App title/message 1:1. Now, when a call site names an eventType, the email leg is built from
@@ -10378,7 +10392,8 @@ const EMAIL_EVENT_TITLE = {
   TASK_REOPENED: 'งานถูกเปิดกลับมาอีกครั้ง',
   DEADLINE_DUE_SOON: 'ใกล้ถึงกำหนดส่ง',
   DEADLINE_OVERDUE: 'งานเกินกำหนดส่ง',
-  FINAL_REVIEW_REMINDER: 'Final Review ใกล้ครบกำหนด'
+  FINAL_REVIEW_REMINDER: 'Final Review ใกล้ครบกำหนด',
+  CONTENT_POST_TOMORROW: 'พรุ่งนี้มีโพสต์คอนเทนต์'
 };
 const EMAIL_EVENT_BODY = {
   BRIEF_SUBMITTED(t, extra, role){
@@ -10492,6 +10507,11 @@ const EMAIL_EVENT_BODY = {
   DEADLINE_OVERDUE(t, extra){
     return `งานเลย Delivery Date แล้ว\n\nDeadline: ${fmtDate(t.prefer_delivery_date)}\nCurrent Status: ${extra.status||t.review_status||'-'}\n\nDesigner และ Lead Designer กรุณาตรวจสอบสถานะของงาน\n\n${emailLink('เปิดงาน', emailTaskLink(t))}`;
   },
+  CONTENT_POST_TOMORROW(t, extra){
+    const ready = designerHandoff(t) || t.review_status==='delivered';
+    const q = bkkParts(t.content_post_date+'T12:00:00+07:00');
+    return `📅 พรุ่งนี้ (${q.dow} ${fmtDate(t.content_post_date)}) มีโพสต์คอนเทนต์\n\n${taskDisplayName(t)}${t.project_name?`\nโปรเจกต์: ${t.project_name}`:''}\nงานกราฟิก: ${ready?'✓ เสร็จแล้ว':'⚠ ยังไม่เสร็จ — '+(STATUS_LABEL[t.review_status]||t.review_status)}\n\nโพสต์แล้วอย่าลืมติ๊ก "โพสต์แล้ว" ใน Content Planner\n\n${t.aw_link?emailLink('เปิดไฟล์งาน', t.aw_link):''}`;
+  },
   FINAL_REVIEW_REMINDER(t, extra){
     const link = emailTaskLink(t);
     return `⏰ เหลือเวลาอีก ${approvalIsWorkHours(t)?APPROVAL_REMIND_WORK_HOURS+' ชม. ทำงาน':'ไม่ถึง 6 ชม.'} — ถ้าไม่ตรวจภายใน ${fmtDateTime(t.approval_due_at)} ระบบจะอนุมัติให้อัตโนมัติ\n\nกรุณาตรวจ Artwork ก่อนระบบปิดงานอัตโนมัติ\n\nงานนี้กำลังรอ Final Review\n\nหากไม่มี Request Revision ภายใน\n${fmtDateTime(t.approval_due_at)}\n\nระบบจะเปลี่ยน Task เป็น Completed อัตโนมัติ\n\nArtwork ล่าสุด\n${emailLink('เปิด Artwork', t.aw_link)}\n\n${emailLink('ตรวจงาน', link)}`;
@@ -10520,9 +10540,38 @@ function sendEventEmail(to, eventType, t, extra, role){
   deliverRawEmail(to, built.subject, built.body);
 }
 /* ==================== end Email Event Templates ==================== */
+// Krissha — "งานที่ปิดงานแล้วยังแจ้งเตือนอยู่ว่าให้ตรวจงาน พรูฟงาน ให้เอาออกเมื่อเจ้าของงานตรวจเสร็จแล้ว":
+// a notification that asks someone to DO something (review, approve, proof) disappears by itself once that thing
+// is no longer waiting — checked live against the task, so old notices (without an event type) are covered too.
+function notifActionKind(n){
+  const ev = n.ev||'', ti = String(n.title||'');
+  if(ev==='FINAL_REVIEW_READY' || ev==='FINAL_REVIEW_REMINDER' || /พร้อมตรวจขั้นสุดท้าย|Final Review|รอคุณยืนยันขั้นสุดท้าย/.test(ti)) return 'owner';
+  if(ev==='WORK_SUBMITTED_QC' || /รอตรวจ QC|มีงานรอตรวจ/.test(ti)) return 'qc';
+  if(ev==='DEADLINE_EXTENSION_REQUESTED' || /คำขอเลื่อน(กำหนดส่ง|\s*Deadline)/.test(ti)) return 'ext';
+  if(ev==='REVISION_CAPACITY_REQUESTED' || /เกิน Capacity — รออนุมัติ/.test(ti)) return 'revcap';
+  if(ev==='LEAD_APPROVAL_REQUIRED' || /ต้องพิจารณา|รอ Approve|Approval Required|รออนุมัติ Brief/.test(ti)) return 'brief';
+  if(/ส่ง AW บางส่วน/.test(ti)) return 'aw';
+  if(/ตรวจ|อนุมัติ|พรูฟ|Approve/.test(ti) && !/แล้ว|ไม่อนุมัติ|ถูกปิด|ผ่าน/.test(ti)) return 'generic';
+  return null;
+}
+function notifResolved(n){
+  if(!n.taskId) return false;
+  const k = notifActionKind(n); if(!k) return false;
+  const t = (STATE.tasks||[]).find(x=>x.task_id===n.taskId);
+  if(!t) return false;
+  const closed = t.cancelled || ['delivered','rejected','closed_max_revision'].includes(t.review_status);
+  if(closed) return true;
+  if(k==='owner') return t.review_status!=='pending_client_review';
+  if(k==='qc') return t.review_status!=='pending_review';
+  if(k==='ext') return t.deadline_extension_request?.status!=='PENDING';
+  if(k==='revcap') return activeRevision(t)?.capacity_approval?.status!=='PENDING';
+  if(k==='brief') return t.review_status!=='pending_lead_approval';
+  if(k==='aw') return !awPartsStats(t).waiting;
+  return false;
+}
 function myNotifs(){
   const me = STATE.auth.identity;
-  return STATE.notifications.filter(n=>n.to===me).sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
+  return STATE.notifications.filter(n=>n.to===me && !notifResolved(n)).sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
 }
 // ==================== DEV MASTER REQUEST §11-12 — Central Recipient Resolver ====================
 // notifyUsers(recipients, title, message, taskId, options) is the one function every multi-recipient
@@ -22185,6 +22234,7 @@ function taskCardHTML(t){
     ${hotPri ? `<div class="pb3-pri">${t.priority==='CRITICAL'?'● วิกฤต':'● ด่วน'}</div>` : ''}
     <div class="tc2-title">${escAttr(taskDisplayName(t))}</div>
     <div class="pb3-sub">${platHTML}<span class="ty">${escAttr(t.task_type||t.task_category||'')}</span>${scopeChangeChipHTML(t)}</div>
+    ${(st=>awPartsActive(t) && st.fix && designerHandoff(t) ? `<div class="pb3-note apv-due apv-hot">✎ ต้องแก้ ${st.fix} AW — ส่งแก้ในแถว AW นั้นได้เลย</div>` : '')(awPartsStats(t))}
     ${(st=>awPartsActive(t) && (st.sub||st.fix) && !designerHandoff(t) ? `<div class="awp-prog" title="ผ่าน ${st.ok} · รอตรวจ ${st.waiting} · ต้องแก้ ${st.fix} · ยังไม่ทำ ${st.n-st.sub-st.fix}">
       <div class="awp-pbar"><span class="ok" style="width:${st.ok/st.n*100}%"></span><span class="wait" style="width:${st.waiting/st.n*100}%"></span><span class="fix" style="width:${st.fix/st.n*100}%"></span></div>
       <div class="awp-plg"><b>${Math.round(st.sub/st.n*100)}%</b> · ${st.sub}/${st.n} AW${st.ok?` <span class="ok">✓${st.ok}</span>`:''}${st.waiting?` <span class="wait">รอตรวจ ${st.waiting}</span>`:''}${st.fix?` <span class="fix">แก้ ${st.fix}</span>`:''}</div></div>` : '')(awPartsStats(t))}
@@ -33230,7 +33280,8 @@ function processApprovalAutoCompletes(){
     changed = true;
   });
   STATE.tasks.forEach(t=>{
-    if(t.review_status==='pending_client_review' && t.approval_due_at && new Date(t.approval_due_at).getTime()<=now){
+    if(t.review_status==='pending_client_review' && t.approval_due_at && new Date(t.approval_due_at).getTime()<=now
+       && !Object.values(t.aw_parts||{}).some(x=>x && x.status==='revision')){ // an AW still being fixed → never auto-close
       t.review_status = 'delivered';
       t.auto_completed = true;
       t.completion_reason = 'approval_timeout';
@@ -33310,6 +33361,21 @@ function processDeadlineReminders(){
         }
       }
     }
+  });
+  // Krissha — "เพิ่มแจ้งเตือนเวลาโพสต์ของ Content Planner ล่วงหน้า 1 วัน ให้ owner project ของ content":
+  // the day before a post date, the content project's owner (+ the brief owner if someone else) is told once.
+  // Runs for every status (a finished design still has to be posted); skipped once ticked "โพสต์แล้ว".
+  const tomorrow = addDaysISO(todayISO(), 1);
+  STATE.tasks.forEach(t=>{
+    const pd = String(t.content_post_date||'').slice(0,10);
+    if(!pd || pd!==tomorrow || t.cancelled || t.cp_posted_at || t.review_status==='rejected') return;
+    if(t.cp_post_reminded_for === pd) return;
+    t.cp_post_reminded_for = pd;
+    const proj = (STATE.myProjects||[]).find(p=>p.id===t.my_project_id);
+    const ownerEmail = proj ? (STATE.users||[]).find(u=>u.name===proj.person)?.email : '';
+    const to = [...new Set([ownerEmail, t.project_owner_email].filter(Boolean).map(e=>String(e).toLowerCase()))];
+    if(to.length) notifyUsers(to, 'พรุ่งนี้มีโพสต์คอนเทนต์', `${taskDisplayName(t)}${proj?` · ${proj.name}`:''} — โพสต์วันที่ ${fmtDate(pd)} · งานกราฟิก: ${designerHandoff(t)||t.review_status==='delivered'?'เสร็จแล้ว':'ยังไม่เสร็จ ('+(STATUS_LABEL[t.review_status]||t.review_status)+')'}`, t.task_id, {eventType:'CONTENT_POST_TOMORROW'});
+    changed = true;
   });
   if(changed) saveTasks();
   return changed;
