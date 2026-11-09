@@ -4268,6 +4268,7 @@ select.ss-xrole-add{width:auto!important;min-height:0;padding:3px 24px 3px 9px!i
 .aw-compact .aw-card-body{flex:1 1 auto;min-width:0}
 .aw-compact .aw-card-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .aw-compact .aw-rename{font-size:0;padding:3px 7px}.aw-compact .aw-rename::before{content:'✎';font-size:12px}
+.aw-del{color:#B91C1C;border-color:#FECACA;background:#FEF2F2}.aw-del:hover{background:#FEE2E2;border-color:#FCA5A5}.aw-compact .aw-del::before{content:'🗑'}
 .aw-compact .aw-part{flex:0 0 auto;flex-basis:auto;margin:0;padding:0;border:none;gap:6px;flex-wrap:nowrap}
 .aw-compact .aw-part .awp-acts{margin-left:0;flex-wrap:nowrap}
 .aw-compact .aw-part .awp-meta,.aw-compact .aw-part .awp-note{display:none}
@@ -6242,6 +6243,11 @@ async function awPartsSave(t, mutate, okMsg){
   toast(okMsg); render();
 }
 // Rename an Artwork (Krissha: "อยากแก้ชื่อได้") — assigned designer, Lead, or whoever can edit the brief.
+// Krissha — "คนที่ลบได้คือ Owner and Designer" + "Lead ทำได้": Lead, the Brief Owner, or the card's own Designer can remove an AW.
+function awCanDelete(t){
+  if(!STATE.auth.loggedIn || !t || isBoardTaskTerminal(t) || t.cancelled) return false;
+  return isLead() || extIsBriefOwner(t) || (STATE.auth.role==='designer' && t.assigned_user_name===STATE.auth.identity);
+}
 function awCanRename(t){
   if(!STATE.auth.loggedIn || !t || isBoardTaskTerminal(t)) return false;
   return isLead() || (STATE.auth.role==='designer' && t.assigned_user_name===STATE.auth.identity) || (typeof canEditBriefTask==='function' && canEditBriefTask(t)) || extIsBriefOwner(t);
@@ -6252,6 +6258,30 @@ function awCanAdd(t){
   if(!t || isBoardTaskTerminal(t) || t.cancelled) return false;
   if(typeof canAdjustScope==='function' && canAdjustScope(t)) return true;
   return (isLead() || extIsBriefOwner(t)) && !designerHandoff(t);
+}
+// Krissha — "ลบ AW ไม่ได้": remove one specific AW. The card is Cancelled (kept for history, hidden from the list),
+// AWs after it move up one number with their sent links/status, and Points/Resize follow through the Scope engine.
+async function awRemoveOne(id, arrIdx, pIdx){
+  const t = STATE.tasks.find(x=>x.task_id===id); if(!t || !awCanDelete(t)) return toast('ลบ AW ได้เฉพาะ Lead, เจ้าของบรีฟ หรือ Designer ของงานนี้');
+  const aw = (t.artworks||[])[arrIdx]; if(!aw || aw.status==='cancelled') return;
+  const n = awPartsCount(t); if(n<=1) return toast('ต้องเหลืออย่างน้อย 1 Artwork');
+  const part = awParts(t)[pIdx]; if(part?.status==='approved') return toast('AW นี้ผ่านแล้ว ลบไม่ได้');
+  const code = 'AW'+String(pIdx+1).padStart(2,'0'), label = `${code}${aw.name?` (${aw.name})`:''}`;
+  const reason = (prompt(`ลบ ${label}?\n${part?.status==='submitted'?'⚠ AW นี้ส่งลิงก์แล้ว — ลิงก์จะถูกเอาออกจากรายการด้วย\n':''}\nเหตุผล (เช่น ผู้บรีฟยกเลิก 1 ชิ้น)`, 'ผู้บรีฟยกเลิก Artwork นี้')||'').trim();
+  if(!reason) return;
+  const who = STATE.auth.user?.name || STATE.auth.identity || 'system';
+  const snap = JSON.stringify({sc:t.scope||null, aws:t.artworks||null, ap:t.aw_parts||null, d:t.deliverables, rq:t.resize_quantity, bp:t.base_points, hl:(t.review_history||[]).length});
+  // shift per-AW hand-ins down so AW05's link stays with AW05's card (now AW04)
+  if(t.aw_parts){ const np = {}; Object.keys(t.aw_parts).forEach(k=>{ const j = Number(k); if(j<pIdx) np[j] = t.aw_parts[k]; else if(j>pIdx) np[j-1] = t.aw_parts[k]; }); t.aw_parts = np; }
+  const rsGone = Number(aw.resize_count)||0;
+  aw.status = 'cancelled'; aw.cancelled_reason = reason; aw.cancelled_at = nowIso(); aw.cancelled_by = who;
+  applyScopeChange(t, 'artwork', n-1, `ลบ ${label}: ${reason}`, extIsBriefOwner(t) ? 'Brief Owner' : who, who);
+  if(rsGone){ const rest = (t.artworks||[]).filter(a=>a.status!=='cancelled').reduce((s,a)=>s+(Number(a.resize_count)||0),0); applyScopeChange(t, 'resize', rest, `Resize/Adapt ของ ${label} ถูกลบตาม AW`, extIsBriefOwner(t) ? 'Brief Owner' : who, who); }
+  syncScopeToLegacyFieldsAndRecalcPoints(t);
+  (t.review_history=t.review_history||[]).push({timestamp:nowIso(), action:'AW_REMOVED', comment:`ลบ ${label} — ${reason}`, by:who});
+  const ok = await saveTasks();
+  if(ok===false){ const o = JSON.parse(snap); t.scope=o.sc; t.artworks=o.aws; t.aw_parts=o.ap; t.deliverables=o.d; t.resize_quantity=o.rq; t.base_points=o.bp; t.review_history.length=o.hl; toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); render(); return; }
+  toast(`🗑 ลบ ${code} แล้ว · เหลือ ${n-1} AW · Point ${appliedPoints(t).toFixed(1)}`); render();
 }
 async function awAddOne(id){
   const t = STATE.tasks.find(x=>x.task_id===id); if(!t || !awCanAdd(t)) return;
@@ -6315,6 +6345,8 @@ function bindAwParts(){
   document.addEventListener('click', e=>{
     const ad = e.target.closest('[data-awadd]');
     if(ad){ e.preventDefault(); e.stopPropagation(); awAddOne(ad.dataset.awadd); return; }
+    const dl = e.target.closest('[data-awdel]');
+    if(dl){ e.preventDefault(); e.stopPropagation(); const [did, ai, pi] = dl.dataset.awdel.split('|'); awRemoveOne(did, Number(ai), Number(pi)); return; }
     const rn = e.target.closest('[data-awrename]');
     if(rn){ e.preventDefault(); e.stopPropagation();
       const [rid, ri] = rn.dataset.awrename.split('|'), idx = Number(ri), t = STATE.tasks.find(x=>x.task_id===rid); if(!t || !awCanRename(t)) return;
@@ -23107,9 +23139,9 @@ function renderWorkScopeCardBase(t){
   }
   return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div><div class="hint">Artwork</div><div style="font-weight:700;font-size:18px">${cur.artwork_count} <span class="hint" style="font-weight:400;font-size:12px">Current</span></div>
-        <div class="hint">${sc.confirmed.artwork_count} Confirmed${awDelta?` · ${awDelta>0?'+':''}${awDelta} Added during Production`:''}</div></div>
+        <div class="hint">${(sc.confirmed||sc.brief||{}).artwork_count??'-'} Confirmed${awDelta?` · ${awDelta>0?'+':''}${awDelta} Added during Production`:''}</div></div>
       <div><div class="hint">Resize</div><div style="font-weight:700;font-size:18px">${cur.resize_count} <span class="hint" style="font-weight:400;font-size:12px">Current</span></div>
-        <div class="hint">${sc.confirmed.resize_count} Confirmed${rsDelta?` · ${rsDelta>0?'+':''}${rsDelta} Added during Production`:''}</div></div>
+        <div class="hint">${(sc.confirmed||sc.brief||{}).resize_count??'-'} Confirmed${rsDelta?` · ${rsDelta>0?'+':''}${rsDelta} Added during Production`:''}</div></div>
     </div>
     <div style="margin-top:12px;border-top:1px dashed var(--line);padding-top:8px">
       ${scopeChangesOf(t).map(c=>`<div style="padding:6px 0;font-size:12px">
@@ -23352,7 +23384,8 @@ function renderArtworkChecklistCard(t){
   let pi = -1;
   return `${parts ? awPartsSummaryHTML(t) : ''}<div class="aw-list${parts?' aw-compact':''}" style="margin-bottom:0">
     ${arr.map((aw,i)=>{
-      const pIdx = aw.status==='cancelled' ? -1 : ++pi;
+      if(aw.status==='cancelled') return ''; // removed AWs leave the list (kept in data + history)
+      const pIdx = ++pi;
       const px = pIdx>=0 ? (awParts(t)[pIdx]||null) : null;
       const complete = ARTWORK_REQUIRED_FIELDS.every(f=>aw[f.key] && String(aw[f.key]).trim());
       const meta = complete ? ARTWORK_STATUS_META.complete : ARTWORK_STATUS_META.partial;
@@ -23364,9 +23397,9 @@ function renderArtworkChecklistCard(t){
       // When this task has real per-artwork Canvas data, clicking a row switches the Canvas / Brief
       // Content / Images panels above to that Artwork — same numbering the Requester used (Task #76).
       return `<div class="aw-card ${i===activeIdx?'active':''}" style="${perArtwork?'cursor:pointer':'cursor:default'}" ${perArtwork?`data-taskwsartwork="${i}"`:''}>
-        <div class="aw-card-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="aw-card-num">${String(pIdx+1).padStart(2,'0')}</div>
         <div class="aw-card-body">
-          <div class="aw-card-name ${aw.name?'':'aw-noname'}">${aw.name && aw.name.trim() ? escAttr(aw.name) : 'ยังไม่ได้ตั้งชื่อ'}${awCanRename(t) ? `<button type="button" class="aw-rename" data-awrename="${t.task_id}|${i}" title="แก้ชื่อ Artwork">✎ แก้ชื่อ</button>` : ''}</div>
+          <div class="aw-card-name ${aw.name?'':'aw-noname'}">${aw.name && aw.name.trim() ? escAttr(aw.name) : 'ยังไม่ได้ตั้งชื่อ'}${awCanRename(t) ? `<button type="button" class="aw-rename" data-awrename="${t.task_id}|${i}" title="แก้ชื่อ Artwork">✎ แก้ชื่อ</button>` : ''}${awCanDelete(t) && awPartsCount(t)>1 && awParts(t)[pIdx]?.status!=='approved' ? `<button type="button" class="aw-rename aw-del" data-awdel="${t.task_id}|${i}|${pIdx}" title="ลบ Artwork นี้">🗑 ลบ</button>` : ''}</div>
           <div class="aw-card-meta">${metaLine || '—'}</div>
         </div>
         <span class="aw-status-chip ${meta.cls}">${meta.icon} ${meta.label}</span>
