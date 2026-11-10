@@ -6389,7 +6389,7 @@ function bindAwParts(){
         saveDailyTodos(todoYM(day));
       }
       const wasFix = awParts(t)[i]?.status==='revision', inReview = designerHandoff(t);
-      awPartsSave(t, ()=>{ t.aw_parts = Object.assign({}, awParts(t), {[i]:{status:'submitted', url, at:now, by, hours:hrs||0, fixed:wasFix||undefined}});
+      awPartsSave(t, ()=>{ t.aw_parts = Object.assign({}, awParts(t), {[i]:Object.assign({status:'submitted', url, at:now, by, hours:hrs||0}, wasFix?{fixed:true}:{})});
         if(inReview){
           // whole task already in review → swap this AW's link in the hand-in list, and give the reviewer a fresh window
           const lk = Array.isArray(t.aw_links) ? t.aw_links.slice() : (t.aw_link ? [{url:t.aw_link, label:''}] : []);
@@ -9023,6 +9023,14 @@ async function updateTaskFields(taskId, patch, opts){
 // edit at the same time (§6's own example, Acceptance Test D) — the write is conflict-checked
 // against this tab's OWN last-known `brief` value instead of a plain field merge, so a genuine
 // same-field conflict is detected and surfaced rather than silently overwritten.
+function fsClean(v){
+  if(v===undefined) return null;
+  if(Array.isArray(v)) return v.map(x=>x===undefined ? null : fsClean(x));
+  if(v && typeof v==='object' && !(v instanceof Date) && Object.getPrototypeOf(v)===Object.prototype){
+    const o = {}; Object.keys(v).forEach(k=>{ if(v[k]!==undefined) o[k] = fsClean(v[k]); }); return o;
+  }
+  return v;
+}
 async function saveTasksViaDocArchitecture(deletedIds){
   const delSet = new Set(deletedIds||[]);
   let anyFail = false;
@@ -9047,7 +9055,7 @@ async function saveTasksViaDocArchitecture(deletedIds){
       const nowIso = new Date().toISOString();
       const stamps = { version: 1, created_at: t.created_at || nowIso, created_by: t.created_by || actorId,
         updated_at: nowIso, updated_by: actorId, deleted: false };
-      const ok = await window.storage.setTaskDoc(t.task_id, Object.assign({}, t, stamps));
+      const ok = await window.storage.setTaskDoc(t.task_id, fsClean(Object.assign({}, t, stamps)));
       if(!ok){ anyFail = true; continue; }
       Object.assign(t, stamps);
       await window.storage.logTaskActivity({
@@ -9059,7 +9067,11 @@ async function saveTasksViaDocArchitecture(deletedIds){
     const patch = {};
     Object.keys(t).forEach(k=>{
       if(k==='version') return; // never write a client-held version number back as if it were a task field
-      if(JSON.stringify(t[k]) !== JSON.stringify(baseline[k])) patch[k] = t[k];
+      if(JSON.stringify(t[k]) !== JSON.stringify(baseline[k])){
+        // Firestore rejects `undefined` anywhere in a write (the whole save fails and the red "เชื่อมต่อ Server
+        // ไม่สำเร็จ" banner shows). A field set to undefined is deleted on the server; nested undefined is dropped.
+        patch[k] = t[k]===undefined ? (window.firebase?.firestore?.FieldValue?.delete ? firebase.firestore.FieldValue.delete() : null) : fsClean(t[k]);
+      }
     });
     if(!Object.keys(patch).length) continue; // this tab changed nothing on this task — skip it entirely
     const opts = {};
