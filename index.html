@@ -6245,6 +6245,52 @@ async function awPartsSave(t, mutate, okMsg){
   const ok = await saveTasks();
   if(ok===false){ t.aw_parts = JSON.parse(snap)||undefined; t.review_history.length = hl; toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); render(); return; }
   toast(okMsg); render();
+  await awAutoAdvance(t);
+}
+// Krissha — "ถ้าใส่ลิงก์ครบทุก AW: ยังตรวจไม่ครบ → ย้ายไปรอตรวจ · ตรวจครบแล้ว → ย้ายไปเสร็จ".
+function awAllLinks(t){ const n = awPartsCount(t), p = awParts(t), out = [];
+  for(let i=0;i<n;i++){ const x = p[i]; if(!x || !x.url || !(x.status==='submitted'||x.status==='approved')) return null; if(!out.some(o=>o.url===x.url)) out.push({url:x.url, label:awPartLabel(t,i)}); }
+  return out; }
+function awAllApproved(t){ const n = awPartsCount(t), p = awParts(t); if(n<2) return false; for(let i=0;i<n;i++){ if(p[i]?.status!=='approved') return false; } return true; }
+function awCompleteTask(t, by){
+  const at = nowIso(), links = awAllLinks(t) || [];
+  if(!designerHandoff(t)){ // never formally handed in → record the hand-in from the AWs themselves
+    if(links.length){ t.aw_links = links; t.aw_link = links[0].url; links.forEach(l=>{ try{ recordAwLink(t, l.url); }catch(e){} }); }
+    const last = Object.values(awParts(t)).map(x=>x?.at||'').sort().pop() || at;
+    t.aw_delivery_timestamp = t.aw_delivery_timestamp || last;
+    markDesignerSubmitted(t, last);
+  }
+  t.review_status = 'delivered';
+  if(t.is_backdated && !t.actual_delivery_date) t.actual_delivery_date = todayISO();
+  (t.review_history=t.review_history||[]).push({timestamp:at, action:'CLIENT_COMPLETE', comment:'ทุก AW ผ่านการตรวจแล้ว — ปิดงานอัตโนมัติ', by:by||'system'});
+  finalizeTaskCompletion(t);
+  notifyUsers([t.project_owner_email, t.assigned_user_name], 'งานผ่านการยืนยัน', `${t.task_name} (${t.task_id}) — ทุก AW ผ่านแล้ว งานเสร็จแล้ว`, t.task_id, {excludeActor:true, eventType:'WORK_COMPLETED'});
+}
+async function awAutoAdvance(t){
+  if(!t || isBoardTaskTerminal(t) || t.cancelled || awPartsCount(t)<2) return;
+  const by = STATE.auth.user?.name || STATE.auth.identity || 'system';
+  if(awAllApproved(t)){
+    awCompleteTask(t, by);
+    await saveTasks(); toast('✓ ทุก AW ผ่านแล้ว — ย้ายงานไป "ปิดงานแล้ว"'); render(); return;
+  }
+  const links = awAllLinks(t);
+  if(links && !designerHandoff(t) && ['new','in_progress','revision'].includes(t.review_status) && awCanSubmit(t)){
+    toast('ส่งครบทุก AW แล้ว — ส่งทั้งงานเข้าขั้นตรวจ');
+    await submitDeliveryLink(t.task_id, links); // same hand-in as "📤 ส่งตรวจงาน" (late reason / qty check / QC notify)
+  }
+}
+// Tasks that already had every AW approved before this rule existed → close them once (logged).
+let __awAutoMigrated = '';
+function awAutoMigrate(){
+  try{
+    const key = (STATE.auth?.identity||'') + '|' + todayISO();
+    if(__awAutoMigrated===key || !STATE.auth?.loggedIn || window.__storageOffline || !(STATE.tasks||[]).length) return;
+    __awAutoMigrated = key;
+    const list = STATE.tasks.filter(t=>!isBoardTaskTerminal(t) && !t.cancelled && awAllApproved(t));
+    if(!list.length) return;
+    list.forEach(t=>awCompleteTask(t, 'system'));
+    saveTasks(); render();
+  }catch(e){ console.warn('awAutoMigrate', e); }
 }
 // Rename an Artwork (Krissha: "อยากแก้ชื่อได้") — assigned designer, Lead, or whoever can edit the brief.
 // Krissha — "คนที่ลบได้คือ Owner and Designer" + "Lead ทำได้": Lead, the Brief Owner, or the card's own Designer can remove an AW.
@@ -29983,6 +30029,7 @@ function resetLeftPageEphemeralState(){
 }
 function bindEvents(){
   bindAwParts();
+  awAutoMigrate();
   revMigrateDefaultDeadline();
   // Clicking the name/avatar pill just opens a small menu now (see renderUserMenuDropdown) — it used to
   // log out immediately on click, which is what Krissha reported: tapping her own name by accident (or
