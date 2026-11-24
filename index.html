@@ -6586,7 +6586,7 @@ function renderProfileTodo(){
     return `<div class="li-row" style="--lc:${c}"><span class="li-ic">✎</span>
       <div class="li-main"><div class="li-k">ต้องแก้ไข${t.revision_count?` · รอบที่ ${t.revision_count}`:''}</div><b>${escAttr(taskDisplayName(t))}</b>
         <span class="li-sub">${rv?.comment?escAttr(String(rv.comment).slice(0,80))+' · ':''}${dl?`<b style="color:${late?'#DC2626':'#C2410C'}">Deadline แก้ ${fmtDate(dl.slice(0,10))}${late?' (เลยกำหนด)':''}</b>`:''}</span></div>
-      <div class="li-acts"><button type="button" class="btn btn-sm btn-primary" data-opentask="${t.task_id}">เปิดงานแก้ →</button></div></div>`;
+      <div class="li-acts">${revUndoValid(t)?`<button type="button" class="btn btn-sm rv-undo-btn" data-revundo="${t.task_id}">↩ ยกเลิกขอแก้</button>`:''}<button type="button" class="btn btn-sm btn-primary" data-opentask="${t.task_id}">เปิดงานแก้ →</button></div></div>`;
   };
   const groups = G.map(g=>({...g, list: items.filter(i=>i.kind===g.k).sort((a,b)=>String(a.at).localeCompare(String(b.at)))})).filter(g=>g.list.length);
   return `<section class="wsv-sec li-card pt-card">
@@ -22686,15 +22686,40 @@ function revUndoCapture(t){
   REV_UNDO_FIELDS.forEach(k=>{ if(t[k]===undefined) absent.push(k); else prev[k] = JSON.parse(JSON.stringify(t[k])); });
   return {prev, absent};
 }
+// Revisions logged BEFORE this feature (no t.rev_undo) — work out the "before" state from the task itself:
+// drop the last round, and send the task back to the review step it was in before "ขอแก้" (read from history).
+function revUndoInfer(t){
+  const revs = taskRevisions(t), n = Number(t.revision_count)||revs.length; if(!n) return null;
+  const h = t.review_history||[]; let i = h.length-1;
+  while(i>=0 && h[i].action!=='REQUEST_REVISION') i--;
+  let status = 'pending_review', completedAt = null;
+  for(let j=i-1;j>=0;j--){ const a = h[j].action;
+    if(['APPROVE_QC','AUTO_SKIP_LEAD_QC','SEND_TO_OWNER_PROOF'].includes(a)){ status='pending_client_review'; break; }
+    if(a==='CLIENT_COMPLETE'){ status='delivered'; completedAt=h[j].timestamp||null; break; }
+    if(['REQUEST_REVISION','START_TASK','RESUBMIT_AFTER_REJECT','REOPEN_TASK','REVISION_UNDONE'].includes(a) || /SUBMIT/.test(a)) break;
+  }
+  const rest = Array.isArray(t.revisions) ? JSON.parse(JSON.stringify(t.revisions.slice(0,-1))) : undefined;
+  const prev = {revision_count:n-1, review_status:status}, absent = [];
+  if(rest) prev.revisions = rest; else absent.push('revisions');
+  if(n-1>0){ prev.revise_status='Revise 25%'; const pr = rest && rest[rest.length-1]; if(pr?.reason) prev.review_comment = pr.reason; else absent.push('review_comment'); }
+  else { prev.revise_status='None'; absent.push('review_comment'); }
+  if(status==='delivered' && completedAt){ prev.completed_at = completedAt; }
+  return {round:n, by:(i>=0?h[i].by:'')||'', at:(i>=0?h[i].timestamp:'')||'', prev, absent, inferred:true};
+}
+function revUndoData(t){
+  if(!t) return null;
+  if(t.rev_undo && t.rev_undo.prev && Number(t.rev_undo.round)===Number(t.revision_count)) return t.rev_undo;
+  return revUndoInfer(t);
+}
 function revUndoValid(t){
-  const u = t && t.rev_undo; if(!u || !u.prev) return false;
-  if(!revisionPermitted(t)) return false;
+  if(!t || t.review_status!=='revision' || !revisionPermitted(t)) return false;
+  const u = revUndoData(t); if(!u) return false;
   const last = Array.isArray(t.revisions) ? t.revisions[t.revisions.length-1] : null;
-  return t.review_status==='revision' && Number(t.revision_count)===Number(u.round) && !(last && last.submitted_at);
+  return !(last && last.submitted_at);
 }
 function revUndoHTML(t){
   if(!revUndoValid(t)) return '';
-  const u = t.rev_undo;
+  const u = revUndoData(t);
   return `<div class="taskws-card rv-undo-card"><div><b>🔁 ขอแก้รอบที่ ${u.round}</b> <span class="hint">โดย ${escAttr(u.by||'-')}${u.at?` · ${escAttr(fmtDateTime(u.at))}`:''}</span>
       <div class="hint">กดผิด / ไม่ต้องแก้แล้ว? เจ้าของงาน ดีไซน์เนอร์ หรือ Lead ยกเลิกได้ จนกว่าดีไซน์เนอร์จะส่งงานแก้ — งานจะกลับไปรอตรวจเหมือนเดิม</div></div>
     <button type="button" class="btn btn-sm rv-undo-btn" data-revundo="${t.task_id}">↩ ยกเลิกคำขอแก้</button></div>`;
@@ -22702,7 +22727,7 @@ function revUndoHTML(t){
 async function undoRevision(taskId){
   const t = STATE.tasks.find(x=>x.task_id===taskId);
   if(!revUndoValid(t)){ toast('ยกเลิกไม่ได้แล้ว — ดีไซน์เนอร์ส่งงานแก้แล้ว หรือสถานะงานเปลี่ยนไป'); render(); return; }
-  const u = t.rev_undo, by = STATE.auth.user?.name || STATE.auth.identity || 'system', at = nowIso();
+  const u = revUndoData(t), by = STATE.auth.user?.name || STATE.auth.identity || 'system', at = nowIso();
   if(!confirm(`ยกเลิกคำขอแก้รอบที่ ${u.round} ของ "${taskDisplayName(t)}"?\nงานจะกลับไปสถานะรอตรวจเหมือนก่อนกดขอแก้`)) return;
   Object.entries(u.prev||{}).forEach(([k,v])=>{ t[k] = v; });
   (u.absent||[]).forEach(k=>{ delete t[k]; });
@@ -24123,6 +24148,7 @@ function renderTaskWorkspacePage(t){
     </div>
     <div class="taskws-body">
       <div class="taskws-panel-col${CANVAS_EDITOR_ENABLED?'':' taskws-panel-col-full'}">
+        ${revUndoHTML(t)}
         ${renderFinalWorkFolderCard(t)}
         <!-- Artwork Link hero (DEV SPEC point 7): "ต้องเด่นและอยู่บนสุด" — the single primary link a
              Reviewer must open goes above Brief Links / Brief / Reference Links / Images. Hidden
@@ -24136,7 +24162,6 @@ function renderTaskWorkspacePage(t){
              Scope to find the buttons in the Actions card below. -->
         ${extPanelHTML}
         ${renderAwPartsPanel(t)}
-        ${revUndoHTML(t)}
         ${reviewActionsHTML ? `<div class="taskws-card rv-panel">
           <div class="rv-panel-head"><span class="rv-panel-ic">✅</span><div><div class="rv-panel-title">ตรวจงานนี้</div><div class="rv-panel-sub">เปิดลิงก์งานด้านบนดูก่อน แล้วเลือกผลการตรวจ</div></div></div>${approvalDuePanelHTML(t)}
           <div class="rv-panel-acts">${reviewActionsHTML}</div>
