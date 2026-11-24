@@ -3841,6 +3841,12 @@ a.fwf-card:hover{border-color:#635BFF;background:#EFEDFF}
 .rv-note{background:#EEF2FF;color:#3730A3;border-radius:10px;padding:9px 12px;font-size:12.5px;margin-bottom:12px;line-height:1.5}
 .rv-modal .field{margin-bottom:10px}
 .rv-modal textarea{width:100%;resize:vertical}
+.rv-modal{position:relative}
+.rv-x{position:absolute;top:10px;right:10px;width:34px;height:34px;border-radius:10px;border:1px solid #E2E8F0;background:#fff;color:#475569;font-size:16px;cursor:pointer}
+.rv-x:hover{background:#F1F5F9;color:#0F172A}
+.rv-undo-card{display:flex!important;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border:2px solid #FDBA74!important;background:#FFF7ED!important}
+.rv-undo-btn{background:#fff!important;color:#C2410C!important;border:1.5px solid #FB923C!important;font-weight:800}
+.awp-undo{color:#475569!important;font-weight:700}
 .rv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .rv-grid3{grid-template-columns:1fr 1.3fr .9fr}
 @media(max-width:520px){.rv-grid,.rv-grid3{grid-template-columns:1fr}}
@@ -4048,6 +4054,14 @@ a.fwf-card.fwf-link:hover{border-color:var(--sc);background:#fff;box-shadow:0 10
 .rv-panel-acts .btn:hover{transform:translateY(-1px);filter:brightness(1.05)}
 .rv-panel-acts .btn[data-act="requestRevision"]:not(.btn-primary):hover{background:#FFF7ED}
 @media (max-width:600px){.rv-panel-acts{grid-template-columns:1fr}}
+/* Anti-misclick (ทีมกดพรูฟแล้วไปโดน "ขอแก้" บ่อย): when an Approve button is present, it becomes one big
+   full-width primary on its own row; "ขอแก้" drops to a separate, smaller row below a divider, pushed to the
+   right — the two are never side by side, so a slightly-off click on Approve can't land on ขอแก้. */
+.rv-panel-acts:has(.btn[data-act="approveQC"]),.rv-panel-acts:has(.btn[data-act="clientApprove"]){grid-template-columns:1fr;gap:0}
+.rv-panel-acts .btn[data-act="approveQC"],.rv-panel-acts .btn[data-act="clientApprove"]{min-height:58px;font-size:16.5px}
+.rv-panel-acts .btn[data-act="approveQC"]~.btn[data-act="requestRevision"],.rv-panel-acts .btn[data-act="clientApprove"]~.btn[data-act="requestRevision"]{justify-self:end;width:auto;min-height:40px;padding:8px 16px;font-size:13.5px;font-weight:700;margin-top:26px;position:relative;overflow:visible}
+.rv-panel-acts .btn[data-act="approveQC"]~.btn[data-act="requestRevision"]::before,.rv-panel-acts .btn[data-act="clientApprove"]~.btn[data-act="requestRevision"]::before{content:"";position:absolute;right:0;top:-14px;width:min(520px,calc(100vw - 80px));border-top:1px dashed #CBD5E1;pointer-events:none}
+.rv-panel-acts .btn[data-act="approveQC"]~.btn[data-act="requestRevision"]:hover,.rv-panel-acts .btn[data-act="clientApprove"]~.btn[data-act="requestRevision"]:hover{transform:none}
 
 /* ===== Pop-up / modal v3 (Krissha: "ปรับ UI พวกกล่อง POP up ใหม่") — applies to every .modal in the system ===== */
 @keyframes uiFade{from{opacity:0}to{opacity:1}}
@@ -4232,6 +4246,10 @@ select.ss-xrole-add{width:auto!important;min-height:0;padding:3px 24px 3px 9px!i
 .awp-send{display:inline-flex;gap:6px}.awp-send input{width:200px;min-height:32px;padding:5px 9px;font-size:12.5px}
 .awp-ok{background:#10B981!important;color:#fff!important;border:none}
 .awp-fix{background:#fff!important;color:#C2410C!important;border:1.5px solid #FB923C!important}
+/* Anti-misclick: keep "✓ ผ่าน" and "✎ ขอแก้" apart (was 6px) with a divider in between */
+.awp-ok{min-width:84px;font-weight:800}
+.awp-fix{margin-left:22px!important;position:relative;overflow:visible}
+.awp-fix::before{content:"";position:absolute;left:-12px;top:15%;height:70%;border-left:1px solid #E2E8F0;pointer-events:none}
 .awp-done{margin-top:10px;font-size:12.5px;font-weight:700;color:#047857;background:#ECFDF5;border-radius:10px;padding:8px 10px}
 .awp-cardchip{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11.5px;font-weight:700;color:#4F46E5}
 .awp-cardchip{white-space:nowrap;flex-wrap:wrap}.awp-cardchip .ok{color:#047857}.awp-cardchip b{color:#C2410C}
@@ -6177,6 +6195,8 @@ function awPartsStats(t){
   for(let i=0;i<n;i++){ const x=p[i]; if(!x) continue; if(x.status==='approved'){ok++;sub++;} else if(x.status==='submitted') sub++; else if(x.status==='revision') fix++; }
   return {n, sub, ok, fix, waiting: sub-ok};
 }
+function awMyName(){ return STATE.auth.user?.name || STATE.auth.identity || 'system'; }
+function awCanUndoFix(t){ return awCanReview(t) || (!!t && t.assigned_user_name===STATE.auth.identity); }
 function awCanReview(t){ return isLead() || extIsBriefOwner(t); }
 function awCanSubmit(t){ return STATE.auth.role==='designer' && t.assigned_user_name===STATE.auth.identity; }
 function awPartsActive(t){ return !!t && awPartsCount(t)>=2 && !isBoardTaskTerminal(t) && !t.cancelled; }
@@ -6195,6 +6215,7 @@ function awPartActionsHTML(t, i){
   const canSub = awRowCanSend(t, s2), canRv = awCanReview(t);
   return `${x.url ? `<a class="btn btn-sm btn-ghost" href="${escAttr(x.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">เปิดลิงก์ ↗</a>` : ''}
     ${canRv && s2==='submitted' ? `<button type="button" class="btn btn-sm awp-ok" data-awpok="${t.task_id}|${i}">✓ ผ่าน</button><button type="button" class="btn btn-sm awp-fix" data-awpfix="${t.task_id}|${i}">✎ ขอแก้</button>` : ''}
+    ${awCanUndoFix(t) && s2==='revision' ? `<button type="button" class="btn btn-sm btn-ghost awp-undo" data-awpundo="${t.task_id}|${i}" title="กดผิด / ไม่ต้องแก้แล้ว? ย้อนกลับเป็น &quot;ส่งแล้ว · รอตรวจ&quot; (เจ้าของงาน ดีไซน์เนอร์ หรือ Lead)">↩ ยกเลิกขอแก้</button>` : ''}
     ${canSub && s2!=='approved' ? `<span class="awp-send"><input type="url" id="awp_${t.task_id}_${i}" placeholder="วางลิงก์ AW นี้" value=""><button type="button" class="btn btn-sm btn-primary" data-awpsend="${t.task_id}|${i}">${s2==='submitted'?'ส่งใหม่':s2==='revision'?'ส่งแก้':'ส่ง AW นี้'}</button></span>` : ''}`;
 }
 function awPartsSummaryHTML(t){
@@ -6228,6 +6249,7 @@ function renderAwPartsPanel(t){
       <div class="awp-acts">
         ${x.url ? `<a class="btn btn-sm btn-ghost" href="${escAttr(x.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">เปิดลิงก์ ↗</a>` : ''}
         ${canRv && s2==='submitted' ? `<button type="button" class="btn btn-sm awp-ok" data-awpok="${t.task_id}|${i}">✓ ผ่าน</button><button type="button" class="btn btn-sm awp-fix" data-awpfix="${t.task_id}|${i}">✎ ขอแก้</button>` : ''}
+    ${awCanUndoFix(t) && s2==='revision' ? `<button type="button" class="btn btn-sm btn-ghost awp-undo" data-awpundo="${t.task_id}|${i}" title="กดผิด / ไม่ต้องแก้แล้ว? ย้อนกลับเป็น &quot;ส่งแล้ว · รอตรวจ&quot; (เจ้าของงาน ดีไซน์เนอร์ หรือ Lead)">↩ ยกเลิกขอแก้</button>` : ''}
         ${canSubRow(s2) && s2!=='approved' ? `<span class="awp-send"><input type="url" id="awp_${t.task_id}_${i}" placeholder="วางลิงก์ AW นี้" value="${escAttr(s2==='revision'||s2==='todo'?'':x.url||'')}"><button type="button" class="btn btn-sm btn-primary" data-awpsend="${t.task_id}|${i}">${s2==='submitted'?'ส่งใหม่':s2==='revision'?'ส่งแก้':'ส่ง AW นี้'}</button></span>` : ''}
       </div></div>`; };
   return `<div class="taskws-card awp-panel">
@@ -6407,9 +6429,9 @@ function bindAwParts(){
       aw.name = name; (t.review_history=t.review_history||[]).push({timestamp:new Date().toISOString(), action:'AW_RENAME', comment:`AW${String(idx+1).padStart(2,'0')}: “${old||'—'}” → “${name||'—'}”`, by});
       saveTasks().then(ok=>{ if(ok===false){ aw.name = old; t.review_history.pop(); toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'); } else toast('แก้ชื่อ Artwork แล้ว'); render(); });
       return; }
-    const b = e.target.closest('[data-awpsend],[data-awpok],[data-awpfix]'); if(!b) return;
+    const b = e.target.closest('[data-awpsend],[data-awpok],[data-awpfix],[data-awpundo]'); if(!b) return;
     e.preventDefault(); e.stopPropagation();
-    const [id, iStr] = (b.dataset.awpsend||b.dataset.awpok||b.dataset.awpfix).split('|'), i = Number(iStr);
+    const [id, iStr] = (b.dataset.awpsend||b.dataset.awpok||b.dataset.awpfix||b.dataset.awpundo).split('|'), i = Number(iStr);
     const t = STATE.tasks.find(x=>x.task_id===id); if(!t) return;
     const by = STATE.auth.user?.name || STATE.auth.identity || 'system', now = new Date().toISOString(), lbl = awPartLabel(t,i);
     if(b.dataset.awpsend){
@@ -6454,6 +6476,18 @@ function bindAwParts(){
         (t.review_history=t.review_history||[]).push({timestamp:now, action:'AW_PART_APPROVE', comment:`${lbl} ผ่าน`, by});
         notify(t.assigned_user_name, 'AW ผ่านแล้ว', `${lbl} ของ "${t.task_name}" ผ่านแล้ว — โดย ${by}`, t.task_id);
       }, `✓ ${lbl} ผ่านแล้ว`);
+    } else if(b.dataset.awpundo){
+      // Undo a mistaken "ขอแก้" (ทีมกดพรูฟแล้วไปโดนขอแก้): only the reviewer who sent it back, and only while the
+      // designer hasn't re-sent it yet → back to "ส่งแล้ว · รอตรวจ" with the same link.
+      const cur = awParts(t)[i]||{};
+      if(!awCanUndoFix(t)) return toast('ยกเลิกได้เฉพาะเจ้าของงาน ดีไซน์เนอร์ หรือ Lead');
+      if(cur.status!=='revision') return toast('ยกเลิกไม่ได้ — สถานะ AW นี้เปลี่ยนไปแล้ว');
+      if(!confirm(`ยกเลิก "ขอแก้" ของ ${lbl}?\nจะกลับเป็น "ส่งแล้ว · รอตรวจ" เหมือนเดิม`)) return;
+      awPartsSave(t, ()=>{ const x = Object.assign({}, awParts(t)[i], {status:'submitted'}); delete x.comment; delete x.rv_by; delete x.rv_at;
+        t.aw_parts = Object.assign({}, awParts(t), {[i]:x});
+        (t.review_history=t.review_history||[]).push({timestamp:now, action:'AW_PART_REVISION_UNDONE', comment:`${lbl} ยกเลิกขอแก้${cur.rv_by?` (ขอแก้โดย ${cur.rv_by})`:''}`, by});
+        notifyUsers([t.assigned_user_name, t.project_owner_email, ...leadNames()], 'ยกเลิกขอแก้ AW', `${lbl} ของ "${t.task_name}" — ${by} ยกเลิกคำขอแก้แล้ว ไม่ต้องแก้`, t.task_id, {excludeActor:true, eventType:'AW_PART_REVISION_UNDONE'});
+      }, `↩ ยกเลิกขอแก้ ${lbl} แล้ว`);
     } else {
       if(!awCanReview(t)) return;
       const c = (prompt(`ต้องแก้อะไรใน ${lbl}?`)||'').trim(); if(!c) return toast('ต้องระบุสิ่งที่ต้องแก้');
@@ -22555,6 +22589,7 @@ function renderRevisionModal(){
   const reqOpts=[['owner',`เจ้าของงาน — ${escAttr(ownerName)}`],['lead','Lead Designer'],['other','อื่น ๆ']];
   return `<div class="modal-bg" id="revBg">
     <div class="modal rv-modal" style="max-width:520px">
+      <button type="button" class="rv-x" id="revClose" title="ยกเลิก (Esc)" aria-label="ยกเลิก">✕</button>
       <h3>🔁 บันทึก Revision รอบที่ ${round}</h3>
       <p class="hint" style="margin-bottom:12px">${escAttr(taskDisplayName(t))} · ${escAttr(t.task_id)}</p>
       ${isAssignee?`<div class="rv-note">เจ้าของงานคอมเมนต์ในรูป / แชท แต่ไม่ได้กดในระบบ? บันทึกเองได้เลย — ระบบจะแจ้งเจ้าของงานและ Lead ให้รู้ว่าคุณบันทึกแทน</div>`:''}
@@ -22620,7 +22655,9 @@ function bindRevisionModal(){
     const capOver = revCapNeedsLead(c);
     const evidence=String(ui.evidence||'').trim();
     if(evidence && !/^https?:\/\//i.test(evidence)) return fail('ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://');
+    const undoPrev = revUndoCapture(t); // for "↩ ยกเลิกคำขอแก้" (กดผิด) — see revUndoHTML
     applyRevisionRequest(t, {comment, pieces, totalPieces:total, deadline, deadlineTime, hours:c.hours, requester:ui.requester, source:ui.source, evidence});
+    t.rev_undo = {round:t.revision_count, at:nowIso(), by:STATE.auth.user?.name || STATE.auth.identity || 'system', ...undoPrev};
     if(capOver){
       const r = activeRevision(t), by = STATE.auth.user?.name || STATE.auth.identity || 'system', at = nowIso();
       if(r){
@@ -22636,6 +22673,57 @@ function bindRevisionModal(){
     await saveTasks();
     render();
   });
+}
+// ===== Undo a mistaken "ขอแก้" (ทีมกดพรูฟแล้วไปโดนขอแก้ แล้วกดยกเลิกไม่ได้) =====
+// Krissha: "ให้เจ้าของงาน ดีไซน์เนอร์ และ Leader กดยกเลิกแก้ไขได้" — the Brief Owner, the assigned Designer
+// and any Lead (= revisionPermitted) can take back the latest Revision round, for as long as the Designer
+// hasn't sent the fix yet (still 'revision', same round, no submitted_at). The fields applyRevisionRequest
+// changes are saved on the task (t.rev_undo) when the round is logged, so anyone of the three can undo it
+// from any device; the history keeps a REVISION_UNDONE line so it's never silent.
+const REV_UNDO_FIELDS = ['revisions','revision_count','review_status','revise_status','review_comment','designer_active_started_at','completed_at','cycle_time_ms','actual_delivery_date'];
+function revUndoCapture(t){
+  const prev = {}, absent = [];
+  REV_UNDO_FIELDS.forEach(k=>{ if(t[k]===undefined) absent.push(k); else prev[k] = JSON.parse(JSON.stringify(t[k])); });
+  return {prev, absent};
+}
+function revUndoValid(t){
+  const u = t && t.rev_undo; if(!u || !u.prev) return false;
+  if(!revisionPermitted(t)) return false;
+  const last = Array.isArray(t.revisions) ? t.revisions[t.revisions.length-1] : null;
+  return t.review_status==='revision' && Number(t.revision_count)===Number(u.round) && !(last && last.submitted_at);
+}
+function revUndoHTML(t){
+  if(!revUndoValid(t)) return '';
+  const u = t.rev_undo;
+  return `<div class="taskws-card rv-undo-card"><div><b>🔁 ขอแก้รอบที่ ${u.round}</b> <span class="hint">โดย ${escAttr(u.by||'-')}${u.at?` · ${escAttr(fmtDateTime(u.at))}`:''}</span>
+      <div class="hint">กดผิด / ไม่ต้องแก้แล้ว? เจ้าของงาน ดีไซน์เนอร์ หรือ Lead ยกเลิกได้ จนกว่าดีไซน์เนอร์จะส่งงานแก้ — งานจะกลับไปรอตรวจเหมือนเดิม</div></div>
+    <button type="button" class="btn btn-sm rv-undo-btn" data-revundo="${t.task_id}">↩ ยกเลิกคำขอแก้</button></div>`;
+}
+async function undoRevision(taskId){
+  const t = STATE.tasks.find(x=>x.task_id===taskId);
+  if(!revUndoValid(t)){ toast('ยกเลิกไม่ได้แล้ว — ดีไซน์เนอร์ส่งงานแก้แล้ว หรือสถานะงานเปลี่ยนไป'); render(); return; }
+  const u = t.rev_undo, by = STATE.auth.user?.name || STATE.auth.identity || 'system', at = nowIso();
+  if(!confirm(`ยกเลิกคำขอแก้รอบที่ ${u.round} ของ "${taskDisplayName(t)}"?\nงานจะกลับไปสถานะรอตรวจเหมือนก่อนกดขอแก้`)) return;
+  Object.entries(u.prev||{}).forEach(([k,v])=>{ t[k] = v; });
+  (u.absent||[]).forEach(k=>{ delete t[k]; });
+  delete t.rev_undo;
+  (t.review_history=t.review_history||[]).push({timestamp:at, action:'REVISION_UNDONE', comment:`ยกเลิกคำขอแก้รอบที่ ${u.round} (บันทึกโดย ${u.by||'-'})`, by});
+  const ok = await saveTasks();
+  notifyUsers([t.assigned_user_name, t.project_owner_email, ...leadNames()], 'ยกเลิกคำขอแก้', `${t.task_name} (${t.task_id}) — ${by} ยกเลิกคำขอแก้รอบที่ ${u.round} แล้ว ไม่ต้องแก้`, t.task_id, {excludeActor:true, eventType:'REVISION_UNDONE'});
+  toast(ok===false ? 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง' : `↩ ยกเลิกคำขอแก้รอบที่ ${u.round} แล้ว`);
+  render();
+}
+// Event wiring that doesn't depend on bindEvents() (so Cancel / Esc / Undo always work even if another
+// page's bind throws first).
+if(!window.__revGuardBound){
+  window.__revGuardBound = true;
+  document.addEventListener('click', e=>{
+    const el = e.target.closest && e.target.closest('#revCancel,#revClose,[data-revundo]'); if(!el) return;
+    e.preventDefault(); e.stopPropagation();
+    if(el.dataset.revundo) return undoRevision(el.dataset.revundo);
+    STATE.revUI = null; render();
+  }, true);
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && typeof STATE!=='undefined' && STATE.revUI){ STATE.revUI=null; render(); } });
 }
 function applyRevisionRequest(t, d){
   const actor=STATE.auth.user?.name || STATE.auth.identity || 'system';
@@ -24048,6 +24136,7 @@ function renderTaskWorkspacePage(t){
              Scope to find the buttons in the Actions card below. -->
         ${extPanelHTML}
         ${renderAwPartsPanel(t)}
+        ${revUndoHTML(t)}
         ${reviewActionsHTML ? `<div class="taskws-card rv-panel">
           <div class="rv-panel-head"><span class="rv-panel-ic">✅</span><div><div class="rv-panel-title">ตรวจงานนี้</div><div class="rv-panel-sub">เปิดลิงก์งานด้านบนดูก่อน แล้วเลือกผลการตรวจ</div></div></div>${approvalDuePanelHTML(t)}
           <div class="rv-panel-acts">${reviewActionsHTML}</div>
